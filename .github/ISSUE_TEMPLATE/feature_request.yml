@@ -1,0 +1,36 @@
+name: Feature or content idea
+description: A new capability, scene template, language or voice provider.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+      description: The training film you want to make, and what stops you today.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would help?
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Scenes and templates
+        - Languages and translations
+        - Voices and pronunciation
+        - Rendering and output
+        - Characters
+        - Documentation
+        - Something else
+    validations:
+      required: true
+  - type: textarea
+    id: rights
+    attributes:
+      label: Content and licences
+      description: If the idea involves images, sound, music or scripts, where would they come from and under what licence?

@@ -1,0 +1,18 @@
+id: helpful_caller
+title: The Helpful Caller
+topic: social_engineering
+summary: "'Sam from IT' calls Leo and needs a code read back. Aarav has questions."
+headline: Hang up and call back
+setting: { backdrop: office, time_of_day: day }
+policy_note: "Sample wording. Confirm that {org.it_team} never asks for passwords or sign-in codes, and give people the real service-desk number."
+lines:
+  - { id: hc_01, who: rook, say: "Hi {leo}, it's Sam from IT. We're seeing errors on your account. I'm sending you a code. Could you read it back to me?" }
+  - { id: hc_02, who: leo, say: "Oh! Sure. Thanks for keeping an eye on things, Sam." }
+  - { id: hc_03, who: aarav, say: "Who's Sam?" }
+  - { id: hc_04, who: leo, say: "IT. Very helpful. Knew my name and everything." }
+  - { id: hc_05, who: aarav, say: "Your name is on our website. Ask for a ticket number. Then hang up and call the service desk on the number you already know." }
+  - { id: hc_06, who: leo, say: "Sam, could I call you back on the main service desk line?" }
+  - { id: hc_07, who: rook, say: "Ah. Bad line. Breaking up. Never mind." }
+  - { id: hc_08, who: mira, say: "A real service desk can wait a minute while you check. Someone who can't is telling you something." }
+  - { id: hc_09, who: mira, say: "Sign-in codes are like house keys. You don't read them out to anyone, however friendly they sound." }
+takeaway: "Never share passwords or sign-in codes. If a caller asks, hang up and call back on a number you already trust."

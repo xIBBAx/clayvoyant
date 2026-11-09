@@ -1,0 +1,57 @@
+# Secrets: never commit
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.p12
+*.pfx
+id_rsa*
+id_ed25519*
+.netrc
+credentials*.json
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+build/
+dist/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+.uv-cache/
+*.log
+
+# Project state (voice cache, ledger, rigs, renders): local to each project
+.studio/
+**/build/
+*.part
+*.part.*
+
+# Media you render
+*.mp4
+*.mov
+*.mkv
+!docs/media/*.mp4
+*.wav
+!src/sastudio/**/*.wav
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+*.tmp
+desktop.ini
+.idea/
+.vscode/
+
+# Local AI-assistant state
+.claude/

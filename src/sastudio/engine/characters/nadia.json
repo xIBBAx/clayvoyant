@@ -1,0 +1,63 @@
+{
+ "head": {
+  "hairstyle": "low_bun",
+  "skin": "#e6b896",
+  "skinD": "#cd9c78",
+  "blush": "#e2a084",
+  "freckle": 18,
+  "seed": 139,
+  "moles": [
+   [
+    -0.12,
+    0.25,
+    0.0066
+   ]
+  ],
+  "hair": "#3b2418",
+  "hairHi": "#6a4430",
+  "iris": "#3a2a1a",
+  "iris2": "#7a6a3a",
+  "lip": "#b04f55",
+  "fw": 0.95,
+  "jaw": 0.87,
+  "chin": 0.9,
+  "long": 0.03,
+  "nose": 0.94,
+  "nl": 1.0,
+  "nb": 0.94,
+  "nw": 0.95,
+  "cheek": 0.93,
+  "ridge": 0.1,
+  "browW": 0.102,
+  "browH": 0.0175,
+  "browArch": 0.04,
+  "W": 0.102,
+  "wing": 1,
+  "mcurve": 0.006
+ },
+ "body": {
+  "torso": "suit_jacket",
+  "sw": 0.384,
+  "cw": 0.334,
+  "ww": 0.27,
+  "hw": 0.352,
+  "dp": 0.68,
+  "L": 1.04,
+  "bust": 0.7,
+  "jacket": "#6B4E71",
+  "top": "#f5ede3",
+  "pant": "#3a2e40",
+  "hip": 1.44,
+  "armL": 0.48,
+  "hscale": 0.94,
+  "sleeve": "#6B4E71",
+  "cuff": "#5d4262",
+  "hs": 0.9,
+  "nk": 0.1,
+  "shoe": "#2a2226",
+  "sole": "#161214",
+  "shoe_style": "heel",
+  "fabric": "wool",
+  "pfabric": "wool"
+ }
+}

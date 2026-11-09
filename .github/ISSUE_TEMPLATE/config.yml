@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability (privately)
+    url: https://github.com/xIBBAx/security-awareness-studio/security/advisories/new
+    about: Please do not open a public issue for vulnerabilities. See SECURITY.md.
+  - name: Troubleshooting guide
+    url: https://github.com/xIBBAx/security-awareness-studio/blob/main/docs/TROUBLESHOOTING.md
+    about: Common errors and their fixes.

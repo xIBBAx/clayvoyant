@@ -1,0 +1,133 @@
+# Security Awareness Studio project file.
+# Everything your film says and shows is set here and in scenes/*.yaml.
+# Reference: docs/CONFIGURATION.md. Check your edits with:  sastudio validate .
+schema_version: 1
+
+project:
+  title: "Security Awareness in Twelve Stories"
+  subtitle: "The attacks that target people, not computers"
+  language: en-IN
+  languages: [en-IN]
+  credits:
+    show: true
+    # creator: "Your name or team"        # optional; nothing is required on screen
+    extra:
+      - "Sample training content. Review it against your own policies before use."
+
+organization:
+  # Replace every value below with your own.
+  name: "Example Organization"
+  short_name: "Example"
+  security_email: "security@example.com"        # where people report incidents
+  reporting_url: "https://example.com/report"   # optional: a form or portal
+  security_team: "the security team"
+  it_team: "the IT service desk"
+  logo: assets/logo.png
+  palette:
+    primary: "#1E4E5F"
+    accent: "#E07A3F"
+    background: "#F4EFE6"
+    text: "#1C1C1E"
+  # Words your organisation uses. Scenes say {org.people}, {org.workplace}, {org.laptop}.
+  terms:
+    people: "colleagues"
+    workplace: "the office"
+    laptop: "work laptop"
+    badge: "ID badge"
+  announcement: "Watch in order or pick any scene. Each one stands on its own unless it says otherwise."
+
+characters:
+  - id: mira
+    name: Mira
+    role: Security lead
+    description: Calm, dry and quick. Has seen every trick and is still kind about it.
+    pronouns: she
+    gender: feminine
+    forms: { full_name: "Mira Rao", formal: "Ms Rao" }
+    voice: { provider: offline, settings: { rate: 165, pitch: 58 } }
+    look: { preset: mira, portrait: assets/characters/mira.png, colors: { top: "#2E6F73" } }
+
+  - id: leo
+    name: Leo
+    role: New starter
+    description: Enthusiastic, generous, a little too trusting. Learns fast.
+    pronouns: he
+    gender: masculine
+    forms: { full_name: "Leo Mensah" }
+    voice: { provider: offline, settings: { rate: 175, pitch: 45 } }
+    look: { preset: leo, portrait: assets/characters/leo.png, colors: { top: "#8C5A3C" } }
+
+  - id: aarav
+    name: Aarav
+    role: Finance
+    description: Careful, deadpan, notices the one detail that is wrong.
+    pronouns: he
+    gender: masculine
+    forms: { full_name: "Aarav Shah" }
+    spoken: { hi-IN: "आरव" }
+    voice: { provider: offline, settings: { rate: 155, pitch: 40 } }
+    look: { preset: aarav, portrait: assets/characters/aarav.png, colors: { top: "#3D5A80" } }
+
+  - id: nadia
+    name: Nadia
+    role: Operations manager
+    description: Busy, brisk, protective of her team. Nobody rushes her twice.
+    pronouns: she
+    gender: feminine
+    forms: { full_name: "Nadia Fernandes", formal: "Ms Fernandes" }
+    voice: { provider: offline, settings: { rate: 170, pitch: 52 } }
+    look: { preset: nadia, portrait: assets/characters/nadia.png, colors: { top: "#6B4E71" } }
+
+  - id: rook
+    name: Rook
+    role: The impersonator
+    description: Charming, patient, never who they say they are. Turns up as a courier, a caller, a "boss".
+    pronouns: they
+    gender: other
+    voice: { provider: offline, settings: { rate: 150, pitch: 35 } }
+    look: { preset: rook, portrait: assets/characters/rook.png, colors: { top: "#3B3B3F" } }
+
+scenes:
+  - file: scenes/01_first_day.yaml
+  - file: scenes/02_too_good_email.yaml
+  - file: scenes/03_passwords_and_mfa.yaml
+  - file: scenes/04_helpful_caller.yaml
+  - file: scenes/05_urgent_from_the_top.yaml
+  - file: scenes/06_lunch_break.yaml
+  - file: scenes/07_free_gifts.yaml
+  - file: scenes/08_train_home.yaml
+  - file: scenes/09_need_to_know.yaml
+  - file: scenes/10_helpful_robot.yaml
+  - file: scenes/11_report_early.yaml
+  - file: scenes/12_what_rook_fears.yaml
+
+voices:
+  # Free offline voices are the default so the project renders without any account.
+  # To use Sarvam or ElevenLabs, change each character's `voice:` (docs/VOICE_PROVIDERS.md).
+  providers:
+    offline: { engine: auto }
+    sarvam: { model: "bulbul:v3", sample_rate: 24000 }
+    elevenlabs: { output_format: wav_24000 }
+  budget:
+    max_characters: 0        # paid generation stays off until you set a budget
+    max_requests: 300
+    max_retries: 3
+    timeout_seconds: 60
+    requests_per_minute: 30
+  # prices:                  # optional: copy current prices from your provider's pricing page
+  #   sarvam:
+  #     "bulbul:v3": { per_1000_characters: 0.0, currency: INR, checked: "YYYY-MM-DD" }
+
+speech:
+  gap_seconds: 0.35
+  lexicon:                 # how the voice should say a word; see docs/VOICE_PROVIDERS.md
+    Wi-Fi: { default: "why fy" }
+
+render:
+  preset: preview
+  renderer: cards
+  output: build
+  burn_subtitles: true
+  subtitle_speaker_labels: false
+  intro: true
+  outro: true

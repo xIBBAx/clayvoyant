@@ -1,0 +1,18 @@
+id: urgent_from_the_top
+title: Urgent, From the Top
+topic: payment_fraud
+summary: Nadia gets a secret, urgent payment request that looks like it came from a director.
+headline: Verify payment requests another way
+setting: { backdrop: office, time_of_day: day }
+policy_note: "Sample wording. Replace with your organisation's payment-approval process."
+lines:
+  - { id: uf_01, who: nadia, say: "An email from our director. 'In a meeting, can't talk. Please pay this new supplier today. Keep it quiet.'" }
+  - { id: uf_02, who: aarav, say: "A new supplier, new bank details, urgent and secret. That's four warning signs before lunch." }
+  - { id: uf_03, who: nadia, say: "It's her name. It's her signature." }
+  - { id: uf_04, who: aarav, say: "Names and signatures are easy to copy. Changing bank details by email is the oldest trick in finance." }
+  - { id: uf_05, card: { text: "RE: Urgent and confidential payment", seconds: 2.5 } }
+  - { id: uf_06, who: nadia, say: "So I check. Not by replying. By calling her on the number in our own directory." }
+  - { id: uf_07, card: { text: "The director: 'I sent nothing. Don't pay it.'", seconds: 3 } }
+  - { id: uf_08, who: mira, say: "Exactly right. Check payment requests through a second channel, and follow the normal approvals, even when someone important is in a hurry." }
+  - { id: uf_09, who: nadia, say: "Especially when someone important is in a hurry." }
+takeaway: "Urgent, secret payment requests are a classic scam. Verify on a number you already know, and follow your normal approval process."

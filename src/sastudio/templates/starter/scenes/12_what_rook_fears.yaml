@@ -1,0 +1,17 @@
+id: what_rook_fears
+title: What Rook Fears Most
+topic: closing
+requires: [helpful_caller]
+summary: Rook reviews a difficult quarter. The team is not sorry.
+headline: Slow down, check, report
+setting: { backdrop: office, time_of_day: evening }
+lines:
+  - { id: wr_01, who: rook, say: "Honestly, I liked this place. Friendly people. Doors held open. Passwords handed out like biscuits." }
+  - { id: wr_02, who: rook, say: "Now they hover over links. They call back. They lock their screens. Somebody even asked me for a ticket number." }
+  - { id: wr_03, who: leo, say: "That was me. Hi, Sam." }
+  - { id: wr_04, who: rook, say: "Hello, {leo}." }
+  - { id: wr_05, who: mira, say: "That's the whole idea. Slow down when something feels urgent, check through a channel you trust, and tell us early." }
+  - { id: wr_06, who: nadia, say: "And nobody gets told off for asking." }
+  - { id: wr_07, who: aarav, say: "Except {rook}." }
+  - { id: wr_08, who: mira, say: "Thanks for watching. Stay curious, stay careful, and report anything odd to {org.security_team}." }
+takeaway: "Slow down, check, and report. Security is a team habit, and you're on the team."

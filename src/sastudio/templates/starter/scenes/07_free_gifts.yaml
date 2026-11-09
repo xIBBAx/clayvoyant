@@ -1,0 +1,17 @@
+id: free_gifts
+title: Free Gifts
+topic: removable_media
+summary: Leo brings back conference freebies. Aarav keeps the tote bag and nothing else.
+headline: Unknown devices stay unplugged
+setting: { backdrop: office, time_of_day: day }
+lines:
+  - { id: fg_01, who: leo, say: "Look what I got at the conference. A free USB stick, a free charging cable and a tote bag." }
+  - { id: fg_02, who: aarav, say: "Keep the bag." }
+  - { id: fg_03, who: leo, say: "What's wrong with a free USB stick?" }
+  - { id: fg_04, who: aarav, say: "You don't know what's on it, or what it does when you plug it in. Some aren't storage at all. They pretend to be a keyboard and start typing." }
+  - { id: fg_05, who: leo, say: "A USB stick that types. That's clever and horrible at the same time." }
+  - { id: fg_06, who: mira, say: "Don't plug unknown drives or cables into your {org.laptop}. If you find one, or get one as a gift, hand it to {org.it_team}." }
+  - { id: fg_07, who: leo, say: "And if I need to move files?" }
+  - { id: fg_08, who: mira, say: "Use the approved way to share files. Not a stick from a stranger's goodie bag." }
+  - { id: fg_09, who: aarav, say: "Same with software. Only install what's approved. Free tools can come with company." }
+takeaway: "Don't plug in unknown USB drives or cables, and install only approved software. Hand found devices to {org.it_team}."

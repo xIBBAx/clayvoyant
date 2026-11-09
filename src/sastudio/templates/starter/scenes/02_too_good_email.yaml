@@ -1,0 +1,52 @@
+id: too_good_email
+title: The Too-Good Email
+title_translations: { hi-IN: "बहुत अच्छा email" }
+topic: phishing
+summary: Leo gets an email that is very keen to give him a prize.
+headline: Pause before you click
+headline_translations: { hi-IN: "Click से पहले रुकिए" }
+setting: { backdrop: office, time_of_day: day }
+policy_note: "Sample wording. Tell people exactly how to report a suspicious email in your organisation (a report button, a forwarding address or a form)."
+lines:
+  - id: te_01
+    who: leo
+    say: "{aarav}! I've won a tablet. A free tablet. All I have to do is confirm my login in the next ten minutes."
+    translations: { hi-IN: "{aarav}! मैंने tablet जीता है। Free tablet! बस अगले दस मिनट में login confirm करना है।" }
+  - id: te_02
+    who: aarav
+    say: "Congratulations. Did you enter a competition?"
+    translations: { hi-IN: "बधाई हो। किसी competition में हिस्सा लिया था?" }
+  - id: te_03
+    who: leo
+    say: "Not as such."
+    translations: { hi-IN: "ऐसा तो कुछ याद नहीं।" }
+  - id: te_04
+    who: aarav
+    say: "Then it's a very generous stranger. Hover over the link. Don't click, just hover."
+    translations: { hi-IN: "तो कोई बहुत दिलदार अजनबी है। Link पर mouse रखो। Click मत करना, बस hover करो।" }
+  - id: te_05
+    who: leo
+    say: "It says prize-claims dot something I can't even pronounce. That's not us, is it?"
+    translations: { hi-IN: "इसमें prize-claims dot कुछ लिखा है, जो मैं बोल भी नहीं पा रहा। ये हमारा तो नहीं है ना?" }
+  - id: te_06
+    who: aarav
+    say: "No. And look at the sender. It's our name with one letter swapped."
+    translations: { hi-IN: "नहीं। और sender देखो। हमारा ही नाम है, बस एक अक्षर बदला हुआ।" }
+  - id: te_07
+    who: mira
+    say: "Three warning signs in one email: a reward you didn't expect, a countdown, and a link that goes somewhere else."
+    translations: { hi-IN: "एक ही email में तीन चेतावनियाँ: ऐसा इनाम जिसकी उम्मीद नहीं थी, उल्टी गिनती, और ऐसा link जो कहीं और ले जाता है।" }
+  - id: te_08
+    who: mira
+    say: "The rush is the trick. It's there to stop you thinking. So take the ten minutes anyway."
+    translations: { hi-IN: "जल्दबाज़ी ही असली चाल है, ताकि आप सोचें नहीं। इसलिए वो दस मिनट सोचने में लगाइए।" }
+  - id: te_09
+    who: leo
+    say: "Do I delete it?"
+    translations: { hi-IN: "Delete कर दूँ?" }
+  - id: te_10
+    who: mira
+    say: "Report it first. One report can warn everyone who got the same email."
+    translations: { hi-IN: "पहले report कीजिए। एक report से वो सब लोग बच सकते हैं जिन्हें यही email आया है।" }
+takeaway: "Unexpected rewards, countdowns and odd links are warning signs. Don't click. Report the email to {org.security_team}."
+takeaway_translations: { hi-IN: "अनचाहा इनाम, उल्टी गिनती और अजीब link ख़तरे के निशान हैं। Click मत कीजिए। Email को {org.security_team} को report कीजिए।" }
