@@ -411,6 +411,38 @@ def load_project(root: str | Path, *, check: bool = True) -> Project:
 
 
 # --------------------------------------------------------------------------- semantic checks
+# Reserved for documentation and testing (RFC 2606, RFC 6761): nobody can receive mail or reports there.
+RESERVED_DOMAINS = ("example.com", "example.net", "example.org")
+RESERVED_TLDS = ("example", "test", "invalid", "localhost")
+
+
+def is_placeholder_host(host: str) -> bool:
+    h = host.strip().lower().rstrip(".")
+    return (any(h == d or h.endswith("." + d) for d in RESERVED_DOMAINS)
+            or any(h == t or h.endswith("." + t) for t in RESERVED_TLDS))
+
+
+def placeholder_contacts(project: Project) -> list[str]:
+    """The reporting contacts a film would show that use reserved example domains, as 'field = value'.
+
+    A finished film cannot be corrected after it is shared, and the reporting address is the one
+    instruction every scene leads to, so a placeholder there sends real reports nowhere.
+    """
+    from urllib.parse import urlsplit
+
+    org = project.org
+    sources = [("organization", org)] + [(f"organization.translations.{lang}", t)
+                                         for lang, t in (org.get("translations") or {}).items() if isinstance(t, dict)]
+    found = []
+    for where, block in sources:
+        email, url = block.get("security_email"), block.get("reporting_url")
+        if isinstance(email, str) and "@" in email and is_placeholder_host(email.rsplit("@", 1)[1]):
+            found.append(f"{where}.security_email = {email}")
+        if isinstance(url, str) and url and is_placeholder_host(urlsplit(url).hostname or ""):
+            found.append(f"{where}.reporting_url = {url}")
+    return found
+
+
 def validate(project: Project, *, only: Iterable[str] | None = None) -> list[Issue]:
     from .voices.registry import validate_voice  # avoid import cycle
 

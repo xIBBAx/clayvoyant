@@ -36,6 +36,15 @@ Every preset is 24 frames per second, H.264 video (`yuv420p`, BT.709) with AAC s
 
 Set the default in `studio.yaml` (`render.preset`) and override it with `--preset`.
 
+### A final film needs your real reporting address
+
+Every template ships the placeholder `security@example.com` and `https://example.com/report`, which
+use domains reserved for examples (RFC 2606 and RFC 6761): nobody receives mail or reports there.
+A film cannot be corrected once it is shared, so `--preset final` refuses to render while the
+reporting email or URL (including any per-language `translations`) uses such a domain. `validate`
+points them out as notes, and draft and preview renders list them in the manifest's warnings.
+For a demonstration film, add `--allow-placeholder-contacts`.
+
 ## What a render produces
 
 For a project titled "Security Awareness in Twelve Stories" built in `en-IN`, the output

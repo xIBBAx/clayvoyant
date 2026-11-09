@@ -197,6 +197,10 @@ sastudio render my-film --preset final                          # the whole film
 If any character uses Sarvam or ElevenLabs and their lines are not generated yet, add
 `--voice-fallback offline` to any of these, or `render` stops and lists the missing lines.
 
+A `final` film refuses the template's placeholder reporting address (`security@example.com`):
+put your organisation's real one in `studio.yaml` first (see Make it yours). For a demo, add
+`--allow-placeholder-contacts`.
+
 Another language needs a translation of every line. The `short` template ships English and Hindi:
 
 ```bash

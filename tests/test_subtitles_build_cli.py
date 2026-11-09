@@ -93,6 +93,8 @@ def test_build_end_to_end(project_dir):
     assert probe["video_frames"] == total and probe["fps"] == "24/1"
     assert abs(probe["audio_seconds"] - total / 24) < 0.1
     assert probe["audio_rate"] == 48000 and probe["color"][0] == "bt709"
+    # the fixture uses example.com: a draft is allowed, but the manifest records it
+    assert any(w.startswith("Placeholder reporting contacts") for w in man["warnings"])
     assert res.srt.read_text(encoding="utf-8").count("-->") >= 3 and res.vtt.read_text(encoding="utf-8").startswith("WEBVTT")
     assert str(project_dir) not in res.manifest.read_text(encoding="utf-8")  # no local paths leak into the manifest
     # second build: nothing re-rendered

@@ -24,7 +24,8 @@ What the 0.1 films are, measured on the reference film: 94 % of the running time
 
 ## 0.2 — make the film safer to ship and easier to reach
 
-**1. Catch a placeholder reporting address before it reaches a film.** Every template ships
+**1. Catch a placeholder reporting address before it reaches a film.** *(Implemented for the next
+version; see the changelog.)* Every template ships
 `security@example.com`, and today `validate --strict` reports nothing about it, so a first film can
 tell a whole organisation to report incidents to an address that does not exist. A finished video
 cannot be patched. `validate` should warn when the reporting email or URL uses a reserved example

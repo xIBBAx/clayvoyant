@@ -23,7 +23,7 @@ from pathlib import Path
 from . import __version__
 from .audio import ffmpeg as ff
 from .errors import ConfigError, RenderError
-from .project import Project, validate
+from .project import Project, placeholder_contacts, validate
 from .project import errors as only_errors
 from .render import cards
 from .render.style import Palette, load_image
@@ -242,7 +242,7 @@ def _render_one(tl: SceneTimeline, vis: cards.Visuals, out: Path, preset: str, t
 # --------------------------------------------------------------------------- main entry
 def build(project: Project, *, language: str | None = None, scene_ids=None, preset: str | None = None,
           fallback: str | None = None, burn: bool | None = None, jobs: int | None = None,
-          renderer: str | None = None,
+          renderer: str | None = None, allow_placeholder_contacts: bool = False,
           log: Callable[[str], None] = print) -> BuildResult:
     t0 = time.time()
     lang = language or project.language
@@ -257,6 +257,12 @@ def build(project: Project, *, language: str | None = None, scene_ids=None, pres
     preset = preset or rc.get("preset", "preview")
     if preset not in cards.PRESETS:
         raise ConfigError(f"Unknown preset '{preset}'.", f"Use one of: {', '.join(cards.PRESETS)}.")
+    placeholders = placeholder_contacts(project)
+    if placeholders and preset == "final" and not allow_placeholder_contacts:
+        raise ConfigError("This film would tell viewers to report incidents to a placeholder address that "
+                          "nobody receives: " + "; ".join(placeholders) + ".",
+                          "Put your real reporting address in studio.yaml (organization.security_email and "
+                          "organization.reporting_url). For a demonstration film, add --allow-placeholder-contacts.")
     renderer = renderer or rc.get("renderer", "cards")
     if renderer not in ("cards", "clay"):
         raise ConfigError(f"Unknown renderer '{renderer}'.", "Use cards or clay.")
@@ -367,6 +373,8 @@ def build(project: Project, *, language: str | None = None, scene_ids=None, pres
         raise RenderError(f"Audio is {probe['audio_seconds']:.2f}s but video is {total_frames / FPS:.2f}s.")
     if fallback_lines:
         result.warnings.append(f"{len(fallback_lines)} line(s) use placeholder voices (labelled 'Preview voice').")
+    if placeholders:
+        result.warnings.append("Placeholder reporting contacts, which nobody receives: " + "; ".join(placeholders) + ".")
     manifest = {
         "tool": "Security Awareness Studio", "version": __version__, "built": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "language": lang, "preset": preset, "renderer": renderer, "fps": FPS,

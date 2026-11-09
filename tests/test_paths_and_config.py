@@ -199,3 +199,63 @@ def test_two_projects_do_not_share_state(tmp_path):
     b = load_project(root_b)
     assert a.org["name"] == "Test Org" and b.org["name"] == "Other Org"
     assert a.root != b.root
+
+
+# --------------------------------------------------------------------------- placeholder reporting contacts
+@pytest.mark.parametrize("host,placeholder", [
+    ("example.com", True), ("EXAMPLE.org.", True), ("mail.example.net", True), ("quillmere.example", True),
+    ("x.test", True), ("a.invalid", True), ("localhost", True),
+    ("notexample.com", False), ("example.com.au", False), ("examples.com", False), ("test.com", False),
+    ("company.in", False),
+])
+def test_placeholder_hosts(host, placeholder):
+    from sastudio.project import is_placeholder_host
+
+    assert is_placeholder_host(host) is placeholder
+
+
+def _use_real_contacts(root):
+    p = root / "studio.yaml"
+    p.write_text(p.read_text(encoding="utf-8").replace("security@example.com", "security@acme-corp.co.in")
+                 .replace("https://example.com/report", "https://report.acme-corp.co.in/"), encoding="utf-8")
+
+
+def test_placeholder_contacts_found_in_org_and_translations(tmp_path):
+    from sastudio.project import placeholder_contacts
+
+    root = write_project(tmp_path / "p")
+    assert placeholder_contacts(load_project(root)) == [
+        "organization.security_email = security@example.com",
+        "organization.reporting_url = https://example.com/report",
+    ]
+    _use_real_contacts(root)
+    assert placeholder_contacts(load_project(root)) == []
+    p = root / "studio.yaml"
+    p.write_text(p.read_text(encoding="utf-8").replace(
+        "  security_email: \"security@acme-corp.co.in\"",
+        "  security_email: \"security@acme-corp.co.in\"\n  translations:\n    hi-IN:\n      security_email: \"hindi@example.org\""),
+        encoding="utf-8")
+    assert placeholder_contacts(load_project(root)) == ["organization.translations.hi-IN.security_email = hindi@example.org"]
+
+
+def test_final_render_refuses_placeholder_contacts(tmp_path):
+    from sastudio.build import build
+
+    root = write_project(tmp_path / "p")
+    with pytest.raises(ConfigError) as e:
+        build(load_project(root), preset="final", log=lambda m: None)
+    assert "placeholder" in e.value.message and "security@example.com" in e.value.message
+    assert "--allow-placeholder-contacts" in e.value.hint
+    assert not (root / "build").exists()  # refused before anything was rendered
+
+
+def test_validate_notes_placeholder_contacts_without_failing_strict(tmp_path, capsys):
+    from sastudio.cli import main
+
+    root = write_project(tmp_path / "p")
+    assert main(["validate", str(root), "--strict"]) == 0
+    out = capsys.readouterr().out
+    assert "[note] organization.security_email = security@example.com" in out and "0 warning(s)" in out
+    _use_real_contacts(root)
+    assert main(["validate", str(root), "--strict"]) == 0
+    assert "[note]" not in capsys.readouterr().out

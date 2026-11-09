@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- `render --preset final` refuses a film whose reporting email or URL is still a placeholder on a
+  reserved example domain (`example.com`, `.example`, `.test`, ...), because a shared film cannot be
+  corrected. `validate` shows them as notes (not warnings, so `--strict` is unchanged) and draft and
+  preview renders record them in the manifest. `--allow-placeholder-contacts` allows a demo film.
+
 ## 0.1.0 (2026-11-09)
 
 First public version. Install it from this repository; it is not on PyPI yet (see below).

@@ -62,6 +62,11 @@ def cmd_validate(a) -> int:
         print(i)
     errs = sum(1 for i in issues if i.level == "error")
     warns = len(issues) - errs
+    from .project import placeholder_contacts
+
+    for found in placeholder_contacts(p):
+        print(f"[note] {found}: a placeholder nobody receives. Replace it before a final render; "
+              "`render --preset final` refuses it.")
     print(f"{errs} error(s), {warns} warning(s) in {len(p.enabled_scenes(_scenes(a.scenes)))} scene(s), "
           f"{len(p.characters)} character(s), languages {', '.join(p.languages)}.")
     return 2 if errs or (a.strict and warns) else 0
@@ -178,7 +183,8 @@ def cmd_render(a) -> int:
 
     p = _load(a.project)
     res = build(p, language=a.lang, scene_ids=_scenes(a.scenes), preset=a.preset, fallback=a.voice_fallback,
-                burn=True if a.burn_subtitles else None, jobs=a.jobs, renderer=a.renderer)
+                burn=True if a.burn_subtitles else None, jobs=a.jobs, renderer=a.renderer,
+                allow_placeholder_contacts=a.allow_placeholder_contacts)
     for w in res.warnings:
         print(f"warning: {w}")
     print(json.dumps({"video": str(res.video), "srt": str(res.srt), "vtt": str(res.vtt),
@@ -260,6 +266,8 @@ def parser() -> argparse.ArgumentParser:
     s.add_argument("--preset", choices=["draft", "preview", "final"])
     s.add_argument("--voice-fallback", choices=["offline"], help="use free placeholder voices for lines not generated yet")
     s.add_argument("--burn-subtitles", action="store_true")
+    s.add_argument("--allow-placeholder-contacts", action="store_true",
+                   help="allow a final film whose reporting address is an example placeholder (demos only)")
     s.add_argument("--jobs", type=int)
     from .render.clay import engine_included
 

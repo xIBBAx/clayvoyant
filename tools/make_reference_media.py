@@ -220,8 +220,9 @@ def projects(work: Path) -> None:
 
 def render(work: Path, jobs: int = max(2, min(6, (os.cpu_count() or 4) // 2))) -> None:
     runs = [
-        ("starter", ["--preset", "final"]),
-        ("trailer", ["--preset", "final"]),
+        # the reference films are demonstrations: their reporting address is the fictional quillmere.example
+        ("starter", ["--preset", "final", "--allow-placeholder-contacts"]),
+        ("trailer", ["--preset", "final", "--allow-placeholder-contacts"]),
         ("quillmere", ["--lang", "en-IN"]),
         ("quillmere", ["--lang", "hi-IN"]),
     ]
