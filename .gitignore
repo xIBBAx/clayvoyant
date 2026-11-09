@@ -53,5 +53,3 @@ desktop.ini
 .idea/
 .vscode/
 
-# Local AI-assistant state
-.claude/

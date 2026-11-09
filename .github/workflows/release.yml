@@ -1,9 +1,11 @@
 name: Release
 
 # A maintainer pushes a version tag (vX.Y.Z, or a pre-release such as v0.2.0rc1 / v0.2.0-rc.1).
-# This workflow tests, builds the wheel and sdist, writes SHA256SUMS and creates a DRAFT GitHub
-# release. Nothing is public until a maintainer reviews the draft and publishes it. PyPI upload is
-# a separate, manual workflow (publish-pypi.yml).
+# This workflow tests, checks the tag against the package version, builds the wheel and sdist and
+# writes SHA256SUMS, then keeps them as the run's `dist` artifact. It never creates or changes a
+# release: the maintainer creates the release under their own name from these files (see
+# CONTRIBUTING.md, "Releasing"). It has read-only permissions. PyPI upload is a separate, manual
+# workflow (publish-pypi.yml).
 
 on:
   push:
@@ -58,31 +60,10 @@ jobs:
           name: dist
           path: dist/
           if-no-files-found: error
+          retention-days: 90
 
-  draft-release:
-    name: Create draft release
-    needs: build
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: write # create the draft release and upload its files; only this job can write
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: dist
-          path: dist/
-
-      - name: Create a draft release
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.ref_name }}
+      - name: Next step for the maintainer
         run: |
-          PRE=""
-          case "${TAG#v}" in *[a-z]*) PRE="--prerelease" ;; esac   # a, b, rc, dev: mark as pre-release
-          gh release create "$TAG" dist/* \
-            --repo "$GITHUB_REPOSITORY" --draft --verify-tag $PRE \
-            --title "Security Awareness Studio $TAG" --notes-file "docs/releases/$TAG.md"
+          echo "Packages built and checked. Create the release under your own name:"
+          echo "  gh run download ${GITHUB_RUN_ID} -n dist -D dist"
+          echo "  gh release create ${GITHUB_REF_NAME} dist/* --verify-tag --notes-file docs/releases/${GITHUB_REF_NAME}.md"

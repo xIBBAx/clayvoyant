@@ -69,3 +69,16 @@ These rules protect everyone who uses the project. A pull request that breaks on
   nothing is released automatically from a pull request.
 - Images you add to docs must not show private dashboards, API consoles, real email addresses,
   terminal paths with your user name, or anything confidential, and must carry no metadata.
+
+## Releasing (maintainer)
+
+1. Update `__version__`, `CHANGELOG.md` and write `docs/releases/vX.Y.Z.md`; merge with CI green.
+2. Tag the merged commit and push the tag: `git tag -a vX.Y.Z -m "..." && git push origin vX.Y.Z`.
+   [`release.yml`](.github/workflows/release.yml) tests, checks the tag against the version, and
+   builds the wheel, source archive and `SHA256SUMS` as the run's `dist` artifact. It never creates
+   a release and has read-only permissions.
+3. Create the release under your own name from those exact files:
+   `gh run download <run-id> -n dist -D dist`, then
+   `gh release create vX.Y.Z dist/* --verify-tag --notes-file docs/releases/vX.Y.Z.md`.
+4. Rebuild the reference films with `tools/make_reference_media.py all WORK DEST` and attach them
+   with `gh release upload vX.Y.Z DEST/*`; their checksums are in `MEDIA_SHA256SUMS`.
