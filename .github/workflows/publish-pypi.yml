@@ -1,0 +1,51 @@
+name: Publish to PyPI
+
+# Manual only: a maintainer starts it from the Actions tab and names a published release tag.
+# (0.1.0 is not on PyPI; publication is deferred until the trusted publisher below exists.)
+# Uploads exactly the wheel and sdist attached to that release, after checking them against its
+# SHA256SUMS, using PyPI trusted publishing (OpenID Connect): no PyPI token is stored anywhere.
+#
+# One-time setup by the maintainer, before the first release:
+#   1. On PyPI, add a trusted publisher for this repository, workflow `publish-pypi.yml`,
+#      environment `pypi`.
+#   2. In the repository settings, create the `pypi` environment and require a reviewer.
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Published release tag to upload, e.g. v0.1.1"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-pypi
+  cancel-in-progress: false
+
+jobs:
+  pypi:
+    name: Upload to PyPI
+    if: github.repository == 'xIBBAx/security-awareness-studio'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: pypi
+      url: https://pypi.org/project/security-awareness-studio/
+    permissions:
+      contents: read # download the release's files
+      id-token: write # PyPI trusted publishing (OIDC); no stored token
+    steps:
+      - name: Download the release's package files
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir dist \
+            --pattern '*.whl' --pattern '*.tar.gz' --pattern 'SHA256SUMS'
+          (cd dist && sha256sum -c SHA256SUMS && rm SHA256SUMS)
+          ls -l dist
+
+      - uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3

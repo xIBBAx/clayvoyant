@@ -1,0 +1,41 @@
+name: Dependency audit
+
+# Checks every locked dependency against known vulnerabilities (PyPI advisory data via pip-audit).
+# Runs when dependencies change and once a week.
+
+on:
+  push:
+    branches: [main]
+    paths: [pyproject.toml, uv.lock, .github/workflows/dependency-audit.yml]
+  pull_request:
+    paths: [pyproject.toml, uv.lock]
+  schedule:
+    - cron: "17 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dependency-audit-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pip-audit:
+    name: pip-audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          python-version: "3.12"
+
+      - name: Export the locked requirements
+        run: uv export --frozen --format requirements-txt --no-emit-project > "$RUNNER_TEMP/requirements.txt"
+
+      - name: Audit them
+        run: uvx pip-audit@2.10.1 --strict --disable-pip --no-deps --requirement "$RUNNER_TEMP/requirements.txt"

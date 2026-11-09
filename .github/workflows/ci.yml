@@ -1,0 +1,83 @@
+name: CI
+
+# Lint, tests, a package build, and a render from the built wheel on Ubuntu and Windows.
+# Runs with read-only permissions and no secrets; never calls a paid API.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test ${{ matrix.os }} / Python ${{ matrix.python }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ["3.11", "3.12", "3.13"]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          python-version: ${{ matrix.python }}
+          enable-cache: true
+
+      - name: Install FFmpeg (Ubuntu)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+
+      - name: Install FFmpeg (Windows)
+        if: runner.os == 'Windows'
+        run: choco install ffmpeg --yes --no-progress
+
+      - name: Install locked dependencies
+        run: uv sync --frozen
+
+      - name: Lint
+        run: uv run ruff check .
+
+      - name: Test (no network, no API keys)
+        run: uv run pytest
+
+      - name: Build and check the package
+        run: |
+          uv build --out-dir dist
+          uvx twine@7.0.0 check dist/*
+
+      - name: Install the wheel in a clean environment and render a draft scene
+        run: |
+          WHEEL="$(ls dist/*.whl)"
+          sas() { uv run --isolated --no-project --with "$WHEEL" sastudio "$@"; }
+          sas --version
+          sas doctor
+          sas init "$RUNNER_TEMP/smoke"
+          sas validate "$RUNNER_TEMP/smoke" --strict
+          sas render "$RUNNER_TEMP/smoke" --scenes first_day --preset draft --jobs 2
+          # Python, not `ls`: on Windows RUNNER_TEMP is a D:\ path that Git Bash tools may not accept.
+          uv run --isolated --no-project python - "$RUNNER_TEMP/smoke/build/en-IN" <<'PY'
+          import sys
+          from pathlib import Path
+          out = Path(sys.argv[1])
+          files = {p.suffix: p for p in out.iterdir()}
+          for p in sorted(out.iterdir()):
+              print(f"{p.stat().st_size:>10}  {p.name}")
+          missing = [s for s in (".mp4", ".srt", ".vtt", ".json") if s not in files or files[s].stat().st_size == 0]
+          sys.exit(f"missing or empty outputs: {missing}" if missing else 0)
+          PY

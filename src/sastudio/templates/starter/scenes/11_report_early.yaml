@@ -1,0 +1,52 @@
+id: report_early
+title: Report Early
+title_translations: { hi-IN: "जल्दी report कीजिए" }
+topic: incident_reporting
+requires: [too_good_email]
+summary: Leo makes a real mistake, and does the most useful thing next.
+headline: Speed matters more than blame
+headline_translations: { hi-IN: "दोष नहीं, रफ़्तार ज़रूरी है" }
+setting: { backdrop: office, time_of_day: evening }
+lines:
+  - id: re_01
+    who: leo
+    say: "{mira}, I think I did something. I clicked a link in a delivery email and typed my password. Then I realised."
+    translations: { hi-IN: "{mira}, मुझसे गड़बड़ हो गई। Delivery वाले email का link खोलकर मैंने password डाल दिया। फिर समझ आया।" }
+  - id: re_02
+    who: mira
+    say: "Thank you for telling me. Right now, that's the most useful thing you could have done."
+    translations: { hi-IN: "बताने के लिए शुक्रिया। इस वक़्त यही सबसे काम की बात थी।" }
+  - id: re_03
+    who: leo
+    say: "I thought you'd be angry. After the tablet email, I was meant to know better."
+    translations: { hi-IN: "मुझे लगा आप नाराज़ {mira.gender?feminine=होंगी|other=होंगे}। Tablet वाले email के बाद तो मुझे समझ जाना चाहिए था। मैं {leo.gender?feminine=डर गई थी|masculine=डर गया था|other=डर गए थे}।" }
+  - id: re_04
+    who: mira
+    say: "Attackers practise every day. Anyone can get caught out. What matters is how fast we hear about it."
+    translations: { hi-IN: "हमलावर रोज़ अभ्यास करते हैं। कोई भी फँस सकता है। ज़रूरी ये है कि हमें कितनी जल्दी पता चलता है।" }
+  - id: re_05
+    who: mira
+    say: "Change that password from a device you trust. We'll check your account and warn anyone else who got the email."
+    translations: { hi-IN: "किसी भरोसेमंद device से वो password बदलिए। हम आपका account जाँचेंगे और बाकी लोगों को भी सावधान करेंगे।" }
+  - id: re_06
+    who: leo
+    say: "What if I hadn't said anything?"
+    translations: { hi-IN: "और अगर मैं कुछ नहीं बताता?" }
+  - id: re_07
+    who: mira
+    say: "Then they'd have had all weekend. A quiet mistake can become a big one. Ransomware often starts with a single stolen login."
+    translations: { hi-IN: "तो उनके पास पूरा weekend होता। छुपाई गई छोटी गलती बड़ी बन जाती है। Ransomware अक्सर एक चोरी हुए login से शुरू होता है।" }
+  - id: re_08
+    who: mira
+    say: "So report anything odd: a strange email, a lost device, a file sent to the wrong person, a screen asking for money."
+    translations: { hi-IN: "इसलिए कुछ भी अजीब हो तो report कीजिए: अजीब email, खोया हुआ device, गलत व्यक्ति को भेजी गई file, पैसे माँगती screen।" }
+  - id: re_09
+    who: leo
+    say: "Even if it's embarrassing?"
+    translations: { hi-IN: "शर्मिंदगी हो तब भी?" }
+  - id: re_10
+    who: mira
+    say: "Especially then. Write to {org.security_email}. We'd much rather hear it early."
+    translations: { hi-IN: "तब तो और भी। {org.security_email} पर लिखिए। हमें जल्दी पता चलना ही अच्छा है।" }
+takeaway: "Report incidents and mistakes quickly to {org.security_email}. Speed matters more than blame."
+takeaway_translations: { hi-IN: "हर incident और गलती जल्दी {org.security_email} पर report कीजिए। दोष नहीं, रफ़्तार ज़रूरी है।" }

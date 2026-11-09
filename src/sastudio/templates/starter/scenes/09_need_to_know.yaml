@@ -1,0 +1,17 @@
+id: need_to_know
+title: Need to Know
+topic: data_handling
+summary: Leo wants to take a customer list home. Aarav explains whose list it is.
+headline: Share only what people need
+setting: { backdrop: office, time_of_day: day }
+policy_note: "Sample wording. Replace the labels with your organisation's own classification scheme."
+lines:
+  - { id: nk_01, who: leo, say: "I'll send this customer list to my personal email so I can work on it at home." }
+  - { id: nk_02, who: aarav, say: "Please don't." }
+  - { id: nk_03, who: leo, say: "It's me. I'm trustworthy." }
+  - { id: nk_04, who: aarav, say: "You are. Your personal inbox isn't. It isn't managed or protected the way ours is, and that data isn't ours to move." }
+  - { id: nk_05, who: mira, say: "Check a document's label before you share it. Public, internal, confidential: the label tells you who may see it." }
+  - { id: nk_06, who: leo, say: "What about share links? Mine says 'anyone with the link'." }
+  - { id: nk_07, who: mira, say: "Then it's anyone with the link, including whoever they forward it to. Share with named people, and only what they need." }
+  - { id: nk_08, who: aarav, say: "Need to know. Not nice to know." }
+takeaway: "Share data only with people who need it, keep it in approved systems, and never send work data to personal accounts."

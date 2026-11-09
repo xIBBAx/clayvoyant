@@ -1,0 +1,17 @@
+id: train_home
+title: The Train Home
+topic: remote_work
+summary: Nadia works on the train. So, briefly, does the man behind her.
+headline: Work in public like the public is watching
+setting: { backdrop: train, time_of_day: evening }
+lines:
+  - { id: th_01, who: nadia, say: "Fifty minutes on the train. Perfect time to finish the budget." }
+  - { id: th_02, who: leo, say: "The man behind you is perfectly placed to finish it with you." }
+  - { id: th_03, who: nadia, say: "A privacy screen would have been a good idea." }
+  - { id: th_04, who: leo, say: "And you were about to join a Wi-Fi network called 'Free Fast Internet'." }
+  - { id: th_05, who: nadia, say: "It did promise to be fast." }
+  - { id: th_06, who: mira, say: "Open Wi-Fi can be fake, or watched. Use your phone's hotspot or the connection {org.it_team} set up for you, and save sensitive work for private places." }
+  - { id: th_07, who: mira, say: "Calls count too. If the whole carriage can hear a client's name, so can anyone listening." }
+  - { id: th_08, who: leo, say: "And if I leave my laptop on the train?" }
+  - { id: th_09, who: mira, say: "Report it straight away, even if you think you'll get it back. The sooner we know, the sooner it can be locked." }
+takeaway: "Watch who can see your screen, avoid unknown Wi-Fi, keep confidential calls private, and report a lost device straight away."

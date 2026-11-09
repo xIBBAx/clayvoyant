@@ -1,0 +1,18 @@
+id: lunch_break
+title: Lunch Break
+topic: clear_desk
+summary: Leo leaves for lunch. His desk stays open for business. A courier needs a door held.
+headline: Lock it, clear it, check them
+setting: { backdrop: office, time_of_day: day }
+lines:
+  - { id: lb_01, who: leo, say: "Lunch! Back in twenty." }
+  - { id: lb_02, who: mira, say: "Your screen is unlocked, your {org.badge} is on the desk, and there's a printout with customer names on your chair." }
+  - { id: lb_03, who: leo, say: "In my defence, I was hungry." }
+  - { id: lb_04, who: mira, say: "Lock the screen every time you stand up. On Windows it's the Windows key and L. On a Mac, Control, Command and Q." }
+  - { id: lb_05, who: leo, say: "That's actually quick." }
+  - { id: lb_06, who: rook, say: "Afternoon! Delivery for the third floor. Could you hold the door? My hands are full." }
+  - { id: lb_07, who: leo, say: "Of course, let me... wait. Who's it for?" }
+  - { id: lb_08, who: rook, say: "Oh, you know. The manager." }
+  - { id: lb_09, who: leo, say: "Reception can sign for it. They'll call whoever it's for." }
+  - { id: lb_10, who: mira, say: "Holding the door is polite. Checking who comes through it is part of the job. Visitors go through reception." }
+takeaway: "Lock your screen when you step away, keep papers and passes off empty desks, and send visitors to reception."

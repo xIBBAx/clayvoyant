@@ -1,0 +1,17 @@
+id: helpful_robot
+title: The Helpful Robot
+topic: ai_tools
+summary: Leo discovers an AI chatbot. The chatbot discovers a confidential contract.
+headline: Approved AI tools only
+setting: { backdrop: office, time_of_day: day }
+policy_note: "Sample wording. Name your organisation's approved AI tools and their rules."
+lines:
+  - { id: hr_01, who: leo, say: "This AI chatbot is amazing. I pasted in the whole contract and it summarised it in seconds." }
+  - { id: hr_02, who: nadia, say: "Which contract?" }
+  - { id: hr_03, who: leo, say: "The confidential one. With the client names. And the prices." }
+  - { id: hr_04, who: nadia, say: "And where did it go after you pasted it?" }
+  - { id: hr_05, who: leo, say: "Into the chatbot?" }
+  - { id: hr_06, who: mira, say: "Some public AI tools keep what you type, and may use it to train their models. Treat that box like a public noticeboard." }
+  - { id: hr_07, who: mira, say: "Use only the AI tools {org.name} has approved, and keep personal or confidential information out of everything else." }
+  - { id: hr_08, who: nadia, say: "And check what it gives you back. It writes confidently. Not always correctly." }
+takeaway: "Use only approved AI tools, keep confidential and personal data out of public ones, and check the answers."

@@ -1,0 +1,53 @@
+name: Bug report
+description: Something does not work as the documentation says.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting. **Do not paste API keys, `.env` files, or anything confidential from
+        your organisation** (internal emails, policies, logos, staff names). Security vulnerabilities
+        go to the private channel in SECURITY.md, not here.
+  - type: input
+    id: version
+    attributes:
+      label: sastudio version
+      description: Output of `sastudio --version`.
+      placeholder: sastudio 0.1.0
+    validations:
+      required: true
+  - type: textarea
+    id: doctor
+    attributes:
+      label: sastudio doctor
+      description: Output of `sastudio doctor` (it never prints key values). Remove your user name from paths if you like.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: Command and output
+      description: The exact command you ran and everything it printed.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: project
+    attributes:
+      label: Smallest project that shows the problem
+      description: If you can, the relevant part of studio.yaml or a scene file, with your organisation's details replaced by example values.
+      render: yaml
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before you submit
+      options:
+        - label: I removed API keys, private paths and confidential content from everything above.
+          required: true

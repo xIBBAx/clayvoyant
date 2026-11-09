@@ -1,0 +1,136 @@
+# Worked example: the starter material customised for one (fictional) organisation.
+# Quillmere Logistics is invented; its addresses use the reserved .example domain.
+# Every change from the starter template is marked "CHANGED". See README.md beside this file.
+schema_version: 1
+
+project:
+  title: "Quillmere Security Essentials"                      # CHANGED: training title
+  subtitle: "Phishing, passwords and reporting, in English and Hindi"
+  language: en-IN
+  languages: [en-IN, hi-IN]                                    # CHANGED: build an English and a Hindi film
+  labels:                                                      # CHANGED: topic names on the Hindi title cards
+    topics:
+      phishing: { hi-IN: "फ़िशिंग" }
+      passwords: { hi-IN: "पासवर्ड" }
+      incident_reporting: { hi-IN: "घटना की रिपोर्ट" }
+  credits:
+    show: true
+    creator: "Quillmere security team"                         # CHANGED: optional on-screen credit
+    extra:
+      - "Sample training content. Review it against your own policies before use."
+
+organization:
+  name: "Quillmere Logistics"                                  # CHANGED
+  short_name: "Quillmere"                                      # CHANGED
+  security_email: "security@quillmere.example"                 # CHANGED: where people report incidents
+  reporting_url: "https://quillmere.example/report"            # CHANGED
+  security_team: "the Quillmere security team"                 # CHANGED
+  it_team: "the Quillmere IT desk"                             # CHANGED
+  training_title: "Security Essentials 2026"
+  logo: assets/logo.png                                        # CHANGED: drawn by tools/make_example_assets.py
+  palette:                                                     # CHANGED: Quillmere's colours
+    primary: "#23493B"
+    accent: "#D9A441"
+    background: "#F3EFE6"
+    text: "#1C1C1E"
+  terms:
+    people: "colleagues"
+    workplace: "the depot"                                     # CHANGED: the organisation's own word
+    laptop: "work laptop"
+    badge: "site pass"                                         # CHANGED
+  announcement: "Three short stories. About ten minutes."
+  translations:
+    hi-IN:
+      security_team: "Quillmere security team"
+      it_team: "Quillmere IT desk"
+
+characters:
+  - id: mira
+    name: Mira
+    role: Security lead
+    description: Calm, dry and quick. Has seen every trick and is still kind about it.
+    pronouns: she
+    gender: feminine
+    forms: { full_name: "Mira Rao", formal: "Ms Rao", hi-IN.name: "मीरा" }
+    spoken: { hi-IN: "मीरा" }
+    voice: { provider: offline, settings: { rate: 165, pitch: 58 } }
+    look: { preset: mira, portrait: assets/characters/mira.png, colors: { top: "#2E6F73" } }
+
+  # CHANGED: the character with id `leo` is now called Kabir. The id stays `leo`, so every scene,
+  # cached voice line and translation keeps working; only lines that say the name change.
+  - id: leo
+    name: Kabir
+    role: New starter
+    description: Enthusiastic, generous, a little too trusting. Learns fast.
+    pronouns: he
+    gender: masculine
+    forms: { full_name: "Kabir Mehta", hi-IN.name: "कबीर" }
+    spoken: { hi-IN: "कबीर" }                                  # what Hindi voices say
+    pronunciation:
+      elevenlabs: { alias: "Kuh-beer" }                         # only sent to ElevenLabs
+    # CHANGED: a slower offline voice, and a different speed for the Hindi film.
+    voice:
+      provider: offline
+      settings: { rate: 168, pitch: 45 }
+      languages:
+        hi-IN: { provider: offline, settings: { rate: 158 } }
+    # To use a paid voice instead, replace `voice:` with one of these (docs/VOICE_PROVIDERS.md):
+    #   voice: { provider: sarvam, model: "bulbul:v3", speaker: "rahul" }
+    #   voice: { provider: elevenlabs, model: "eleven_multilingual_v2", voice_id: "<your voice id>" }
+    look: { preset: leo, portrait: assets/characters/leo.png, colors: { top: "#8C5A3C" } }
+
+  - id: aarav
+    name: Aarav
+    role: Finance
+    description: Careful, deadpan, notices the one detail that is wrong.
+    pronouns: he
+    gender: masculine
+    forms: { full_name: "Aarav Shah", hi-IN.name: "आरव" }
+    spoken: { hi-IN: "आरव" }
+    voice: { provider: offline, settings: { rate: 155, pitch: 40 } }
+    look: { preset: aarav, portrait: assets/characters/aarav.png, colors: { top: "#3D5A80" } }
+
+  - id: nadia
+    name: Nadia
+    role: Operations manager
+    description: Busy, brisk, protective of her team. Nobody rushes her twice.
+    pronouns: she
+    gender: feminine
+    forms: { full_name: "Nadia Fernandes", formal: "Ms Fernandes", hi-IN.name: "नादिया" }
+    spoken: { hi-IN: "नादिया" }
+    voice: { provider: offline, settings: { rate: 170, pitch: 52 } }
+    look: { preset: nadia, portrait: assets/characters/nadia.png, colors: { top: "#6B4E71" } }
+
+  # CHANGED: Rook (the impersonator) is not in these three scenes, so the character is removed.
+
+scenes:
+  - file: scenes/02_too_good_email.yaml
+  - file: scenes/03_passwords_and_mfa.yaml
+  - file: scenes/11_report_early.yaml          # CHANGED: one line now mentions the reporting form
+
+voices:
+  providers:
+    offline: { engine: auto }
+    sarvam: { model: "bulbul:v3", sample_rate: 24000 }
+    elevenlabs: { output_format: wav_24000 }
+  budget:
+    max_characters: 0        # paid generation stays off until you set a budget
+    max_requests: 300
+    max_retries: 3
+    timeout_seconds: 60
+    requests_per_minute: 30
+
+speech:
+  gap_seconds: 0.35
+  lexicon:
+    Wi-Fi: { default: "why fy" }
+    Quillmere: { default: "Quill meer" }        # CHANGED: how voices should say the name
+
+render:
+  preset: draft                                 # CHANGED: fast 960x540 while editing; use final for delivery
+  renderer: cards
+  output: build
+  burn_subtitles: true
+  subtitle_speaker_labels: true                 # CHANGED: "KABIR: ..." in the .srt file
+  intro: true
+  outro: true

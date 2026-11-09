@@ -1,0 +1,77 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "security-awareness-studio"
+version = "0.1.0"
+description = "Make captioned information-security awareness films from plain-text projects: your organisation, characters, voices, languages and scenes."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Ibrahim Sultan", email = "ibrahimsultan4705@gmail.com" }]
+maintainers = [{ name = "Ibrahim Sultan", email = "ibrahimsultan4705@gmail.com" }]
+requires-python = ">=3.11"
+keywords = ["security awareness", "security training", "phishing", "accessibility", "text-to-speech", "subtitles", "video", "sarvam", "elevenlabs"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Intended Audience :: Education",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Education",
+  "Topic :: Multimedia :: Video",
+  "Topic :: Security",
+]
+dependencies = [
+  "PyYAML>=6.0.1,<7",
+  "jsonschema>=4.18,<5",
+  "Pillow>=13.0,<14",  # 13.0 fixes known vulnerabilities in image decoding; project images are untrusted input
+]
+
+[dependency-groups]
+dev = ["pytest>=8", "ruff>=0.6"]
+
+[project.scripts]
+sastudio = "sastudio.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/xIBBAx/security-awareness-studio"
+Repository = "https://github.com/xIBBAx/security-awareness-studio"
+Documentation = "https://github.com/xIBBAx/security-awareness-studio/tree/main/docs"
+Changelog = "https://github.com/xIBBAx/security-awareness-studio/blob/main/CHANGELOG.md"
+Issues = "https://github.com/xIBBAx/security-awareness-studio/issues"
+Security = "https://github.com/xIBBAx/security-awareness-studio/security/policy"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/sastudio"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/sastudio", "examples", "docs", "tests", "tools", "README.md", "LICENSE", "ASSET_LICENSES.md", "CHANGELOG.md",
+           "CONTRIBUTING.md", "SECURITY.md", "CODE_OF_CONDUCT.md", ".env.example"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+markers = [
+  "ffmpeg: needs FFmpeg on PATH",
+  "blender: needs Blender (skipped unless SASTUDIO_BLENDER or blender is available)",
+  "live: calls a real paid API; never runs unless SASTUDIO_LIVE_TESTS=1 and keys are set",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "S", "UP"]
+ignore = ["S101", "S603", "S607", "S311", "B904", "E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S", "B"]
+"src/sastudio/engine/*" = ["S", "B", "E", "F403", "F405", "F401", "F841", "E731", "UP", "I", "W"]
