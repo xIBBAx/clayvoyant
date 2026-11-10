@@ -1,10 +1,10 @@
 # Direction: cameras, light, acting and transitions
 
 **What works today.** Every scene can be directed in its YAML, and `sastudio direct` plans and
-checks that direction and prints the shot list. The film itself is still rendered by the cards
-renderer, which does not use cameras, light or gestures. The clay-motion renderer that will film
-this plan is in development ([CLAY_MOTION.md](CLAY_MOTION.md)). Writing direction now is safe:
-it is validated today and filmed later, and projects without direction keep working unchanged.
+checks that direction and prints the shot list. The experimental `sastudio motion` command films a
+scene from this plan in clay stop motion with Blender ([CLAY_MOTION.md](CLAY_MOTION.md) lists what
+it can and cannot film yet). The cards films made by `sastudio render` do not use cameras, light or
+gestures. Projects without direction keep working unchanged.
 
 ## You don't have to write anything
 

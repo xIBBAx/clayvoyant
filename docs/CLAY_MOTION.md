@@ -1,10 +1,46 @@
 # Clay motion: design for an open clay-animation renderer
 
-**Status: design only. Nothing on this page is built yet.** Today the project renders cards: the
-drawn styles (v1 sketch, v2 flat, v3 cut-out) move the speaker's mouth and eyes, and the clay
-style (v4) shows still portraits. This page describes how a real clay-motion renderer, with
-bodies that act, cameras that move and scenes that flow, can be added as original open-source
-work, and what it would cost to run.
+**Status: in development, experimental.** `sastudio render` still makes cards films: the drawn
+styles (v1 sketch, v2 flat, v3 cut-out) move the speaker's mouth and eyes, and the clay style (v4)
+shows still portraits. A first clay stop-motion renderer exists as an experimental command that
+films one scene at a time. This page describes the whole renderer, what already works, and what
+it costs to run.
+
+## Where it stands
+
+| Milestone | State | What works | Not yet |
+|---|---|---|---|
+| M1 Direction | **Done** | cameras, moves, lighting, gestures, sets and transitions per scene, planned automatically or written by hand, validated, printed by `sastudio direct` ([DIRECTION.md](DIRECTION.md)) | |
+| M2 Clay characters | **Prototype** | built in Blender from the same `look.design` as the drawn styles: soft clay bodies, jointed arms, bead eyes and lids, hair styles, kurta, glasses, beard, bindi | simple puppet shapes; no hands with fingers; no fabric detail |
+| M3 Acting | **Partial** | replacement mouths following the words, blinks, eyelines to whoever speaks, breathing, head and arm gestures (nod, shake, tilt, point, wave, shrug, open palms, thumbs up, hand on chin, arms folded, phone to ear, typing) | walking, sitting, props in hands, facial expressions from `emotion`, phoneme lip sync, real voice timing |
+| M4 Sets, cameras, transitions | **Partial** | one miniature room with the organisation's logo framed on the wall, lighting presets, the planned camera, lens, depth of field and moves, a cache that reuses unchanged shots | every set renders as the same room with that set's props; transitions other than a cut; insert shots |
+| M5 Affordable full film | Not started | | held poses with replacement mouths, render estimates, assembly into `sastudio render`, audio |
+
+## Try it (experimental)
+
+You need [Blender](https://www.blender.org/download/) 4.2 or newer (tested with 5.2.2) and a GPU
+that Blender's EEVEE can use. Tell Security Awareness Studio where Blender is if it is not on
+your PATH:
+
+```bash
+export SASTUDIO_BLENDER=/path/to/blender          # Windows: set SASTUDIO_BLENDER=C:\path\to\blender.exe
+sastudio direct my-film --scenes too_good_email   # read the shot list first
+sastudio motion my-film --scene too_good_email --preset draft     # one scene, 960x540
+sastudio motion my-film --scene too_good_email --shot 3           # one shot
+```
+
+Under WSL2, point `SASTUDIO_BLENDER` at the Windows `blender.exe`: Linux Blender inside WSL could
+not start EEVEE on the GPU in our tests, and the Windows build can. The clip is written to
+`my-film/build/motion/`. It is silent, with subtitles, and is not yet part of `sastudio render`.
+
+Measured on the reference laptop (GTX 1660 Ti, Windows Blender 5.2.2, 1280x720, 16 samples), for
+the worked example's phishing scene directed with gestures (10 shots, 61.6 s of film):
+
+| Run | Shots filmed | Shots reused | Time |
+|---|---|---|---|
+| First time | 10 | 0 | 602 s |
+| Nothing changed | 0 | 10 | 9.8 s |
+| One gesture changed | 1 | 9 | 72 s |
 
 ## What it should do
 
