@@ -4,50 +4,221 @@
   "title": "Security Awareness Studio project",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "project", "organization", "characters", "scenes"],
+  "required": [
+    "schema_version",
+    "project",
+    "organization",
+    "characters",
+    "scenes"
+  ],
   "$defs": {
-    "id": {"type": "string", "pattern": "^[a-z][a-z0-9_]{0,39}$"},
-    "lang": {"type": "string", "pattern": "^[a-z]{2,3}(-[A-Z]{2})?$"},
-    "relpath": {"type": "string", "minLength": 1, "maxLength": 240},
-    "shortText": {"type": "string", "minLength": 1, "maxLength": 120},
-    "text": {"type": "string", "minLength": 1, "maxLength": 2000},
-    "color": {"type": "string", "pattern": "^#[0-9A-Fa-f]{6}$"},
-    "charStyle": {"type": "string", "enum": ["v1", "v2", "v3", "v4", "sketch", "flat", "cutout", "clay"]},
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{0,39}$"
+    },
+    "lang": {
+      "type": "string",
+      "pattern": "^[a-z]{2,3}(-[A-Z]{2})?$"
+    },
+    "relpath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 240
+    },
+    "shortText": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    },
+    "color": {
+      "type": "string",
+      "pattern": "^#[0-9A-Fa-f]{6}$"
+    },
+    "charStyle": {
+      "type": "string",
+      "enum": [
+        "v1",
+        "v2",
+        "v3",
+        "v4",
+        "sketch",
+        "flat",
+        "cutout",
+        "clay"
+      ]
+    },
     "design": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "skin": {"$ref": "#/$defs/color"},
-        "eyes": {"$ref": "#/$defs/color"},
-        "lip": {"$ref": "#/$defs/color"},
-        "blush": {"$ref": "#/$defs/color"},
-        "hair": {"type": "object", "additionalProperties": false, "properties": {"style": {"enum": ["short", "side_sweep", "swept_back", "curls", "bob", "bun", "long", "ponytail", "headscarf", "bald"]}, "color": {"$ref": "#/$defs/color"}}},
-        "outfit": {"type": "object", "additionalProperties": false, "properties": {"style": {"enum": ["blazer", "suit", "jacket", "shirt", "sweater", "kurta"]}, "color": {"$ref": "#/$defs/color"}, "shirt": {"$ref": "#/$defs/color"}}},
-        "trousers": {"$ref": "#/$defs/color"},
-        "shoes": {"type": "object", "additionalProperties": false, "properties": {"style": {"enum": ["flat", "sneaker", "brogue", "heel", "boot"]}, "color": {"$ref": "#/$defs/color"}}},
-        "extras": {"type": "array", "uniqueItems": true, "maxItems": 8, "items": {"enum": ["glasses", "necklace", "lapel_pin", "freckles", "earrings", "beard", "moustache", "bindi"]}}
+        "skin": {
+          "$ref": "#/$defs/color"
+        },
+        "eyes": {
+          "$ref": "#/$defs/color"
+        },
+        "lip": {
+          "$ref": "#/$defs/color"
+        },
+        "blush": {
+          "$ref": "#/$defs/color"
+        },
+        "hair": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "style": {
+              "enum": [
+                "short",
+                "side_sweep",
+                "swept_back",
+                "curls",
+                "bob",
+                "bun",
+                "long",
+                "ponytail",
+                "headscarf",
+                "bald"
+              ]
+            },
+            "color": {
+              "$ref": "#/$defs/color"
+            }
+          }
+        },
+        "outfit": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "style": {
+              "enum": [
+                "blazer",
+                "suit",
+                "jacket",
+                "shirt",
+                "sweater",
+                "kurta"
+              ]
+            },
+            "color": {
+              "$ref": "#/$defs/color"
+            },
+            "shirt": {
+              "$ref": "#/$defs/color"
+            }
+          }
+        },
+        "trousers": {
+          "$ref": "#/$defs/color"
+        },
+        "shoes": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "style": {
+              "enum": [
+                "flat",
+                "sneaker",
+                "brogue",
+                "heel",
+                "boot"
+              ]
+            },
+            "color": {
+              "$ref": "#/$defs/color"
+            }
+          }
+        },
+        "extras": {
+          "type": "array",
+          "uniqueItems": true,
+          "maxItems": 8,
+          "items": {
+            "enum": [
+              "glasses",
+              "necklace",
+              "lapel_pin",
+              "freckles",
+              "earrings",
+              "beard",
+              "moustache",
+              "bindi"
+            ]
+          }
+        }
       }
     },
     "byLang": {
       "type": "object",
-      "propertyNames": {"anyOf": [{"const": "default"}, {"$ref": "#/$defs/lang"}]},
-      "additionalProperties": {"type": "string", "minLength": 1, "maxLength": 200}
+      "propertyNames": {
+        "anyOf": [
+          {
+            "const": "default"
+          },
+          {
+            "$ref": "#/$defs/lang"
+          }
+        ]
+      },
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 200
+      }
     },
-    "providerName": {"type": "string", "enum": ["sarvam", "elevenlabs", "offline"]},
+    "providerName": {
+      "type": "string",
+      "enum": [
+        "sarvam",
+        "elevenlabs",
+        "offline"
+      ]
+    },
     "voice": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["provider"],
+      "required": [
+        "provider"
+      ],
       "properties": {
-        "provider": {"$ref": "#/$defs/providerName"},
-        "model": {"type": "string", "maxLength": 60},
-        "speaker": {"type": "string", "maxLength": 80},
-        "voice_id": {"type": "string", "maxLength": 80},
-        "settings": {"type": "object", "additionalProperties": {"type": ["number", "boolean", "string"]}},
+        "provider": {
+          "$ref": "#/$defs/providerName"
+        },
+        "model": {
+          "type": "string",
+          "maxLength": 60
+        },
+        "speaker": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "voice_id": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "settings": {
+          "type": "object",
+          "additionalProperties": {
+            "type": [
+              "number",
+              "boolean",
+              "string"
+            ]
+          }
+        },
         "languages": {
           "type": "object",
-          "propertyNames": {"$ref": "#/$defs/lang"},
-          "additionalProperties": {"$ref": "#/$defs/voice"}
+          "propertyNames": {
+            "$ref": "#/$defs/lang"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/voice"
+          }
         }
       }
     },
@@ -55,93 +226,412 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "id": {"$ref": "#/$defs/id"},
-        "who": {"$ref": "#/$defs/id"},
-        "say": {"$ref": "#/$defs/text"},
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "who": {
+          "$ref": "#/$defs/id"
+        },
+        "say": {
+          "$ref": "#/$defs/text"
+        },
         "translations": {
           "type": "object",
-          "propertyNames": {"$ref": "#/$defs/lang"},
-          "additionalProperties": {"$ref": "#/$defs/text"}
+          "propertyNames": {
+            "$ref": "#/$defs/lang"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/text"
+          }
         },
         "spoken": {
           "description": "Optional exact text for the speech engine, per language, when the template cannot express it.",
           "type": "object",
-          "propertyNames": {"anyOf": [{"const": "default"}, {"$ref": "#/$defs/lang"}]},
-          "additionalProperties": {"$ref": "#/$defs/text"}
+          "propertyNames": {
+            "anyOf": [
+              {
+                "const": "default"
+              },
+              {
+                "$ref": "#/$defs/lang"
+              }
+            ]
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/text"
+          }
         },
-        "emotion": {"type": "string", "maxLength": 30},
-        "to": {"$ref": "#/$defs/id"},
-        "pause_after": {"type": "number", "minimum": 0, "maximum": 10},
+        "emotion": {
+          "type": "string",
+          "maxLength": 30
+        },
+        "to": {
+          "$ref": "#/$defs/id"
+        },
+        "pause_after": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 10
+        },
         "card": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["text"],
+          "required": [
+            "text"
+          ],
           "properties": {
-            "text": {"$ref": "#/$defs/text"},
-            "translations": {"type": "object", "propertyNames": {"$ref": "#/$defs/lang"}, "additionalProperties": {"$ref": "#/$defs/text"}},
-            "seconds": {"type": "number", "minimum": 0.5, "maximum": 30}
+            "text": {
+              "$ref": "#/$defs/text"
+            },
+            "translations": {
+              "type": "object",
+              "propertyNames": {
+                "$ref": "#/$defs/lang"
+              },
+              "additionalProperties": {
+                "$ref": "#/$defs/text"
+              }
+            },
+            "seconds": {
+              "type": "number",
+              "minimum": 0.5,
+              "maximum": 30
+            }
           }
+        },
+        "act": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 30
+          },
+          "maxItems": 4,
+          "uniqueItems": true
+        },
+        "camera": {
+          "type": "string",
+          "maxLength": 40
         }
       },
       "oneOf": [
-        {"required": ["id", "who", "say"], "not": {"required": ["card"]}},
-        {"required": ["id", "card"], "not": {"anyOf": [{"required": ["who"]}, {"required": ["say"]}]}}
+        {
+          "required": [
+            "id",
+            "who",
+            "say"
+          ],
+          "not": {
+            "required": [
+              "card"
+            ]
+          }
+        },
+        {
+          "required": [
+            "id",
+            "card"
+          ],
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "who"
+                ]
+              },
+              {
+                "required": [
+                  "say"
+                ]
+              }
+            ]
+          }
+        }
       ]
     },
     "scene": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "title", "lines"],
+      "required": [
+        "id",
+        "title",
+        "lines"
+      ],
       "properties": {
-        "id": {"$ref": "#/$defs/id"},
-        "title": {"$ref": "#/$defs/shortText"},
-        "title_translations": {"type": "object", "propertyNames": {"$ref": "#/$defs/lang"}, "additionalProperties": {"$ref": "#/$defs/shortText"}},
-        "topic": {"type": "string", "maxLength": 40},
-        "summary": {"type": "string", "maxLength": 400},
-        "enabled": {"type": "boolean"},
-        "requires": {"type": "array", "items": {"$ref": "#/$defs/id"}, "uniqueItems": true, "maxItems": 20},
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "title": {
+          "$ref": "#/$defs/shortText"
+        },
+        "title_translations": {
+          "type": "object",
+          "propertyNames": {
+            "$ref": "#/$defs/lang"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/shortText"
+          }
+        },
+        "topic": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "summary": {
+          "type": "string",
+          "maxLength": 400
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "requires": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "uniqueItems": true,
+          "maxItems": 20
+        },
         "setting": {
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "backdrop": {"type": "string", "maxLength": 40},
-            "image": {"$ref": "#/$defs/relpath"},
-            "time_of_day": {"type": "string", "enum": ["morning", "day", "evening", "night"]}
+            "backdrop": {
+              "type": "string",
+              "maxLength": 40
+            },
+            "image": {
+              "$ref": "#/$defs/relpath"
+            },
+            "time_of_day": {
+              "type": "string",
+              "enum": [
+                "morning",
+                "day",
+                "evening",
+                "night"
+              ]
+            }
           }
         },
-        "headline": {"type": "string", "maxLength": 120},
-        "headline_translations": {"type": "object", "propertyNames": {"$ref": "#/$defs/lang"}, "additionalProperties": {"type": "string", "maxLength": 120}},
-        "takeaway": {"type": "string", "maxLength": 300},
-        "takeaway_translations": {"type": "object", "propertyNames": {"$ref": "#/$defs/lang"}, "additionalProperties": {"type": "string", "maxLength": 300}},
-        "policy_note": {"type": "string", "maxLength": 500},
-        "max_seconds": {"type": "number", "minimum": 1, "maximum": 1800},
-        "lines": {"type": "array", "minItems": 1, "maxItems": 400, "items": {"$ref": "#/$defs/line"}}
+        "headline": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "headline_translations": {
+          "type": "object",
+          "propertyNames": {
+            "$ref": "#/$defs/lang"
+          },
+          "additionalProperties": {
+            "type": "string",
+            "maxLength": 120
+          }
+        },
+        "takeaway": {
+          "type": "string",
+          "maxLength": 300
+        },
+        "takeaway_translations": {
+          "type": "object",
+          "propertyNames": {
+            "$ref": "#/$defs/lang"
+          },
+          "additionalProperties": {
+            "type": "string",
+            "maxLength": 300
+          }
+        },
+        "policy_note": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "max_seconds": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 1800
+        },
+        "lines": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 400,
+          "items": {
+            "$ref": "#/$defs/line"
+          }
+        },
+        "direction": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "set": {
+              "type": "string",
+              "maxLength": 40
+            },
+            "lighting": {
+              "type": "string",
+              "maxLength": 40
+            },
+            "transition_in": {
+              "type": "string",
+              "maxLength": 40
+            },
+            "object": {
+              "type": "string",
+              "maxLength": 40
+            },
+            "time_jump": {
+              "type": "boolean"
+            },
+            "open_with": {
+              "type": "string",
+              "maxLength": 40
+            },
+            "extras": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/id"
+              },
+              "uniqueItems": true,
+              "maxItems": 8
+            },
+            "blocking": {
+              "type": "object",
+              "propertyNames": {
+                "$ref": "#/$defs/id"
+              },
+              "additionalProperties": {
+                "type": "string",
+                "maxLength": 40
+              }
+            },
+            "shots": {
+              "type": "array",
+              "maxItems": 200,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "lines"
+                ],
+                "properties": {
+                  "lines": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/$defs/id"
+                    },
+                    "minItems": 1,
+                    "maxItems": 40
+                  },
+                  "camera": {
+                    "type": "string",
+                    "maxLength": 40
+                  },
+                  "move": {
+                    "type": "string",
+                    "maxLength": 40
+                  },
+                  "focus": {
+                    "type": "string",
+                    "maxLength": 40
+                  },
+                  "height": {
+                    "type": "string",
+                    "maxLength": 10
+                  },
+                  "seconds": {
+                    "type": "number",
+                    "minimum": 0.5,
+                    "maximum": 120
+                  },
+                  "lens_mm": {
+                    "type": "number",
+                    "minimum": 12,
+                    "maximum": 200
+                  },
+                  "fstop": {
+                    "type": "number",
+                    "minimum": 1.2,
+                    "maximum": 22
+                  },
+                  "who": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/id"
+                      },
+                      {
+                        "type": "array",
+                        "items": {
+                          "$ref": "#/$defs/id"
+                        },
+                        "maxItems": 6
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     }
   },
   "properties": {
-    "schema_version": {"const": 1},
+    "schema_version": {
+      "const": 1
+    },
     "project": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["title", "language"],
+      "required": [
+        "title",
+        "language"
+      ],
       "properties": {
-        "title": {"$ref": "#/$defs/shortText"},
-        "subtitle": {"type": "string", "maxLength": 160},
-        "language": {"$ref": "#/$defs/lang"},
-        "languages": {"type": "array", "items": {"$ref": "#/$defs/lang"}, "uniqueItems": true, "minItems": 1, "maxItems": 12},
-        "missing_translation": {"type": "string", "enum": ["error", "fallback"]},
+        "title": {
+          "$ref": "#/$defs/shortText"
+        },
+        "subtitle": {
+          "type": "string",
+          "maxLength": 160
+        },
+        "language": {
+          "$ref": "#/$defs/lang"
+        },
+        "languages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/lang"
+          },
+          "uniqueItems": true,
+          "minItems": 1,
+          "maxItems": 12
+        },
+        "missing_translation": {
+          "type": "string",
+          "enum": [
+            "error",
+            "fallback"
+          ]
+        },
         "labels": {
           "type": "object",
           "additionalProperties": false,
           "description": "On-screen words the renderer adds itself, per language. English and Hindi defaults are built in.",
           "properties": {
-            "key_point": {"$ref": "#/$defs/byLang"},
-            "report_prompt": {"$ref": "#/$defs/byLang"},
+            "key_point": {
+              "$ref": "#/$defs/byLang"
+            },
+            "report_prompt": {
+              "$ref": "#/$defs/byLang"
+            },
             "topics": {
               "type": "object",
-              "propertyNames": {"type": "string", "maxLength": 40},
-              "additionalProperties": {"$ref": "#/$defs/byLang"}
+              "propertyNames": {
+                "type": "string",
+                "maxLength": 40
+              },
+              "additionalProperties": {
+                "$ref": "#/$defs/byLang"
+              }
             }
           }
         },
@@ -149,9 +639,21 @@
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "show": {"type": "boolean"},
-            "creator": {"type": "string", "maxLength": 80},
-            "extra": {"type": "array", "items": {"type": "string", "maxLength": 160}, "maxItems": 40}
+            "show": {
+              "type": "boolean"
+            },
+            "creator": {
+              "type": "string",
+              "maxLength": 80
+            },
+            "extra": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "maxLength": 160
+              },
+              "maxItems": 40
+            }
           }
         }
       }
@@ -159,42 +661,90 @@
     "organization": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["name", "security_email"],
+      "required": [
+        "name",
+        "security_email"
+      ],
       "properties": {
-        "name": {"$ref": "#/$defs/shortText"},
-        "short_name": {"$ref": "#/$defs/shortText"},
-        "spoken_name": {"$ref": "#/$defs/byLang"},
-        "security_email": {"type": "string", "maxLength": 254, "pattern": "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$"},
-        "reporting_url": {"type": "string", "maxLength": 300, "pattern": "^https://[^\\s]+$"},
-        "security_team": {"$ref": "#/$defs/shortText"},
-        "it_team": {"$ref": "#/$defs/shortText"},
-        "training_title": {"$ref": "#/$defs/shortText"},
-        "logo": {"$ref": "#/$defs/relpath"},
+        "name": {
+          "$ref": "#/$defs/shortText"
+        },
+        "short_name": {
+          "$ref": "#/$defs/shortText"
+        },
+        "spoken_name": {
+          "$ref": "#/$defs/byLang"
+        },
+        "security_email": {
+          "type": "string",
+          "maxLength": 254,
+          "pattern": "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$"
+        },
+        "reporting_url": {
+          "type": "string",
+          "maxLength": 300,
+          "pattern": "^https://[^\\s]+$"
+        },
+        "security_team": {
+          "$ref": "#/$defs/shortText"
+        },
+        "it_team": {
+          "$ref": "#/$defs/shortText"
+        },
+        "training_title": {
+          "$ref": "#/$defs/shortText"
+        },
+        "logo": {
+          "$ref": "#/$defs/relpath"
+        },
         "palette": {
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "primary": {"$ref": "#/$defs/color"},
-            "accent": {"$ref": "#/$defs/color"},
-            "background": {"$ref": "#/$defs/color"},
-            "text": {"$ref": "#/$defs/color"}
+            "primary": {
+              "$ref": "#/$defs/color"
+            },
+            "accent": {
+              "$ref": "#/$defs/color"
+            },
+            "background": {
+              "$ref": "#/$defs/color"
+            },
+            "text": {
+              "$ref": "#/$defs/color"
+            }
           }
         },
         "terms": {
           "type": "object",
-          "propertyNames": {"pattern": "^[a-z][a-z0-9_]{0,39}$"},
-          "additionalProperties": {"$ref": "#/$defs/shortText"},
+          "propertyNames": {
+            "pattern": "^[a-z][a-z0-9_]{0,39}$"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/shortText"
+          },
           "maxProperties": 60
         },
-        "announcement": {"type": "string", "maxLength": 300},
+        "announcement": {
+          "type": "string",
+          "maxLength": 300
+        },
         "translations": {
           "description": "Organisation fields and terms in other languages, e.g. hi-IN: {security_team: ...}.",
           "type": "object",
-          "propertyNames": {"$ref": "#/$defs/lang"},
+          "propertyNames": {
+            "$ref": "#/$defs/lang"
+          },
           "additionalProperties": {
             "type": "object",
-            "propertyNames": {"pattern": "^[a-z][a-z0-9_]{0,39}$"},
-            "additionalProperties": {"type": "string", "minLength": 1, "maxLength": 120}
+            "propertyNames": {
+              "pattern": "^[a-z][a-z0-9_]{0,39}$"
+            },
+            "additionalProperties": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120
+            }
           }
         }
       }
@@ -206,16 +756,58 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "name", "voice"],
+        "required": [
+          "id",
+          "name",
+          "voice"
+        ],
         "properties": {
-          "id": {"$ref": "#/$defs/id"},
-          "name": {"type": "string", "minLength": 1, "maxLength": 60},
-          "role": {"type": "string", "maxLength": 60},
-          "description": {"type": "string", "maxLength": 400},
-          "pronouns": {"type": "string", "enum": ["he", "she", "they"]},
-          "gender": {"type": "string", "enum": ["masculine", "feminine", "other"]},
-          "forms": {"type": "object", "propertyNames": {"pattern": "^([a-z]{2,3}(-[A-Z]{2})?\\.|spoken\\.([a-z]{2,3}(-[A-Z]{2})?\\.)?)?[a-z][a-z0-9_]{0,29}$"}, "additionalProperties": {"type": "string", "minLength": 1, "maxLength": 80}},
-          "spoken": {"$ref": "#/$defs/byLang"},
+          "id": {
+            "$ref": "#/$defs/id"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 60
+          },
+          "role": {
+            "type": "string",
+            "maxLength": 60
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 400
+          },
+          "pronouns": {
+            "type": "string",
+            "enum": [
+              "he",
+              "she",
+              "they"
+            ]
+          },
+          "gender": {
+            "type": "string",
+            "enum": [
+              "masculine",
+              "feminine",
+              "other"
+            ]
+          },
+          "forms": {
+            "type": "object",
+            "propertyNames": {
+              "pattern": "^([a-z]{2,3}(-[A-Z]{2})?\\.|spoken\\.([a-z]{2,3}(-[A-Z]{2})?\\.)?)?[a-z][a-z0-9_]{0,29}$"
+            },
+            "additionalProperties": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            }
+          },
+          "spoken": {
+            "$ref": "#/$defs/byLang"
+          },
           "pronunciation": {
             "type": "object",
             "additionalProperties": false,
@@ -224,34 +816,87 @@
                 "type": "object",
                 "additionalProperties": false,
                 "properties": {
-                  "alias": {"type": "string", "maxLength": 80},
-                  "ipa": {"type": "string", "maxLength": 80},
-                  "cmu": {"type": "string", "maxLength": 120}
+                  "alias": {
+                    "type": "string",
+                    "maxLength": 80
+                  },
+                  "ipa": {
+                    "type": "string",
+                    "maxLength": 80
+                  },
+                  "cmu": {
+                    "type": "string",
+                    "maxLength": 120
+                  }
                 }
               },
               "sarvam": {
                 "type": "object",
                 "additionalProperties": false,
-                "properties": {"text": {"type": "string", "maxLength": 80}}
+                "properties": {
+                  "text": {
+                    "type": "string",
+                    "maxLength": 80
+                  }
+                }
               },
               "offline": {
                 "type": "object",
                 "additionalProperties": false,
-                "properties": {"text": {"type": "string", "maxLength": 80}}
+                "properties": {
+                  "text": {
+                    "type": "string",
+                    "maxLength": 80
+                  }
+                }
               }
             }
           },
-          "attrs": {"type": "object", "propertyNames": {"pattern": "^[a-z][a-z0-9_]{0,29}$"}, "additionalProperties": {"type": "string", "maxLength": 40}},
-          "voice": {"$ref": "#/$defs/voice"},
+          "attrs": {
+            "type": "object",
+            "propertyNames": {
+              "pattern": "^[a-z][a-z0-9_]{0,29}$"
+            },
+            "additionalProperties": {
+              "type": "string",
+              "maxLength": 40
+            }
+          },
+          "voice": {
+            "$ref": "#/$defs/voice"
+          },
           "look": {
             "type": "object",
             "additionalProperties": false,
             "properties": {
-              "preset": {"$ref": "#/$defs/id"},
-              "portrait": {"$ref": "#/$defs/relpath"},
-              "colors": {"type": "object", "propertyNames": {"enum": ["skin", "hair", "top", "accent", "bottom", "eyes"]}, "additionalProperties": {"$ref": "#/$defs/color"}},
-              "style": {"$ref": "#/$defs/charStyle"},
-              "design": {"$ref": "#/$defs/design"}
+              "preset": {
+                "$ref": "#/$defs/id"
+              },
+              "portrait": {
+                "$ref": "#/$defs/relpath"
+              },
+              "colors": {
+                "type": "object",
+                "propertyNames": {
+                  "enum": [
+                    "skin",
+                    "hair",
+                    "top",
+                    "accent",
+                    "bottom",
+                    "eyes"
+                  ]
+                },
+                "additionalProperties": {
+                  "$ref": "#/$defs/color"
+                }
+              },
+              "style": {
+                "$ref": "#/$defs/charStyle"
+              },
+              "design": {
+                "$ref": "#/$defs/design"
+              }
             }
           }
         }
@@ -266,10 +911,21 @@
           {
             "type": "object",
             "additionalProperties": false,
-            "required": ["file"],
-            "properties": {"file": {"$ref": "#/$defs/relpath"}, "enabled": {"type": "boolean"}}
+            "required": [
+              "file"
+            ],
+            "properties": {
+              "file": {
+                "$ref": "#/$defs/relpath"
+              },
+              "enabled": {
+                "type": "boolean"
+              }
+            }
           },
-          {"$ref": "#/$defs/scene"}
+          {
+            "$ref": "#/$defs/scene"
+          }
         ]
       }
     },
@@ -281,20 +937,46 @@
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "sarvam": {"type": "object"},
-            "elevenlabs": {"type": "object"},
-            "offline": {"type": "object"}
+            "sarvam": {
+              "type": "object"
+            },
+            "elevenlabs": {
+              "type": "object"
+            },
+            "offline": {
+              "type": "object"
+            }
           }
         },
         "budget": {
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "max_characters": {"type": "integer", "minimum": 0, "maximum": 10000000},
-            "max_requests": {"type": "integer", "minimum": 0, "maximum": 100000},
-            "max_retries": {"type": "integer", "minimum": 0, "maximum": 8},
-            "timeout_seconds": {"type": "number", "minimum": 5, "maximum": 600},
-            "requests_per_minute": {"type": "number", "minimum": 1, "maximum": 1000}
+            "max_characters": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 10000000
+            },
+            "max_requests": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 100000
+            },
+            "max_retries": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 8
+            },
+            "timeout_seconds": {
+              "type": "number",
+              "minimum": 5,
+              "maximum": 600
+            },
+            "requests_per_minute": {
+              "type": "number",
+              "minimum": 1,
+              "maximum": 1000
+            }
           }
         },
         "prices": {
@@ -305,11 +987,23 @@
             "additionalProperties": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["per_1000_characters", "currency"],
+              "required": [
+                "per_1000_characters",
+                "currency"
+              ],
               "properties": {
-                "per_1000_characters": {"type": "number", "minimum": 0},
-                "currency": {"type": "string", "pattern": "^[A-Z]{3}$"},
-                "checked": {"type": "string", "maxLength": 40}
+                "per_1000_characters": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "currency": {
+                  "type": "string",
+                  "pattern": "^[A-Z]{3}$"
+                },
+                "checked": {
+                  "type": "string",
+                  "maxLength": 40
+                }
               }
             }
           }
@@ -322,7 +1016,16 @@
       "properties": {
         "lexicon": {
           "type": "object",
-          "additionalProperties": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/byLang"}]},
+          "additionalProperties": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/byLang"
+              }
+            ]
+          },
           "maxProperties": 500
         },
         "email_words": {
@@ -330,26 +1033,74 @@
           "additionalProperties": {
             "type": "object",
             "additionalProperties": false,
-            "properties": {"at": {"type": "string"}, "dot": {"type": "string"}, "dash": {"type": "string"}, "underscore": {"type": "string"}}
+            "properties": {
+              "at": {
+                "type": "string"
+              },
+              "dot": {
+                "type": "string"
+              },
+              "dash": {
+                "type": "string"
+              },
+              "underscore": {
+                "type": "string"
+              }
+            }
           }
         },
-        "gap_seconds": {"type": "number", "minimum": 0, "maximum": 5}
+        "gap_seconds": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 5
+        }
       }
     },
     "render": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "preset": {"type": "string", "enum": ["draft", "preview", "final"]},
-        "renderer": {"type": "string", "enum": ["cards", "clay"]},
-        "character_style": {"$ref": "#/$defs/charStyle"},
-        "output": {"$ref": "#/$defs/relpath"},
-        "burn_subtitles": {"type": "boolean"},
-        "subtitle_speaker_labels": {"type": "boolean"},
-        "intro": {"type": "boolean"},
-        "outro": {"type": "boolean"},
-        "music": {"$ref": "#/$defs/relpath"},
-        "music_volume_db": {"type": "number", "minimum": -60, "maximum": 0}
+        "preset": {
+          "type": "string",
+          "enum": [
+            "draft",
+            "preview",
+            "final"
+          ]
+        },
+        "renderer": {
+          "type": "string",
+          "enum": [
+            "cards",
+            "clay"
+          ]
+        },
+        "character_style": {
+          "$ref": "#/$defs/charStyle"
+        },
+        "output": {
+          "$ref": "#/$defs/relpath"
+        },
+        "burn_subtitles": {
+          "type": "boolean"
+        },
+        "subtitle_speaker_labels": {
+          "type": "boolean"
+        },
+        "intro": {
+          "type": "boolean"
+        },
+        "outro": {
+          "type": "boolean"
+        },
+        "music": {
+          "$ref": "#/$defs/relpath"
+        },
+        "music_volume_db": {
+          "type": "number",
+          "minimum": -60,
+          "maximum": 0
+        }
       }
     }
   }

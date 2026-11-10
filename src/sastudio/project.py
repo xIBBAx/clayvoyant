@@ -152,6 +152,8 @@ class Line:
     to: str | None = None
     pause_after: float | None = None
     card: dict[str, Any] | None = None
+    act: list[str] = field(default_factory=list)  # gestures (docs/DIRECTION.md)
+    camera: str | None = None  # a camera preset for this line
 
     @property
     def is_card(self) -> bool:
@@ -186,6 +188,7 @@ class Scene:
     policy_note: str = ""
     max_seconds: float | None = None
     translations: dict[str, dict[str, str]] = field(default_factory=dict)  # field -> lang -> text
+    direction: dict[str, Any] = field(default_factory=dict)  # sets, light, shots (docs/DIRECTION.md)
 
     def field_for(self, name: str, lang: str, default_lang: str) -> str:
         base = getattr(self, name)
@@ -380,14 +383,15 @@ def load_project(root: str | Path, *, check: bool = True) -> Project:
         lines = [
             Line(id=ln["id"], scene_id=s["id"], who=ln.get("who"), say=ln.get("say"),
                  translations=ln.get("translations") or {}, spoken=ln.get("spoken") or {},
-                 emotion=ln.get("emotion"), to=ln.get("to"), pause_after=ln.get("pause_after"), card=ln.get("card"))
+                 emotion=ln.get("emotion"), to=ln.get("to"), pause_after=ln.get("pause_after"), card=ln.get("card"),
+                 act=list(ln.get("act") or []), camera=ln.get("camera"))
             for ln in s["lines"]
         ]
         scenes.append(Scene(
             id=s["id"], title=s["title"], lines=lines, order=order, source=src, enabled=s.get("enabled", True),
             requires=list(s.get("requires") or []), topic=s.get("topic", ""), summary=s.get("summary", ""),
             setting=s.get("setting") or {}, headline=s.get("headline", ""), takeaway=s.get("takeaway", ""),
-            policy_note=s.get("policy_note", ""), max_seconds=s.get("max_seconds"),
+            policy_note=s.get("policy_note", ""), max_seconds=s.get("max_seconds"), direction=s.get("direction") or {},
             translations={
                 "title": s.get("title_translations") or {},
                 "headline": s.get("headline_translations") or {},
@@ -560,6 +564,10 @@ def validate(project: Project, *, only: Iterable[str] | None = None) -> list[Iss
                         voice_checked.add(key)
                         for msg, hint in validate_voice(spec, lang):
                             issues.append(Issue("error", f"characters.{ln.who}.voice ({lang})", msg, hint))
+    from . import direction
+
+    for pr in direction.validate(project):
+        issues.append(Issue(pr.level, pr.where, pr.message, pr.hint))
     return issues
 
 

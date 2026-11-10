@@ -128,6 +128,31 @@ def cmd_init(a) -> int:
     return 0
 
 
+def cmd_direct(a) -> int:
+    """Print the shot list: how each scene will be filmed, before anything is rendered."""
+    from . import direction
+
+    p = _load(a.project)
+    problems = direction.validate(p)
+    for pr in problems:
+        print(f"[{pr.level}] {pr.where}: {pr.message}" + (f"\n    {pr.hint}" if pr.hint else ""))
+    if any(pr.level == "error" for pr in problems):
+        return 2
+    plans = direction.plan(p)
+    if a.scenes:
+        keep = set(_scenes(a.scenes))
+        plans = [x for x in plans if x.scene in keep]
+    if a.json:
+        from dataclasses import asdict
+
+        print(json.dumps([asdict(x) for x in plans], indent=1, ensure_ascii=False))
+    else:
+        print(direction.describe(plans))
+        print(f"\n{sum(len(x.shots) for x in plans)} shot(s) in {len(plans)} scene(s). Change any of them in the "
+              "scene's `direction:` block (docs/DIRECTION.md).")
+    return 0
+
+
 def cmd_doctor(a) -> int:
     from .doctor import format_checks, run_checks
 
@@ -354,6 +379,12 @@ def parser() -> argparse.ArgumentParser:
             s.add_argument("--sheet", metavar="FILE.png", help="draw the cast in every style into one image")
             s.add_argument("--styles", metavar="v1,v2,v3,v4", help="which styles the sheet shows (default: all four)")
         s.set_defaults(fn=fn)
+
+    s = sub.add_parser("direct", help="print the shot list: cameras, lighting, gestures and transitions per scene")
+    s.add_argument("project")
+    s.add_argument("--scenes")
+    s.add_argument("--json", action="store_true", help="the plan as JSON, for tools")
+    s.set_defaults(fn=cmd_direct)
 
     s = sub.add_parser("script", help="print the resolved script (what is shown and what is spoken)")
     s.add_argument("project")
