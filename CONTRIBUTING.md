@@ -77,8 +77,22 @@ These rules protect everyone who uses the project. A pull request that breaks on
    [`release.yml`](.github/workflows/release.yml) tests, checks the tag against the version, and
    builds the wheel, source archive and `SHA256SUMS` as the run's `dist` artifact. It never creates
    a release and has read-only permissions.
-3. Create the release under your own name from those exact files:
-   `gh run download <run-id> -n dist -D dist`, then
-   `gh release create vX.Y.Z dist/* --verify-tag --notes-file docs/releases/vX.Y.Z.md`.
-4. Rebuild the reference films with `tools/make_reference_media.py all WORK DEST` and attach them
-   with `gh release upload vX.Y.Z DEST/*`; their checksums are in `MEDIA_SHA256SUMS`.
+3. Download those exact files: `gh run download <run-id> -n dist -D dist`. The release is created
+   in step 6 under your own name:
+   `gh release create vX.Y.Z dist/* DEST/* --verify-tag --notes-file docs/releases/vX.Y.Z.md`.
+4. Rebuild the reference films with `tools/make_reference_media.py all WORK DEST`; their checksums
+   are in `MEDIA_SHA256SUMS`.
+5. Before anything is published, check and keep the evidence:
+   - the tag points at the commit whose CI passed on Ubuntu and Windows;
+   - `sha256sum -c` passes for `SHA256SUMS` and `MEDIA_SHA256SUMS`, and the file count is what you
+     expect;
+   - the wheel installs in a new, empty environment and `init`, `validate --strict`, `characters
+     --sheet` and a draft `render` work from it; a wheel rebuilt from the source archive has the same
+     files;
+   - the packages contain no code the project cannot publish, and every image, font and film is
+     listed in `ASSET_LICENSES.md`;
+   - gitleaks finds nothing in the tree, the history or the unpacked packages; films carry only a
+     title and encoder tag; images carry no metadata;
+   - you looked at frames from every film.
+6. Create the release (step 3) with every file, then open the release page without being logged in
+   and download a file to check the links.
