@@ -61,6 +61,28 @@ guide prints on A4/Letter.
 tiny budget, so users can confirm their key and voice before a full run. *Done when:* it refuses to
 run without `--live` and a budget, and its cost appears in the ledger.
 
+## Found while preparing 0.2
+
+**A. Free voices worth hearing.** Without a paid account a film is silent, or robotic with
+espeak-ng: every reference film is digital silence. An optional offline neural voice provider
+(for example Piper) would make the free path watchable. Each voice model has its own licence and
+some are non-commercial, so only voices whose licence allows redistribution and commercial use
+would be listed, and Indian-language quality must be checked by fluent listeners first. *Done
+when:* a fresh project renders an audible English film offline, with each voice's licence shown
+by `doctor`.
+
+**B. Posters from the same project.** Many trainings happen without a screen. The key-point cards
+the renderer already draws could be exported as A4 or Letter posters (PNG and PDF) for notice
+boards, in every language of the project. *Done when:* the starter prints twelve posters that pass
+the same contrast checks as the film.
+
+**C. Vertical clips for messaging apps.** Small organisations often share video through messaging
+apps on phones. One short 9:16 clip per scene, with large subtitles, would fit how such films are
+actually passed around. *Done when:* each starter scene exports as a vertical clip under 16 MB.
+
+**D. Speaker close-ups.** In the full-frame layout the talking face is small. Occasional close-up
+framing of the speaker, in the drawn styles, would make the speech readable on phones.
+
 ## 0.3 — languages and verification
 
 **6. Translations and pronunciation review.** Translate the remaining starter scenes into Hindi
