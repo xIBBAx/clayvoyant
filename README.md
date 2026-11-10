@@ -33,9 +33,12 @@ You need Python 3.11+ and FFmpeg ([installing them](docs/INSTALLATION.md)).
 
 ```bash
 git clone https://github.com/xIBBAx/security-awareness-studio
-cd security-awareness-studio && python3 -m venv .venv && . .venv/bin/activate && pip install -e .
+cd security-awareness-studio
+python3 -m venv .venv && . .venv/bin/activate      # Windows: .venv\Scripts\activate
+pip install -e .
 
-sastudio init my-film --org "Riverside Public School" --email it-help@riverside-school.in --style v3
+sastudio init my-film --org "Riverside Public School" \
+    --email it-help@riverside-school.in --style v3
 sastudio render my-film --preset draft
 ```
 
@@ -45,14 +48,12 @@ these steps plus `sastudio doctor` and `sastudio validate` took 8 commands and a
 
 ## What you get
 
-|  |  |
-|---|---|
-| **Your organisation, everywhere** | Name, logo, colours, reporting email and form, team names and your own words for "colleagues" or "laptop". Set once; every scene, card and subtitle follows. |
-| **Characters in four styles** | Sketch, flat and paper cut-out figures drawn by the tool, whose speaker talks and blinks, or still clay portraits. Rename anyone, or describe a new person in a few words. |
-| **Your language** | One film per language from the same project. English and Hindi are included, with Devanagari shaping and per-language names. |
-| **Voices, never by surprise** | A free offline voice, or Sarvam and ElevenLabs with your own key, a spending cap and a request ledger. Nothing paid runs without `--live`. |
-| **Accessible output** | Burned-in and separate subtitles (SRT, WebVTT) with speaker names, transcripts and colour-contrast checks. |
-| **Safe to share** | A final film refuses a placeholder reporting address; every output is checksummed; project files can never run code. |
+- **Your organisation, everywhere.** Name, logo, colours, reporting email and form, team names and your own words for "colleagues" or "laptop". Set once; every scene, card and subtitle follows.
+- **Characters in four styles.** Sketch, flat and paper cut-out figures drawn by the tool, whose speaker talks and blinks, or still clay portraits. Rename anyone, or describe a new person in a few words.
+- **Your language.** One film per language from the same project. English and Hindi are included, with Devanagari shaping and per-language names.
+- **Voices, never by surprise.** A free offline voice, or Sarvam and ElevenLabs with your own key, a spending cap and a request ledger. Nothing paid runs without `--live`.
+- **Accessible output.** Burned-in and separate subtitles (SRT, WebVTT) with speaker names, transcripts and colour-contrast checks.
+- **Safe to share.** A final film refuses a placeholder reporting address; every output is checksummed; project files can never run code.
 
 ## Characters
 
@@ -125,11 +126,9 @@ touches. Details: [ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Requirements
 
-| | |
-|---|---|
-| **Needed** | Python 3.11+, FFmpeg with libx264, about 1 GB of free memory. Tested on Ubuntu and Windows (in CI) and on WSL2. |
-| **Optional** | espeak-ng for an audible free voice; a Sarvam or ElevenLabs account for natural voices. |
-| **Measured** | Intel Core i7-10750H, 12 threads: the 14-minute film in 51-60 s as a draft and about 2 min 20 s at 1920x1080. A GPU is not used by the cards renderer. |
+- **Needed.** Python 3.11+, FFmpeg with libx264, about 1 GB of free memory. Tested on Ubuntu and Windows (in CI) and on WSL2.
+- **Optional.** espeak-ng for an audible free voice; a Sarvam or ElevenLabs account for natural voices.
+- **Measured.** Intel Core i7-10750H, 12 threads: the 14-minute film in 51-60 s as a draft and about 2 min 20 s at 1920x1080. A GPU is not used by the cards renderer.
 
 ## Status
 
