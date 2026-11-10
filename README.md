@@ -2,103 +2,112 @@
   <img src="docs/media/film/cover-1280x640.png" width="100%" alt="Security Awareness Studio: security-awareness films, built from plain text. The five clay-style characters stand in a row beside the project logo.">
 </p>
 
-# Security Awareness Studio
+<h1 align="center">Security Awareness Studio</h1>
 
-An open-source framework for making captioned information-security awareness films, with your own
-organisation, characters, languages, voices and branding.
+<p align="center">
+  <b>Security-awareness training films in your organisation's words, voices and language,<br>
+  made from a few text files on an ordinary laptop.</b>
+</p>
 
-You describe the film in plain text files: your organisation's name, colours and reporting address,
-a cast of characters, and short scenes of dialogue. One command turns them into a captioned training
-film, with subtitles, a transcript and a checksummed manifest. It runs on an ordinary computer with
-no GPU and no account. Real voices from Sarvam or ElevenLabs are optional, use your own account, and
-never cost anything unless you ask for them.
-
-![License: MIT](https://img.shields.io/badge/license-MIT-1E4E5F)
-![Python 3.11 | 3.12 | 3.13](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-1E4E5F)
-
-[Quickstart](docs/QUICKSTART.md) ·
-[Documentation](#documentation) ·
-[Reference films](#the-reference-film) ·
-[Worked example](examples/quillmere/)
-
-## The reference film
+<p align="center">
+  <a href="docs/QUICKSTART.md">Quickstart</a> ·
+  <a href="#documentation">Documentation</a> ·
+  <a href="examples/quillmere/">Worked example</a> ·
+  <a href="https://github.com/xIBBAx/security-awareness-studio/releases/latest">Sample films</a> ·
+  <a href="docs/ROADMAP.md">Roadmap</a>
+</p>
 
 <p align="center">
   <img src="docs/media/film/loop.gif" width="800" alt="Eight seconds of the starter film in the cut-out style: Leo, a paper cut-out figure in a terracotta jacket, talks as he says he has won a free tablet and only needs to confirm his login in the next ten minutes; his mouth moves with the words. Each line appears as a large subtitle, his name tag is highlighted and the two listening colleagues are dimmed.">
 </p>
 
-The 12-scene starter film, **Security Awareness in Twelve Stories** (14 min 23 s,
-1920 x 1080), was rendered by this tool from the starter template in the cut-out character style,
-with one fictional organisation's branding, Quillmere Logistics. It covers phishing, passwords and MFA, phone
-impersonation, payment fraud, clear desk and tailgating, removable media, remote work, data
-handling, AI tools and incident reporting.
+Most security training is generic, expensive or both. This tool turns twelve short, practical
+stories about phishing, passwords and MFA, phone scams, payment fraud, tailgating, removable media,
+remote work, data handling, AI tools and reporting into a captioned film that uses your
+organisation's name, reporting address, characters and language. Edit a sentence and only that
+scene renders again.
 
-The film, its SRT and WebVTT subtitles, an 83-second trailer in each of the four character styles
-and the worked example in English and Hindi are attached to the
-[latest release](https://github.com/xIBBAx/security-awareness-studio/releases/latest) with SHA-256
-checksums. How each one was checked is in
-[docs/media/film/VERIFY.md](docs/media/film/VERIFY.md).
+## Make your first film
 
-What you see is what this release makes: illustrated cards with hard cuts between them, whoever is
-speaking, and every line in large on-screen text. In the drawn styles the speaker's mouth moves with
-the words and the characters blink; bodies stay still. The voices in these films are the free
-offline placeholder, which is silent; the dialogue is in the subtitles. A film made with Sarvam or ElevenLabs voices uses your own account.
+You need Python 3.11+ and FFmpeg ([installing them](docs/INSTALLATION.md)).
 
-<p>
-  <img src="docs/media/film/stills/01-title.png" width="49%" alt="Title card: the Quillmere Logistics logo above the film title, Security Awareness in Twelve Stories.">
-  <img src="docs/media/film/stills/02-dialogue.png" width="49%" alt="A scene titled The Helpful Caller with the headline Hang up and call back. Rook, in a charcoal suit, is highlighted and says: I'm sending you a code. Three colleagues are dimmed.">
-  <img src="docs/media/film/stills/03-key-point.png" width="49%" alt="A green key-point card: If something feels off, stop and check. Then tell the Quillmere security team at security@quillmere.example.">
-  <img src="docs/media/film/stills/05-hindi.png" width="49%" alt="The same layout in Hindi: a key-point card in Devanagari, labelled मुख्य बात, from the Hindi version of the worked example.">
-</p>
+```bash
+git clone https://github.com/xIBBAx/security-awareness-studio
+cd security-awareness-studio
+python3 -m venv .venv && . .venv/bin/activate      # Windows: .venv\Scripts\activate
+pip install -e .
 
-## Meet the characters
+sastudio init my-film --org "Riverside Public School" \
+    --email it-help@riverside-school.in --style v3
+sastudio render my-film --preset draft
+```
 
-Five characters, designed for this project, come with the starter project, in four styles you
-choose with one line (`render.character_style`). Their names, pronouns, voices, spoken names and
-dialogue are all set in your project file; their ids stay the same, so renaming one never breaks a
-scene.
+A 14-minute film with subtitles, a transcript and a checksummed manifest appears in
+`my-film/build/en-IN/`, in about a minute. No GPU, no account, no API key: on a clean machine,
+these steps plus `sastudio doctor` and `sastudio validate` took 8 commands and about 64 seconds.
+
+## What you get
+
+- **Your organisation, everywhere.** Name, logo, colours, reporting email and form, team names and your own words for "colleagues" or "laptop". Set once; every scene, card and subtitle follows.
+- **Characters in four styles.** Sketch, flat and paper cut-out figures drawn by the tool, whose speaker talks and blinks, or still clay portraits. Rename anyone, or describe a new person in a few words.
+- **Your language.** One film per language from the same project. English and Hindi are included, with Devanagari shaping and per-language names.
+- **Voices, never by surprise.** A free offline voice, or Sarvam and ElevenLabs with your own key, a spending cap and a request ledger. Nothing paid runs without `--live`.
+- **Accessible output.** Burned-in and separate subtitles (SRT, WebVTT) with speaker names, transcripts and colour-contrast checks.
+- **Safe to share.** A final film refuses a placeholder reporting address; every output is checksummed; project files can never run code.
+
+## Characters
 
 <p align="center">
   <img src="docs/media/characters/styles.png" width="720" alt="The five characters in four styles, one row each: v1 sketch with graphite outlines and hatching; v2 flat with clean flat colour; v3 cut-out with layered paper, cut edges and soft shadows; v4 clay, the 3D clay portraits.">
 </p>
 
-| Style | | |
-|---|---|---|
-| `v1` sketch | graphite and wash, like a storyboard | talks and blinks |
-| `v2` flat | clean flat colour, like an explainer | talks and blinks |
-| `v3` cutout | layered paper with shadows and grain | talks and blinks |
-| `v4` clay | the 3D clay portraits (default) | still |
+Choose a style for the whole film (`--style v1` to `v4`) or per character, and preview the cast
+before rendering with `sastudio characters my-film --sheet cast.png`. A new character is a few lines
+of text, with no drawing:
 
-The first three are drawn by this tool from scratch at render time, so you can also **describe a
-new character in a few words** (hair, skin, outfit including a kurta or a headscarf, glasses,
-beard, bindi...) and get them in every drawn style without any artwork. Preview your cast before
-rendering: `sastudio characters my-film --sheet cast.png`.
+```yaml
+  - id: priya
+    name: Priya
+    role: Branch manager
+    look:
+      design:
+        skin: "#A8704C"
+        hair: { style: bun, color: "#16100E" }
+        outfit: { style: kurta, color: "#8E2F4B" }
+        extras: [bindi, earrings]
+```
 
-| | Character |
-|---|---|
-| <img src="docs/media/characters/mira.png" width="60" alt="Mira, a clay figure with a dark bob and a teal blazer"> | **Mira** · `mira` · Security lead<br>Calm, dry and quick. Has seen every trick and is still kind about it. |
-| <img src="docs/media/characters/leo.png" width="60" alt="Leo, a clay figure with side-swept hair and a terracotta jacket"> | **Leo** · `leo` · New starter<br>Enthusiastic, generous, a little too trusting. Learns fast. |
-| <img src="docs/media/characters/aarav.png" width="60" alt="Aarav, a clay figure with round glasses and a navy jacket"> | **Aarav** · `aarav` · Finance<br>Careful, deadpan, notices the one detail that is wrong. |
-| <img src="docs/media/characters/nadia.png" width="60" alt="Nadia, a clay figure with a low bun and a plum jacket"> | **Nadia** · `nadia` · Operations manager<br>Busy, brisk, protective of her team. Nobody rushes her twice. |
-| <img src="docs/media/characters/rook.png" width="60" alt="Rook, a clay figure in a charcoal suit with swept-back hair"> | **Rook** · `rook` · The impersonator<br>Charming, patient, never who they say they are. Turns up as a courier, a caller, a "boss". |
+Ten hair styles (including a headscarf), six outfits (including a kurta) and extras such as glasses,
+a beard or a bindi. See [CHARACTERS.md](docs/CHARACTERS.md).
 
-You can rename any of them, change their pronouns, voices and looks, remove them, or add your own
-characters by description or with any portrait image. New 3D clay characters need the clay
-renderer, which is not part of this release ([CHARACTERS.md](docs/CHARACTERS.md)).
+## Make it yours
 
-## What it does
+Everything is a text edit; no code. Rename a character in one place and every subtitle and spoken
+line follows:
 
-| | Today |
-|---|---|
-| **Your organisation** | Name, short name, logo, colours, security reporting email and URL, team names, your own words for "colleagues" or "laptop", an announcement on the title card. Set once, used everywhere. |
-| **Characters** | Four styles (sketch, flat, cut-out, clay); new characters described in text; stable ids with display names, spoken names, pronouns, gendered grammar, per-language names and provider-specific pronunciation hints. |
-| **Scenes** | YAML scenes of dialogue and on-screen cards, turned on or off, with dependency checks between scenes, key-point cards, policy notes and time limits. |
-| **Languages** | One film per language from the same project. English and Hindi samples included; Sarvam's catalogue lists English (India) and ten Indian languages. |
-| **Voices** | Sarvam (Bulbul v2, v3, v4-flash), ElevenLabs (v2 to v4 and Flash models) and a free offline placeholder. Content-addressed cache, character budgets, retries, rate limits and a request ledger. |
-| **Video** | The cards renderer: characters on illustrated cards, with hard cuts; in the drawn styles the speaker talks and blinks; 960x540, 1280x720 or 1920x1080 at 24 fps, H.264 and AAC. Only changed scenes are rendered again. |
-| **Accessibility** | SRT and WebVTT subtitles with speaker tags, optional burned-in subtitles, transcripts, Devanagari text shaping, colour-contrast checks, no flashing effects. |
-| **Checks** | `validate` before rendering; every finished film is checked with `ffprobe` for frame count and audio length; a manifest records checksums. |
-| **Not yet** | Body animation (gestures, walking), the clay renderer (animated 3D puppets), live-tested provider integrations, a graphical editor. See the [roadmap](docs/ROADMAP.md). |
+```yaml
+  - id: leo
+    name: Kabir                          # subtitles, labels and transcripts follow
+    spoken: { hi-IN: "कबीर" }             # what Hindi voices say
+```
+
+Rewrite a line, keeping names and addresses as tokens:
+
+```yaml
+  - id: re_10
+    who: mira
+    say: "Especially then. Write to {org.security_email}, or use the form at {org.reporting_url}."
+```
+
+Then check what will be shown and said, and what a paid voice would cost, before rendering:
+
+```bash
+sastudio validate my-film
+sastudio script my-film --scenes report_early
+sastudio voices plan my-film
+```
+
+The full walkthrough, with every change marked, is [examples/quillmere](examples/quillmere/).
 
 ## How it works
 
@@ -112,173 +121,21 @@ flowchart LR
     F --> G["film.mp4<br/>.srt .vtt<br/>transcript, manifest"]
 ```
 
-Details: [ARCHITECTURE.md](docs/ARCHITECTURE.md).
+Every stage is cached by content, so changing one line re-voices and re-renders only what that line
+touches. Details: [ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
-## Install
+## Requirements
 
-You need Python 3.11 or newer and FFmpeg ([installation guide](docs/INSTALLATION.md) for Ubuntu,
-WSL2 and Windows).
+- **Needed.** Python 3.11+, FFmpeg with libx264, about 1 GB of free memory. Tested on Ubuntu and Windows (in CI) and on WSL2.
+- **Optional.** espeak-ng for an audible free voice; a Sarvam or ElevenLabs account for natural voices.
+- **Measured.** Intel Core i7-10750H, 12 threads: the 14-minute film in 51-60 s as a draft and about 2 min 20 s at 1920x1080. A GPU is not used by the cards renderer.
 
-```bash
-git clone https://github.com/xIBBAx/security-awareness-studio
-cd security-awareness-studio
-python3 -m venv .venv
-. .venv/bin/activate              # Windows: .venv\Scripts\activate
-pip install -e .
-sastudio doctor                   # checks everything and says how to fix what is missing
-```
+## Status
 
-## Your first film
-
-```bash
-sastudio init my-film --org "Your Organisation" --email security@your-org.in --style v3
-sastudio validate my-film
-sastudio render my-film --preset draft    # about a minute; no account, no GPU
-```
-
-`init` copies the 12-scene starter project with your name, reporting address and character style
-(`--logo your-logo.png` and `--report-url` too); every option is optional, and a plain
-`sastudio init my-film` gives the example values to edit later. The film, subtitles, transcript
-and manifest are in `my-film/build/en-IN/`. Then make it yours:
-
-## Make it yours
-
-Every change below is a text edit; no code. The complete version of this walkthrough, with every
-change marked, is [examples/quillmere](examples/quillmere/), which renders in English and Hindi.
-
-**Your organisation, email and logo** (`studio.yaml`):
-
-```yaml
-organization:
-  name: "Quillmere Logistics"
-  security_email: "security@quillmere.example"    # shown and spoken wherever a scene says {org.security_email}
-  reporting_url: "https://quillmere.example/report"
-  security_team: "the Quillmere security team"
-  logo: assets/logo.png                           # replace the file with your own logo
-  palette: { primary: "#23493B", accent: "#D9A441", background: "#F3EFE6", text: "#1C1C1E" }
-```
-
-**A character's name and how it is said.** The id `leo` stays, so every scene keeps working:
-
-```yaml
-  - id: leo
-    name: Kabir                          # was Leo; subtitles, labels and transcripts follow
-    spoken: { hi-IN: "कबीर" }             # what Hindi voices say
-    pronunciation:
-      elevenlabs: { alias: "Kuh-beer" }  # a hint sent only to ElevenLabs
-```
-
-**A character's voice.** Offline is free; a paid voice needs your own key ([API_SETUP.md](docs/API_SETUP.md)):
-
-```yaml
-    voice: { provider: sarvam, model: "bulbul:v3", speaker: "rahul" }
-```
-
-From then on `render` stops with exit code 7 and lists that character's lines until you generate
-them (`sastudio voices generate my-film --live --max-characters N`, paid). To keep previewing for
-free, add `--voice-fallback offline`: those lines use the placeholder voice, clearly labelled.
-
-**A line of dialogue** (`scenes/11_report_early.yaml`). Names and addresses are tokens, never typed out:
-
-```yaml
-  - id: re_10
-    who: mira
-    say: "Especially then. Write to {org.security_email}, or use the form at {org.reporting_url}."
-```
-
-**Languages and output** (`studio.yaml`):
-
-```yaml
-project:
-  languages: [en-IN, hi-IN]     # one film per language; every line needs a translation
-render:
-  preset: final                 # 1920x1080
-  subtitle_speaker_labels: true
-```
-
-The 12-scene starter is written in English only, so adding `hi-IN` makes `validate` list every line
-that still needs Hindi text. The 3-scene `short` template ships both languages (see Rendering).
-
-Then check what will be shown and said, and what it will cost, before rendering:
-
-```bash
-sastudio validate my-film
-sastudio script my-film --scenes report_early     # display text and the exact text each voice receives
-sastudio voices plan my-film                      # characters per provider; prices only if you add them
-```
-
-## Rendering
-
-```bash
-sastudio render my-film --preset draft                          # quick check, 960x540
-sastudio render my-film --scenes too_good_email --preset preview # one scene, 1280x720
-sastudio render my-film --preset final                          # the whole film, 1920x1080
-```
-
-If any character uses Sarvam or ElevenLabs and their lines are not generated yet, add
-`--voice-fallback offline` to any of these, or `render` stops and lists the missing lines.
-
-A `final` film refuses the template's placeholder reporting address (`security@example.com`):
-put your organisation's real one in `studio.yaml` first (see Make it yours). For a demo, add
-`--allow-placeholder-contacts`.
-
-Another language needs a translation of every line. The `short` template ships English and Hindi:
-
-```bash
-sastudio init my-short --template short
-sastudio render my-short --lang hi-IN --preset draft   # Devanagari subtitles and cards
-```
-
-Only scenes whose content changed are rendered again. Presets, subtitles, music and output files
-are described in [RENDERING.md](docs/RENDERING.md).
-
-## Screenshots
-
-Real command output from a fresh starter project, drawn as images by
-[`tools/make_screenshots.py`](tools/make_screenshots.py).
-
-<p>
-  <img src="docs/media/screenshots/01-doctor.png" width="49%" alt="sastudio doctor output: Python 3.13, FFmpeg 6.1.1 and text shaping OK; espeak-ng not installed so offline voices are timed silence; clay renderer not included in this release; the GPU and free memory listed; both API keys not set. The kernel build and GPU driver version are removed from the capture.">
-  <img src="docs/media/screenshots/02-scenes.png" width="49%" alt="sastudio scenes output: twelve scenes, all on, with their line counts and titles; Report Early requires too_good_email and What Rook Fears Most requires helpful_caller.">
-</p>
-
-Left: `sastudio doctor` checks the computer. Right: `sastudio scenes` lists scenes and dependencies.
-
-<p>
-  <img src="docs/media/screenshots/03-script.png" width="49%" alt="sastudio script output for The Too-Good Email: each line with the speaker's name, from Leo's I've won a tablet to Mira's Report it first.">
-  <img src="docs/media/screenshots/04-studio-yaml.png" width="49%" alt="The organization block of studio.yaml: name, short name, security email, reporting URL, team names, logo, palette colours and terms.">
-</p>
-
-Left: `sastudio script` shows what will be said. Right: The organisation block of `studio.yaml`.
-
-<p>
-  <img src="docs/media/screenshots/05-render.png" width="49%" alt="sastudio render output for one scene: nine offline voice lines with their durations, the scene rendered, and the finished file at 960x540 in 5.5 seconds.">
-  <img src="docs/media/screenshots/06-manifest.png" width="49%" alt="An excerpt of manifest.json: tool, version, language, preset, renderer, 24 fps, the scene's frame count and length, and output files with their sizes and SHA-256 checksums.">
-</p>
-
-Left: Rendering one scene. Right: The manifest records what was built.
-
-## Hardware
-
-| | |
-|---|---|
-| **Minimum** | Any 64-bit computer that runs Python 3.11+ and FFmpeg with libx264; about 1 GB of free memory; no GPU. |
-| **Tested** | Intel Core i7-10750H (12 threads), 7.7 GB of memory for WSL2, Ubuntu 24.04: the whole 14-minute starter film in 74 s at 1280x720 (237 MB peak memory) and 2 min 22 s at 1920x1080 (615 MB). In the cut-out style, with talking characters, the 1080p film took 2 min 18 s (6 parallel jobs). |
-| **Faster** | More CPU threads: scenes render in parallel (`--jobs`). A GPU does not speed up the cards renderer. |
-
-These are measurements on one machine, not promises ([REQUIREMENTS.md](docs/REQUIREMENTS.md)).
-
-## Costs
-
-| | Cost |
-|---|---|
-| Installing, validating, rendering with offline voices, the test suite | free, offline |
-| Sarvam or ElevenLabs voices | charged by the provider to your own account, per character |
-
-Paid requests happen only with `--live` **and** a character budget above zero, which is `0` in every
-template. Generated lines are cached and never requested twice. The project ships no prices;
-`sastudio voices plan` estimates cost from a price table you copy from your provider
-([VOICE_PROVIDERS.md](docs/VOICE_PROVIDERS.md#estimating-cost)).
+Released: everything above. In development: clay stop-motion with acting characters, staged
+cameras and lighting, your own 3D models, sound effects and visual effects
+([design and progress](docs/CLAY_MOTION.md)). Planned features are never described as working until
+they render and are tested.
 
 ## Documentation
 
@@ -288,38 +145,31 @@ template. Generated lines are cached and never requested twice. The project ship
 | [Installation](docs/INSTALLATION.md) and [requirements](docs/REQUIREMENTS.md) | Ubuntu, WSL2, Windows; measured performance |
 | [Configuration](docs/CONFIGURATION.md) | `studio.yaml`: organisation, characters, labels, paths |
 | [Scenes](docs/SCENES.md) | writing scenes, tokens, translations, dependencies |
-| [Characters](docs/CHARACTERS.md) | the cast and what you can change |
+| [Characters](docs/CHARACTERS.md) | styles, designs and what you can change |
 | [Voice providers](docs/VOICE_PROVIDERS.md) and [API keys](docs/API_SETUP.md) | offline, Sarvam, ElevenLabs, budgets, pronunciation |
 | [Rendering](docs/RENDERING.md) | presets, outputs, subtitles, incremental builds |
-| [Architecture](docs/ARCHITECTURE.md) and [glossary](docs/GLOSSARY.md) | how it fits together; terms explained |
+| [Architecture](docs/ARCHITECTURE.md) and [glossary](docs/GLOSSARY.md) | how it fits together |
 | [Troubleshooting](docs/TROUBLESHOOTING.md) | common errors and their fixes |
-| [Roadmap](docs/ROADMAP.md) | what is done and what could come next |
-| [Clay motion](docs/CLAY_MOTION.md) | design for an open clay-animation renderer (not built yet) |
+| [Roadmap](docs/ROADMAP.md) and [clay motion](docs/CLAY_MOTION.md) | what comes next |
 | [Testing](docs/TESTING.md) | how to run the tests, and every edge case with its status |
 
-## Use it responsibly
+## Responsible use
 
-The starter scenes are general awareness material, not policy. Replace every procedure with your
-organisation's real one before you show a film to anyone; scenes mark the lines that most need this
-with `policy_note`. A film made with this tool does not make an organisation compliant with any
-standard. Never clone a real person's voice, or use their likeness, without their written consent.
+The starter scenes are general guidance, not policy: replace each procedure with your
+organisation's real one (scenes mark them with `policy_note`). A film does not make an
+organisation compliant with any standard. Never clone a real person's voice or use their likeness
+without written consent.
 
 ## Contributing
 
-Scene templates, translations, voice-provider adapters, fixes and documentation are welcome. Read
-[CONTRIBUTING.md](CONTRIBUTING.md) first: it explains the rules that keep secrets, confidential
-material and unlicensed content out of the project. Please follow the
-[code of conduct](CODE_OF_CONDUCT.md), and report vulnerabilities privately as described in
-[SECURITY.md](SECURITY.md).
+Scene templates, translations, characters, voice adapters, fixes and documentation are welcome.
+[CONTRIBUTING.md](CONTRIBUTING.md) explains how changes are tested and how secrets, confidential
+material and unlicensed content are kept out. Please follow the [code of conduct](CODE_OF_CONDUCT.md)
+and report vulnerabilities privately ([SECURITY.md](SECURITY.md)).
 
 ## License
 
-The code is under the [MIT License](LICENSE). The media made for this project (characters,
-portraits, the drawn styles, logos, sample scripts) are shared under the same licence, and the bundled fonts under the SIL Open Font
-License; every file is listed in [ASSET_LICENSES.md](ASSET_LICENSES.md). Films you make are yours,
-and you don't need to credit this project in them. Speech you generate is governed by your voice
-provider's terms.
-
-## Author
-
-Created and maintained by **Ibrahim Sultan**.
+Code: [MIT](LICENSE). Media made for this project (characters, portraits, the drawn styles, logos,
+sample scripts): MIT. Bundled fonts: SIL Open Font License. Every file is listed in
+[ASSET_LICENSES.md](ASSET_LICENSES.md). Films you make are yours, and you don't need to credit this
+project in them.
