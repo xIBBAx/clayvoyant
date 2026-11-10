@@ -153,6 +153,24 @@ def cmd_direct(a) -> int:
     return 0
 
 
+def cmd_motion(a) -> int:
+    """Experimental: film a scene (or one shot) with the clay stop-motion renderer in Blender."""
+    from . import stopmotion
+
+    p = _load(a.project)
+    preset = a.preset or "preview"
+    if preset not in stopmotion.PRESETS:
+        raise StudioError(f"Unknown preset '{preset}'.", f"Use one of {', '.join(stopmotion.PRESETS)}.")
+    out = Path(a.out) if a.out else p.root / "build" / "motion" / (
+        f"{a.scene}_shot{a.shot}_{preset}.mp4" if a.shot else f"{a.scene}_{preset}.mp4")
+    print("Experimental: the clay stop-motion renderer films one scene at a time (docs/CLAY_MOTION.md).")
+    if a.shot:
+        stopmotion.render_shot(p, a.scene, a.shot - 1, preset, out)
+    else:
+        stopmotion.render_scene(p, a.scene, preset, out)
+    return 0
+
+
 def cmd_doctor(a) -> int:
     from .doctor import format_checks, run_checks
 
@@ -385,6 +403,14 @@ def parser() -> argparse.ArgumentParser:
     s.add_argument("--scenes")
     s.add_argument("--json", action="store_true", help="the plan as JSON, for tools")
     s.set_defaults(fn=cmd_direct)
+
+    s = sub.add_parser("motion", help="experimental: film a scene in clay stop motion with Blender")
+    s.add_argument("project")
+    s.add_argument("--scene", required=True)
+    s.add_argument("--shot", type=int, help="film only this shot (numbers as in `sastudio direct`)")
+    s.add_argument("--preset", choices=["draft", "preview", "final"], help="960x540, 1280x720 (default) or 1920x1080")
+    s.add_argument("--out", help="where to write the clip (default: build/motion/ in the project)")
+    s.set_defaults(fn=cmd_motion)
 
     s = sub.add_parser("script", help="print the resolved script (what is shown and what is spoken)")
     s.add_argument("project")

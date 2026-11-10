@@ -24,12 +24,17 @@ from ..errors import ConfigError, RenderError, ToolMissing
 from ..render import figures
 
 FPS = 24
+SCENE_VERSION = "1"  # bump when the Blender scene builder changes what it draws
 PRESETS = {"draft": (960, 540, 8), "preview": (1280, 720, 16), "final": (1920, 1080, 48)}
 NOT_YET = {"sit_down", "stand_up", "walk_in", "walk_out"}
 HEAD_Z, CHEST_Z, BODY_Z = 0.312, 0.215, 0.17
 SIDES_X = {"left": [-0.13, -0.29], "right": [0.13, 0.29]}
-FRAME_H = {"establishing": None, "wide": 0.50, "medium": 0.22, "two_shot": 0.27, "over_shoulder": 0.21,
-           "close_up": 0.12, "extreme_close_up": 0.065, "reaction": 0.12, "insert": 0.09}
+# frame height (m) and the height the camera aims at: room above the hair, never cutting the head
+FRAME_H = {"establishing": None, "wide": 0.50, "medium": 0.27, "two_shot": 0.31, "over_shoulder": 0.22,
+           "close_up": 0.15, "extreme_close_up": 0.075, "reaction": 0.15, "insert": 0.09}
+# faces sit in the upper half of the frame, so subtitles never cover a mouth
+AIM_Z = {"wide": 0.19, "medium": 0.255, "two_shot": 0.26, "close_up": 0.305, "reaction": 0.305,
+         "extreme_close_up": 0.300, "over_shoulder": 0.300}
 
 
 def find_blender() -> tuple[str, bool]:
@@ -69,7 +74,7 @@ def camera_keys(shot: D.Shot, pos: dict, frames: int) -> dict:
     else:
         who = [c for c in shot.who if c in pos] or list(pos)[:1]
         heads = [Vector3(pos[c][0][0], pos[c][0][1], HEAD_Z) for c in who]
-        aim_z = {"wide": BODY_Z, "medium": CHEST_Z + 0.02, "two_shot": CHEST_Z + 0.03}.get(shot.camera, HEAD_Z - 0.005)
+        aim_z = AIM_Z.get(shot.camera, HEAD_Z)
         cx = sum(h.x for h in heads) / len(heads)
         cy = sum(h.y for h in heads) / len(heads)
         aim = (cx, cy, aim_z)
@@ -78,19 +83,21 @@ def camera_keys(shot: D.Shot, pos: dict, frames: int) -> dict:
             sp, ls = pos[who[0]][0], pos[who[1]][0]
             dx, dy = sp[0] - ls[0], sp[1] - ls[1]
             n = math.hypot(dx, dy) or 1.0
-            aim = (sp[0], sp[1], HEAD_Z - 0.01)
+            aim = (sp[0], sp[1], AIM_Z["over_shoulder"])
             back = dist + n
             side = 1 if ls[0] > sp[0] else -1
             start = (sp[0] - dx / n * back + side * 0.025, sp[1] - dy / n * back - 0.30, HEAD_Z + 0.01)
         else:
-            facing = sum(pos[c][1] for c in who) / len(who)  # look into their faces, a little from the side
-            ang = -facing * 0.45
+            # stand on the side the character is looking towards, for a three-quarter view of the face
+            facing = sum(pos[c][1] for c in who) / len(who)
+            ang = facing * (0.75 if len(who) == 1 else 0.35)
             start = (cx + math.sin(ang) * dist, cy - math.cos(ang) * dist, aim_z + 0.01)
         height = {"low": -0.05, "high": 0.07}.get(shot.height, 0.0)
         start = (start[0], start[1], start[2] + height)
         end = start
         if shot.move in ("push_in", "pull_out"):
-            k = 0.80 if shot.move == "push_in" else 1.22
+            k = (0.90 if shot.camera in ("close_up", "extreme_close_up", "reaction") else 0.80) if shot.move == "push_in" \
+                else 1.22
             end = tuple(a + (s - a) * k for s, a in zip(start, aim, strict=True))
         elif shot.move == "orbit":
             ang = 0.18
@@ -229,12 +236,21 @@ def render_shot(project, scene_id: str, shot_index: int, preset: str, out: Path,
         raise ConfigError(f"Scene {scene_id} has {len(plan.shots)} shots.", "See them with `sastudio direct`.")
     if plan.shots[shot_index].camera == "insert":
         raise ConfigError("Insert shots (props and cards) are not filmed in clay yet.", "Choose another shot.")
+    job = build_job(project, plan, shot_index, preset, Path("frames"))
+    digest = hashlib.sha256(json.dumps({k: v for k, v in job.items() if k != "out"}, sort_keys=True,
+                                       default=str).encode() + SCENE_VERSION.encode()).hexdigest()[:16]
+    cached = project.root / ".studio" / "cache" / "stopmotion" / f"{digest}.mp4"
+    if cached.is_file() and cached.stat().st_size > 0:  # nothing that affects this shot changed
+        out.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(cached, out)
+        log(f"Reused {scene_id} shot {shot_index + 1} (unchanged)")
+        return out
     exe, wsl_win = find_blender()
     work = project.root / ".studio" / "work" / "stopmotion" / f"{scene_id}_{shot_index + 1:02d}_{preset}"
     if work.exists():
         shutil.rmtree(work)
     (work / "frames").mkdir(parents=True)
-    job = build_job(project, plan, shot_index, preset, work / "frames")
+    job["out"] = str(work / "frames")
     conv = _winpath if wsl_win else str
     job["out"] = conv(work / "frames")
     if job["logo"]:
@@ -255,5 +271,58 @@ def render_shot(project, scene_id: str, shot_index: int, preset: str, out: Path,
     subprocess.run([ffmpeg_exe(), "-v", "error", "-y", "-framerate", str(FPS // job["step"]), "-pattern_type", "glob",
                     "-i", str(work / "frames" / "*.png"), "-vf", f"fps={FPS}", "-c:v", "libx264", "-crf", "18",
                     "-pix_fmt", "yuv420p", "-map_metadata", "-1", str(out)], check=True)
+    cached.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(out, cached)
     log(f"Wrote {out} ({len(drawings)} drawings)")
+    return out
+
+
+def _srt_time(t: float) -> str:
+    ms = int(round(t * 1000))
+    return f"{ms // 3600000:02d}:{ms // 60000 % 60:02d}:{ms // 1000 % 60:02d},{ms % 1000:03d}"
+
+
+def render_scene(project, scene_id: str, preset: str, out: Path, log=print) -> Path:
+    """Film every shot of a scene (reusing unchanged ones), join them and add subtitles from the plan."""
+    from ..audio.ffmpeg import ffmpeg_exe
+
+    plans = {p.scene: p for p in D.plan(project)}
+    if scene_id not in plans:
+        raise ConfigError(f"No enabled scene '{scene_id}'.", "List scenes with `sastudio scenes`.")
+    plan = plans[scene_id]
+    scene = next(s for s in project.scenes if s.id == scene_id)
+    work = project.root / ".studio" / "work" / "stopmotion" / f"{scene_id}_{preset}_scene"
+    work.mkdir(parents=True, exist_ok=True)
+    parts, cues, offset = [], [], 0.0
+    for i, shot in enumerate(plan.shots):
+        if shot.camera == "insert":
+            log(f"  shot {i + 1}: insert shots are not filmed in clay yet; skipped")
+            continue
+        clip = render_shot(project, scene_id, i, preset, work / f"shot_{i + 1:02d}.mp4", log)
+        dur = float(subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0",
+                                    str(clip)], capture_output=True, text=True, check=True).stdout.strip())
+        t = 0.35
+        for ln in (x for x in scene.lines if x.id in shot.lines):
+            d = D._estimate(ln)
+            cues.append((offset + t, offset + t + d, project.display(ln.say or "", project.language)))
+            t += d + 0.25
+        parts.append(clip)
+        offset += dur
+    listing = work / "shots.txt"
+    listing.write_text("".join(f"file '{p.as_posix()}'\n" for p in parts), "utf-8")
+    srt = work / "scene.srt"
+    srt.write_text("".join(f"{n}\n{_srt_time(a)} --> {_srt_time(b)}\n{text}\n\n" for n, (a, b, text) in enumerate(cues, 1)),
+                   "utf-8")
+    joined = work / "joined.mp4"
+    subprocess.run([ffmpeg_exe(), "-v", "error", "-y", "-f", "concat", "-safe", "0", "-i", str(listing), "-c", "copy",
+                    str(joined)], check=True)
+    fonts = resources.files("sastudio").joinpath("data").joinpath("fonts")
+    with resources.as_file(fonts) as fdir:
+        style = "FontName=Atkinson Hyperlegible Next,FontSize=17,Bold=1,BorderStyle=3,Outline=6,BackColour=&H90202020,MarginV=24"
+        vf = f"subtitles={srt.as_posix()}:fontsdir={Path(fdir).as_posix()}:force_style='{style}'"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        subprocess.run([ffmpeg_exe(), "-v", "error", "-y", "-i", str(joined), "-vf", vf, "-c:v", "libx264", "-crf", "18",
+                        "-pix_fmt", "yuv420p", "-map_metadata", "-1", str(out)], check=True)
+    out.with_suffix(".srt").write_text(srt.read_text("utf-8"), "utf-8")
+    log(f"Wrote {out} ({len(parts)} shots, {offset:.1f} s)")
     return out
