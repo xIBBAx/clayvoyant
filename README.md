@@ -291,6 +291,7 @@ template. Generated lines are cached and never requested twice. The project ship
 | [Architecture](docs/ARCHITECTURE.md) and [glossary](docs/GLOSSARY.md) | how it fits together; terms explained |
 | [Troubleshooting](docs/TROUBLESHOOTING.md) | common errors and their fixes |
 | [Roadmap](docs/ROADMAP.md) | what is done and what could come next |
+| [Clay motion](docs/CLAY_MOTION.md) | design for an open clay-animation renderer (not built yet) |
 | [Testing](docs/TESTING.md) | how to run the tests, and every edge case with its status |
 
 ## Use it responsibly

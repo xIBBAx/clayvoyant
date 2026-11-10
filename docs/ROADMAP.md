@@ -98,8 +98,9 @@ on that contract rather than on any particular engine.
    the voice provider's timings. Anyone can draw a character for it; no 3D software needed.
 3. **A renderer plug-in interface (0.4).** A small, versioned contract (timeline in, frames out)
    with contract tests, so independently written 2D or 3D back ends can ship as separate packages.
-4. **Clay.** The clay renderer returns only if its release is cleared, or as an independent
-   implementation built against the plug-in interface.
+4. **Clay motion.** An original, open clay-animation renderer: acting bodies, lip shapes, staged
+   shots, camera moves and transitions, rendered shot by shot with a cache. Design, measured costs
+   and milestones: [CLAY_MOTION.md](CLAY_MOTION.md). Not built yet.
 
 ## Not planned
 
