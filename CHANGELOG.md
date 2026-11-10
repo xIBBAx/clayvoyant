@@ -1,11 +1,34 @@
 # Changelog
 
-## Unreleased
+## 0.2.0 (2026-11-10)
+
+### Characters in four styles
+
+- **v1 sketch, v2 flat, v3 cut-out** are new drawn styles, made by this tool from scratch at render
+  time (`src/sastudio/render/figures.py`; no image files, nothing downloaded). **v4 clay** is the
+  bundled clay portraits and stays the default, so existing projects render exactly as before.
+- In the drawn styles **the speaker talks and blinks**: the mouth follows the voice's loudness, or
+  the letters of the subtitle when the voice is the silent placeholder (Devanagari vowels
+  included), animated on twos. Bodies stay still and cards still cut.
+- **Describe a character in text** with `look.design`: skin, hair (10 styles including a
+  headscarf), outfit (blazer, suit, jacket, shirt, sweater, kurta), shoes, and extras such as
+  glasses, beard, bindi or earrings. No drawing skills or image files needed.
+- `render.character_style` sets the style for the film; `look.style` overrides it per character.
+- `sastudio characters my-film --sheet cast.png` draws the cast in every style before you render.
+- Figures are drawn once per design and kept in `.studio/work/figures`; drawing is deterministic.
+- `examples/quillmere` now renders in the cut-out style, with Kabir described in a kurta.
+
+### Safer finished films
 
 - `render --preset final` refuses a film whose reporting email or URL is still a placeholder on a
   reserved example domain (`example.com`, `.example`, `.test`, ...), because a shared film cannot be
   corrected. `validate` shows them as notes (not warnings, so `--strict` is unchanged) and draft and
   preview renders record them in the manifest. `--allow-placeholder-contacts` allows a demo film.
+
+### Releases
+
+- The release workflow now only tests and builds the packages; the maintainer creates each release
+  under their own name from those files (CONTRIBUTING.md, "Releasing").
 
 ## 0.1.0 (2026-11-09)
 

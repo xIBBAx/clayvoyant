@@ -95,7 +95,32 @@ def cmd_characters(a) -> int:
             who = v.speaker or v.voice_id or "-"
             print(f"    {lang}: {v.provider} {v.model or ''} {who}")
         print(f"    scenes: {', '.join(used.get(cid, [])) or '(none)'}")
+        print(f"    style: {_style_of(p, c)}")
+    if getattr(a, "sheet", None):
+        from .build import cast_sheet
+
+        styles = [x.strip() for x in (a.styles or "v1,v2,v3,v4").split(",") if x.strip()]
+        out = Path(a.sheet)
+        if out.suffix.lower() != ".png":
+            raise StudioError("The sheet is written as a PNG image.", "Give a file name ending in .png.")
+        im = cast_sheet(p, styles)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        im.save(out, optimize=True)
+        print(f"Cast sheet: {out} ({im.width}x{im.height}, styles {', '.join(styles)})")
     return 0
+
+
+def _style_of(p, c) -> str:
+    from .render import figures
+
+    look = c.look or {}
+    code = figures.style_code(look.get("style") or p.render_cfg.get("character_style"))
+    if code == "v4" and not look.get("portrait") and look.get("design"):
+        code = "v2"
+    drawable = look.get("design") or look.get("preset") in figures.BUILTIN_DESIGNS
+    if code in figures.DRAWN_STYLES and not drawable:
+        return f"{code} requested, but there is no look.design or bundled preset to draw; the portrait is used"
+    return f"{code} {figures.STYLES[code]}" + (" (drawn, animated)" if code in figures.DRAWN_STYLES else " (portrait)")
 
 
 def cmd_script(a) -> int:
@@ -235,6 +260,9 @@ def parser() -> argparse.ArgumentParser:
         if name == "validate":
             s.add_argument("--scenes")
             s.add_argument("--strict", action="store_true", help="treat warnings as errors")
+        if name == "characters":
+            s.add_argument("--sheet", metavar="FILE.png", help="draw the cast in every style into one image")
+            s.add_argument("--styles", metavar="v1,v2,v3,v4", help="which styles the sheet shows (default: all four)")
         s.set_defaults(fn=fn)
 
     s = sub.add_parser("script", help="print the resolved script (what is shown and what is spoken)")

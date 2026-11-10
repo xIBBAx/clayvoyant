@@ -16,7 +16,8 @@ the first table is promised or scheduled. Each item says how we would know it wo
 | Voices: offline, Sarvam, ElevenLabs, with cache, budgets, ledger and pronunciation export | done; paid providers tested against recorded responses only |
 | Cards renderer, three presets, incremental rendering, SRT/WebVTT/transcript/manifest | done |
 | Byte-for-byte reproducible renders on one toolchain | measured: the same project, version and FFmpeg build give the same file hash |
-| Character animation (2D or 3D) | not in 0.1: the cards show still portraits |
+| Character styles: v1 sketch, v2 flat, v3 cut-out (drawn), v4 clay (portraits) | done in 0.2; characters can be described in text |
+| Character animation | 0.2: in the drawn styles the speaker talks and blinks; no body animation |
 | Clay renderer (animated 3D puppets) | not included in this release |
 
 What the 0.1 films are, measured on the reference film: 94 % of the running time is still frames
@@ -89,10 +90,11 @@ The project's timeline is already independent of the renderer: every line has a 
 frame range, display and spoken text, and (when a voice provides it) timing. Richer motion builds
 on that contract rather than on any particular engine.
 
-1. **Motion on cards (0.2–0.3).** Speaker emphasis, gentle portrait movement and text reveals in
-   the cards renderer, with a reduced-motion preset. Honest, cheap, and it works on any computer.
-2. **Layered 2D characters (0.3).** A documented portrait format split into layers (body, head,
-   eyes, a mouth set), supplied by the user as PNGs, with mouth shapes driven by a lip-sync tool or
+1. **Motion on cards.** *(Started in 0.2: drawn characters talk and blink.)* Next: speaker close-ups
+   (the face is small in the full-frame layout), listeners' reactions, simple gestures, text
+   reveals, and a reduced-motion preset.
+2. **Layered 2D characters.** *(0.2 draws its own from a text description.)* Next: a documented
+   portrait format split into layers (body, head, eyes, a mouth set), supplied by the user as PNGs, with mouth shapes driven by a lip-sync tool or
    the voice provider's timings. Anyone can draw a character for it; no 3D software needed.
 3. **A renderer plug-in interface (0.4).** A small, versioned contract (timeline in, frames out)
    with contract tests, so independently written 2D or 3D back ends can ship as separate packages.

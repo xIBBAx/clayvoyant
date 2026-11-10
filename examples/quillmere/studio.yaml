@@ -77,7 +77,11 @@ characters:
     # To use a paid voice instead, replace `voice:` with one of these (docs/VOICE_PROVIDERS.md):
     #   voice: { provider: sarvam, model: "bulbul:v3", speaker: "rahul" }
     #   voice: { provider: elevenlabs, model: "eleven_multilingual_v2", voice_id: "<your voice id>" }
-    look: { preset: leo, portrait: assets/characters/leo.png, colors: { top: "#8C5A3C" } }
+    # CHANGED: Kabir is described in text and drawn by the tool: a kurta instead of the jacket.
+    look:
+      preset: leo
+      portrait: assets/characters/leo.png                     # still used if you switch to the clay style
+      design: { outfit: { style: kurta, color: "#3E6B5A", shirt: "#F1E6D3" }, shoes: { style: flat, color: "#5A3E2B" } }
 
   - id: aarav
     name: Aarav
@@ -129,6 +133,7 @@ speech:
 render:
   preset: draft                                 # CHANGED: fast 960x540 while editing; use final for delivery
   renderer: cards
+  character_style: cutout                       # CHANGED: v3, drawn paper cut-outs that talk and blink
   output: build
   burn_subtitles: true
   subtitle_speaker_labels: true                 # CHANGED: "KABIR: ..." in the .srt file

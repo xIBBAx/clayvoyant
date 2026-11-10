@@ -20,12 +20,14 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from PIL import Image, ImageDraw
+
 from . import __version__
 from .audio import ffmpeg as ff
 from .errors import ConfigError, RenderError
 from .project import Project, placeholder_contacts, validate
 from .project import errors as only_errors
-from .render import cards
+from .render import cards, figures
 from .render.style import Palette, load_image
 from .safepath import atomic_write_text, ensure_output_dir, safe_name
 from .subtitles import check as check_subs
@@ -214,9 +216,19 @@ def visuals(project: Project, burn: bool, fallback_lines: set[str]) -> tuple[car
         logo = load_image(p)
         sig["logo"] = _file_sha(p)
     portraits, colors = {}, {}
+    drawn: dict[str, dict] = {}
+    default_style = figures.style_code(project.render_cfg.get("character_style"))
     for cid, ch in project.characters.items():
         look = ch.look or {}
-        if look.get("portrait"):
+        style = figures.style_code(look.get("style") or default_style)
+        if style == "v4" and not look.get("portrait") and look.get("design"):
+            style = "v2"  # a character described in text but without a portrait is drawn flat
+        if style in figures.DRAWN_STYLES and (look.get("design") or look.get("preset") in figures.BUILTIN_DESIGNS):
+            design = figures.normalize(look.get("design"), look.get("preset"))
+            drawn[cid] = draw_figures(project, cid, design, style)
+            portraits[cid] = drawn[cid]["rest"]
+            sig[f"figure:{cid}"] = [style, design, figures.FIGURES_VERSION]
+        elif look.get("portrait"):
             p = project.path(look["portrait"], f"characters.{cid}.look.portrait")
             portraits[cid] = load_image(p)
             sig[f"portrait:{cid}"] = _file_sha(p)
@@ -230,8 +242,36 @@ def visuals(project: Project, burn: bool, fallback_lines: set[str]) -> tuple[car
     sig["names"] = {cid: c.name for cid, c in project.characters.items()}
     sig["colors"] = colors
     vis = cards.Visuals(Palette.from_config(org.get("palette")), org["name"], logo, portraits,
-                        {cid: c.name for cid, c in project.characters.items()}, colors, burn, fallback_lines, backdrops)
+                        {cid: c.name for cid, c in project.characters.items()}, colors, burn, fallback_lines, backdrops,
+                        figures=drawn)
     return vis, sig
+
+
+FIGURE_HEIGHT = 820
+
+
+def draw_figures(project: Project, cid: str, design: dict, style: str) -> dict:
+    """A drawn character's variants, kept in .studio/work/figures so each is drawn once per design."""
+    key = _sha(json.dumps({"d": design, "s": style, "v": figures.FIGURES_VERSION, "h": FIGURE_HEIGHT, "id": cid},
+                          sort_keys=True).encode())[:20]
+    folder = project.root / ".studio" / "work" / "figures" / key
+    paths = {v: folder / f"{v}.png" for v in figures.VARIANTS}
+    out: dict = {}
+    if all(p.is_file() for p in paths.values()):
+        try:
+            for v, p in paths.items():
+                with Image.open(p) as im:
+                    out[v] = im.convert("RGBA")
+            return out
+        except OSError:
+            out = {}  # a damaged cache file: draw again
+    out = figures.figure_set(design, style, FIGURE_HEIGHT, key=cid)
+    folder.mkdir(parents=True, exist_ok=True)
+    for v, im in out.items():
+        tmp = paths[v].with_name(paths[v].stem + ".part.png")
+        im.save(tmp, optimize=False)
+        tmp.replace(paths[v])
+    return out
 
 
 def _render_one(tl: SceneTimeline, vis: cards.Visuals, out: Path, preset: str, threads: int) -> str:
@@ -435,3 +475,41 @@ def probe_summary(path: Path) -> dict:
 def clean(project: Project) -> None:
     """Delete rendered scene videos and work files (keeps the voice cache, which may have cost money)."""
     shutil.rmtree(project.root / STATE_DIR / "work", ignore_errors=True)
+
+
+def cast_sheet(project: Project, styles: list[str], height: int = 520) -> Image.Image:
+    """The project's cast drawn in each style, one row per style: a preview before choosing."""
+    from .render.style import font, text_width
+
+    codes = []
+    for st in styles:
+        code = figures.STYLE_ALIASES.get(st.lower())
+        if code is None:
+            raise ConfigError(f"Unknown character style '{st}'.", "Use v1 (sketch), v2 (flat), v3 (cutout) or v4 (clay).")
+        codes.append(code)
+    pal = Palette.from_config(project.org.get("palette"))
+    cast = list(project.characters.items())
+    col, label_w, row_h = round(height * 0.5), 260, height + 110
+    im = Image.new("RGB", (label_w + col * len(cast) + 40, row_h * len(codes) + 40), pal.background)
+    d = ImageDraw.Draw(im)
+    for r, code in enumerate(codes):
+        y0 = 20 + r * row_h
+        d.text((30, y0 + height // 2 - 40), code, font=font(56, "bold"), fill=pal.primary)
+        d.text((32, y0 + height // 2 + 26), figures.STYLES[code], font=font(30, "regular"), fill=pal.text)
+        for i, (cid, ch) in enumerate(cast):
+            look = ch.look or {}
+            fig = None
+            if code in figures.DRAWN_STYLES and (look.get("design") or look.get("preset") in figures.BUILTIN_DESIGNS):
+                fig = draw_figures(project, cid, figures.normalize(look.get("design"), look.get("preset")), code)["rest"]
+            elif code == "v4" and look.get("portrait"):
+                fig = load_image(project.path(look["portrait"], f"characters.{cid}.look.portrait")).convert("RGBA")
+            x0 = label_w + i * col
+            if fig is not None:
+                fig = fig.resize((max(1, round(fig.width * height / fig.height)), height), Image.LANCZOS)
+                im.paste(fig, (x0 + (col - fig.width) // 2, y0), fig)
+            else:
+                d.text((x0 + 20, y0 + height // 2), "no art", font=font(26, "regular"), fill=pal.text)
+            f = font(30, "bold")
+            d.text((x0 + (col - text_width(d, ch.name, f)) // 2, y0 + height + 18), ch.name, font=f, fill=pal.text)
+    return im
+

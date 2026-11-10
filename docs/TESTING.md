@@ -121,6 +121,7 @@ functions in `tests/`.
 | Broken links and missing files in the docs | PASS | `test_relative_links_resolve`, `test_docs_mention_only_commands_that_exist` |
 | README images without alt text | PASS | `test_every_readme_image_has_alt_text` |
 | Clean clone, install and render | PASS | `git clone` from GitHub into an empty folder: `uv sync --frozen`, `init`, `validate --strict`, a draft scene; the README's `pip install -e .` path rendered the whole starter film as a draft in 51 s (227 MB peak) |
+| Drawn character styles (v1-v3) | PASS | `tests/test_figures.py`: every bundled character in every style, every documented hair, outfit, shoe and extra, determinism, face-only variants, schema accept/reject, unchanged cache keys for existing projects, talking and blinking on twos, the `--sheet` command, a full render; every style and option was also checked by eye |
 | Colour tags with newer FFmpeg | PASS | FFmpeg 9 dropped BT.709 primaries and transfer; frames are now tagged with `setparams` (found by the Windows CI run, reproduced locally with 9.0.2, byte-identical output on 6.1) |
 | Secrets in the tree | PASS | gitleaks 8.30.1: no leaks; the history scan runs in CI |
 | Credentials in logs and output | PASS | `test_cli_credentials_never_prints_values`; keys are never written |

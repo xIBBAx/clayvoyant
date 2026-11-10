@@ -108,6 +108,19 @@ def cast_board() -> Image.Image:
     return im
 
 
+def styles_board() -> Image.Image:
+    """The starter cast in the four styles, drawn by the package itself in a temporary project."""
+    import tempfile
+
+    from sastudio.build import cast_sheet
+    from sastudio.cli import main
+    from sastudio.project import load_project
+
+    with tempfile.TemporaryDirectory(prefix="sas-styles-") as tmp:
+        main(["init", f"{tmp}/film"])
+        return cast_sheet(load_project(Path(tmp) / "film"), ["v1", "v2", "v3", "v4"], height=380)
+
+
 def save(im: Image.Image, path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     im.convert("RGB").save(path, optimize=True)  # no text chunks, no EXIF
@@ -119,3 +132,4 @@ if __name__ == "__main__":
     save(cover(1920, 1080), OUT / "film" / "cover-1920x1080.png")
     save(thumbnail(), OUT / "film" / "thumbnail-1280x720.png")
     save(cast_board(), OUT / "characters" / "cast-1600x900.png")
+    save(styles_board(), OUT / "characters" / "styles.png")

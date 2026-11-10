@@ -36,6 +36,18 @@ Every preset is 24 frames per second, H.264 video (`yuv420p`, BT.709) with AAC s
 
 Set the default in `studio.yaml` (`render.preset`) and override it with `--preset`.
 
+### Character styles
+
+`render.character_style` picks how characters look: `v1` sketch, `v2` flat, `v3` cutout or `v4`
+clay (the default). The drawn styles (v1-v3) animate the speaker's mouth and blinks on twos; see
+[CHARACTERS.md](CHARACTERS.md#four-styles). Changing the style re-renders every scene once; the
+figures are drawn once per design and kept in `.studio/work/figures`.
+
+Measured on the machine in [REQUIREMENTS.md](REQUIREMENTS.md): drawing all six variants of one
+character takes about 0.3 s (flat), 0.4 s (sketch) and 0.9 s (cut-out); a 75-second scene at
+1280x720 renders in 14-20 s from a clean cache in a drawn style, against a few seconds in clay,
+because the speaker's face changes 12 times a second instead of holding still.
+
 ### A final film needs your real reporting address
 
 Every template ships the placeholder `security@example.com` and `https://example.com/report`, which

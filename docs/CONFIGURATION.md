@@ -83,10 +83,18 @@ characters:
       sarvam: { text: "लियो" }
     voice: { provider: offline }   # see VOICE_PROVIDERS.md
     look:
-      portrait: assets/characters/leo.png   # what the cards renderer shows: any PNG with transparency
-      preset: leo                  # clay appearance preset; used only by the clay renderer (not in 0.1)
-      colors: { top: "#8C5A3C" }   # clay outfit colours; used only by the clay renderer (not in 0.1)
+      portrait: assets/characters/leo.png   # the v4 clay style shows this: any PNG with transparency
+      preset: leo                  # the bundled character this one starts from (looks, in every style)
+      colors: { top: "#8C5A3C" }   # clay outfit colours; used only by the clay renderer (not in this release)
+      style: v3                    # optional: this character's style (v1 sketch, v2 flat, v3 cutout, v4 clay)
+      design:                      # optional: how the drawn styles (v1-v3) draw this character
+        outfit: { style: kurta, color: "#3E6B5A" }
+        extras: [glasses]
 ```
+
+`style` overrides the film's `render.character_style` (default `v4`, the clay portraits). A
+`design` lists only what differs from the preset; every field and choice is in
+[CHARACTERS.md](CHARACTERS.md#describe-your-own-character).
 
 Renaming a character is one edit to `name` (and `spoken` if it should sound different).
 Every subtitle, label, transcript and spoken line that uses `{leo}` follows, and only lines

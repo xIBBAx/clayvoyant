@@ -32,6 +32,8 @@ FILM_MEDIA = REPO / "docs/media/film"
 MASTER = "Security_Awareness_in_Twelve_Stories"
 TRAILER = "Security_Awareness_Trailer"
 EXAMPLE = "Example_Quillmere_Security_Essentials"
+MASTER_STYLE = "cutout"  # the reference film shows characters that talk
+TRAILER_STYLES = {"v1": "sketch", "v2": "flat", "v3": "cutout", "v4": "clay"}
 
 # The starter project, rebranded for the fictional example organisation.
 BRANDING = {
@@ -145,6 +147,15 @@ def replace_once(text: str, old: str, new: str) -> str:
     return text.replace(old, new)
 
 
+def set_style(text: str, style: str) -> str:
+    """Set `render.character_style` (the template ships it commented out)."""
+    pattern = r"  (?:# )?character_style: [^\n]*\n"  # commented out in the template, or already set
+    out, n = re.subn(pattern, f"  character_style: {style}\n", text)
+    if n != 1:
+        sys.exit("could not find the character_style line in the starter studio.yaml")
+    return out
+
+
 def fresh_project(path: Path) -> None:
     if path.exists():
         if not (path / "studio.yaml").exists():
@@ -163,7 +174,7 @@ def projects(work: Path) -> None:
     text = (starter / "studio.yaml").read_text("utf-8")
     for old, new in BRANDING.items():
         text = replace_once(text, old, new)
-    (starter / "studio.yaml").write_text(text, "utf-8")
+    (starter / "studio.yaml").write_text(set_style(text, MASTER_STYLE), "utf-8")
 
     corpus = "\n".join(p.read_text("utf-8") for p in sorted(STARTER_SCENES.glob("*.yaml")))
     fresh_project(trailer)
@@ -207,6 +218,14 @@ def projects(work: Path) -> None:
     if n != 1:
         sys.exit("could not find the scenes list in the starter studio.yaml")
     (trailer / "studio.yaml").write_text(text, "utf-8")
+    for code in TRAILER_STYLES:  # the same five scenes once per character style
+        styled = work / f"trailer_{code}"
+        if styled.exists():
+            if not (styled / "studio.yaml").exists():
+                sys.exit(f"{styled} exists and is not a project; refusing to replace it")
+            shutil.rmtree(styled)
+        shutil.copytree(trailer, styled, ignore=shutil.ignore_patterns("build", ".studio"))
+        (styled / "studio.yaml").write_text(set_style(text, code), "utf-8")
 
     if quillmere.exists():
         if not (quillmere / "studio.yaml").exists():
@@ -214,7 +233,7 @@ def projects(work: Path) -> None:
         shutil.rmtree(quillmere)
     shutil.copytree(REPO / "examples/quillmere", quillmere, ignore=shutil.ignore_patterns("build", ".studio"))
 
-    for p in (starter, trailer, quillmere):
+    for p in (starter, trailer, quillmere, *(work / f"trailer_{c}" for c in TRAILER_STYLES)):
         print(sas("validate", str(p), "--strict").strip().splitlines()[-1])
 
 
@@ -222,7 +241,7 @@ def render(work: Path, jobs: int = max(2, min(6, (os.cpu_count() or 4) // 2))) -
     runs = [
         # the reference films are demonstrations: their reporting address is the fictional quillmere.example
         ("starter", ["--preset", "final", "--allow-placeholder-contacts"]),
-        ("trailer", ["--preset", "final", "--allow-placeholder-contacts"]),
+        *((f"trailer_{c}", ["--preset", "final", "--allow-placeholder-contacts"]) for c in TRAILER_STYLES),
         ("quillmere", ["--lang", "en-IN"]),
         ("quillmere", ["--lang", "hi-IN"]),
     ]
@@ -303,13 +322,16 @@ def release_files(work: Path) -> dict[str, Path]:
     files: dict[str, Path] = {}
     for name, stem, lang, extra in (
         ("starter", MASTER, "en-IN", (".transcript.txt",)),
-        ("trailer", TRAILER, "en-IN", ()),
+        *((f"trailer_{c}", f"{TRAILER}.{c}-{n}", "en-IN", ()) for c, n in TRAILER_STYLES.items()),
         ("quillmere", EXAMPLE, "en-IN", ()),
         ("quillmere", EXAMPLE, "hi-IN", ()),
     ):
         film = built(work, name, lang)
         base = film.name[: -len(".mp4")]
         for suffix in (".mp4", ".srt", ".vtt", *extra):
+            if name.startswith("trailer_") and suffix != ".mp4":
+                files[f"{TRAILER}.{lang}{suffix}"] = film.with_name(base + suffix)  # same words in every style
+                continue
             files[f"{stem}.{lang}{suffix}"] = film.with_name(base + suffix)
         if name == "starter":
             files[f"{stem}.{lang}.manifest.json"] = film.with_name("manifest.json")
@@ -376,9 +398,16 @@ def verify(dest: Path) -> None:
         d = yaml.safe_load(f.read_text("utf-8"))
         titles[d["id"]] = (d["title"], d.get("topic", "").replace("_", " "))
     films = [
-        ("Starter film (master)", f"{MASTER}.en-IN.mp4", "starter template, Quillmere branding, `--preset final`"),
-        ("Trailer", f"{TRAILER}.en-IN.mp4", "5 scenes built from starter lines, `--preset final`"),
-        ("Example, English", f"{EXAMPLE}.en-IN.mp4", "`examples/quillmere`, its own `draft` preset"),
+        (
+            "Starter film (master)",
+            f"{MASTER}.en-IN.mp4",
+            f"starter template, Quillmere branding, `{MASTER_STYLE}` style, `--preset final`",
+        ),
+        *(
+            (f"Trailer, {c} {n}", f"{TRAILER}.{c}-{n}.en-IN.mp4", f"5 starter scenes, `{n}` style, `--preset final`")
+            for c, n in TRAILER_STYLES.items()
+        ),
+        ("Example, English", f"{EXAMPLE}.en-IN.mp4", "`examples/quillmere`, `cutout` style, its own `draft` preset"),
         ("Example, Hindi", f"{EXAMPLE}.hi-IN.mp4", "`examples/quillmere`, `--lang hi-IN`"),
     ]
     rows, black = [], 0
@@ -397,6 +426,33 @@ def verify(dest: Path) -> None:
     peak = measure(master, "-vn|-af|volumedetect", r"max_volume: (-?[\d.]+) dB")
     holds = measure(master, "-an|-vf|freezedetect=n=0.001:d=1", r"freeze_duration: ([\d.]+)")
     held = sum(float(x) for x in holds)
+
+    def strong_changes(path: Path) -> tuple[int, int]:
+        # Largest pixel difference from the previous frame. Encoder noise moves a few levels; a cut, a
+        # new subtitle or a mouth opening moves tens of levels.
+        log = subprocess.run(
+            [
+                "ffmpeg",
+                "-hide_banner",
+                "-i",
+                str(path),
+                "-an",
+                "-vf",
+                "tblend=all_mode=difference,signalstats,metadata=print:key=lavfi.signalstats.YMAX",
+                "-f",
+                "null",
+                "-",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        ).stderr
+        ymax = [int(v) for v in re.findall(r"YMAX=(\d+)", log)]
+        return sum(1 for v in ymax if v >= 48), len(ymax)
+
+    motion = {
+        code: strong_changes(dest / f"{TRAILER}.{code}-{name}.en-IN.mp4") for code, name in TRAILER_STYLES.items()
+    }
     duration = float(p["format"]["duration"])
     tags = ", ".join(sorted((p["format"].get("tags") or {}).keys())) or "none"
     cues = (dest / f"{MASTER}.en-IN.srt").read_text("utf-8").count("-->")
@@ -419,8 +475,10 @@ rendered from this repository alone by `tools/make_reference_media.py`, with
 `sastudio {manifest["version"]}`, Pillow {PIL.__version__} and {ffv}, on the machine described in
 [REQUIREMENTS.md](../../REQUIREMENTS.md).
 
-**What the films are.** Illustrated cards with hard cuts: a still portrait of whoever is speaking,
-the line in large on-screen text, key-point cards and title cards. The characters are not animated.
+**What the films are.** Illustrated cards with hard cuts: whoever is speaking, the line in large
+on-screen text, key-point cards and title cards. In the drawn styles (sketch, flat, cut-out) the
+speaker's mouth and eyes move, 12 changes a second; bodies stay still. In the clay style the
+portraits are still images.
 The voices are the free offline placeholder, which is digital silence (measured below); the
 dialogue is in the burned-in text and in the `.srt` and `.vtt` files beside each film.
 
@@ -440,11 +498,22 @@ source archive built by the release workflow.)
 | Video stream | `ffprobe` | {v["codec_name"]}, {v["width"]}x{v["height"]}, {v["r_frame_rate"]} fps, {v["pix_fmt"]} |
 | Audio stream | `ffprobe` | {a["codec_name"]}, {a["sample_rate"]} Hz, {a["channels"]} channels |
 | Audio level | `ffmpeg -af volumedetect` | peak {peak[0] if peak else "n/a"} dB: digital silence (placeholder voices) |
-| Still frames | `ffmpeg -vf freezedetect=n=0.001:d=1` | {len(holds)} holds of 1 s or more, {held:.1f} s of {duration:.1f} s ({100 * held / duration:.1f} %) |
+| Long still stretches | `ffmpeg -vf freezedetect=n=0.001:d=1` (whole-frame change; a moving mouth is below its threshold) | {len(holds)} of 1 s or more, {held:.1f} s of {duration:.1f} s |
 | Frame count equals the timeline | manifest and `ffprobe` | {total:,} = {int(v["nb_frames"]):,} |
 | Black frames | `ffmpeg -vf blackdetect=d=0.25:pic_th=0.98`, all four films | {black} found |
 | Subtitles | build checks (overlap, width, reading speed) | {cues} cues, {len(manifest.get("warnings") or [])} warning(s) |
 | Container metadata | `ffprobe -show_entries format_tags` | tags present: {tags} |
+
+## Does it move? The trailer in four styles
+
+The same five scenes in each style. Counted: frames whose largest pixel change from the frame
+before is 48 or more (of 255), from `ffmpeg -vf tblend=all_mode=difference,signalstats`. In clay
+only cuts, fades and new subtitles cross it, so clay is the control; the extra frames in the drawn
+styles are the speaker's mouth and blinks.
+
+| Style | Frames with a strong change |
+|---|---|
+{chr(10).join(f"| {c} {n} | {motion[c][0]:,} of {motion[c][1]:,} |" for c, n in TRAILER_STYLES.items())}
 
 ## Scenes in the starter film
 

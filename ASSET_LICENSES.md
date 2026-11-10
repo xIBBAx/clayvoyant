@@ -21,6 +21,8 @@ Made by Ibrahim Sultan for this project, and shared under the same MIT License a
 | Five clay character designs (Mira, Leo, Aarav, Nadia, Rook) | `src/sastudio/engine/characters/*.json` | Parameter files describing each character |
 | Character portraits | `src/sastudio/templates/starter/assets/characters/*.png`, `docs/media/characters/*.png` (except the cast board), `examples/quillmere/assets/characters/*.png` (copies) | Rendered from those parameter files with the author's Blender clay pipeline. This repository contains the resulting images and the parameter files, not the renderer. |
 | Cast board | `docs/media/characters/cast-1600x900.png` | Composed from the portraits by `tools/make_readme_media.py` |
+| Drawn character styles (v1 sketch, v2 flat, v3 cut-out) | `src/sastudio/render/figures.py` | Code written for this project that draws every figure from a short text description at render time; no image files, no third-party art, nothing downloaded |
+| Styles gallery | `docs/media/characters/styles.png` | The starter cast drawn by `sastudio characters --sheet`, via `tools/make_readme_media.py` |
 | Example organisation logo (a placeholder to replace) | `src/sastudio/templates/starter/assets/logo.png` | Drawn with Pillow |
 | Project logo | `docs/media/brand/` | Drawn with code by `tools/make_brand.py` (SVG and PNG) |
 | Fictional Quillmere Logistics logo (example only) | `examples/quillmere/assets/logo.png` | Drawn with code by `tools/make_example_assets.py` |

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "security-awareness-studio"
-version = "0.1.0"
+version = "0.2.0"
 description = "Make captioned information-security awareness films from plain-text projects: your organisation, characters, voices, languages and scenes."
 readme = "README.md"
 license = "MIT"

@@ -127,6 +127,7 @@ speech:
 render:
   preset: preview
   renderer: cards
+  # character_style: v2    # v1 sketch, v2 flat, v3 cutout: drawn characters that talk and blink; v4 clay portraits (default)
   output: build
   burn_subtitles: true
   subtitle_speaker_labels: false

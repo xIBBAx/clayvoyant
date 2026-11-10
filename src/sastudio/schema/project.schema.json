@@ -12,6 +12,22 @@
     "shortText": {"type": "string", "minLength": 1, "maxLength": 120},
     "text": {"type": "string", "minLength": 1, "maxLength": 2000},
     "color": {"type": "string", "pattern": "^#[0-9A-Fa-f]{6}$"},
+    "charStyle": {"type": "string", "enum": ["v1", "v2", "v3", "v4", "sketch", "flat", "cutout", "clay"]},
+    "design": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "skin": {"$ref": "#/$defs/color"},
+        "eyes": {"$ref": "#/$defs/color"},
+        "lip": {"$ref": "#/$defs/color"},
+        "blush": {"$ref": "#/$defs/color"},
+        "hair": {"type": "object", "additionalProperties": false, "properties": {"style": {"enum": ["short", "side_sweep", "swept_back", "curls", "bob", "bun", "long", "ponytail", "headscarf", "bald"]}, "color": {"$ref": "#/$defs/color"}}},
+        "outfit": {"type": "object", "additionalProperties": false, "properties": {"style": {"enum": ["blazer", "suit", "jacket", "shirt", "sweater", "kurta"]}, "color": {"$ref": "#/$defs/color"}, "shirt": {"$ref": "#/$defs/color"}}},
+        "trousers": {"$ref": "#/$defs/color"},
+        "shoes": {"type": "object", "additionalProperties": false, "properties": {"style": {"enum": ["flat", "sneaker", "brogue", "heel", "boot"]}, "color": {"$ref": "#/$defs/color"}}},
+        "extras": {"type": "array", "uniqueItems": true, "maxItems": 8, "items": {"enum": ["glasses", "necklace", "lapel_pin", "freckles", "earrings", "beard", "moustache", "bindi"]}}
+      }
+    },
     "byLang": {
       "type": "object",
       "propertyNames": {"anyOf": [{"const": "default"}, {"$ref": "#/$defs/lang"}]},
@@ -233,7 +249,9 @@
             "properties": {
               "preset": {"$ref": "#/$defs/id"},
               "portrait": {"$ref": "#/$defs/relpath"},
-              "colors": {"type": "object", "propertyNames": {"enum": ["skin", "hair", "top", "accent", "bottom", "eyes"]}, "additionalProperties": {"$ref": "#/$defs/color"}}
+              "colors": {"type": "object", "propertyNames": {"enum": ["skin", "hair", "top", "accent", "bottom", "eyes"]}, "additionalProperties": {"$ref": "#/$defs/color"}},
+              "style": {"$ref": "#/$defs/charStyle"},
+              "design": {"$ref": "#/$defs/design"}
             }
           }
         }
@@ -324,6 +342,7 @@
       "properties": {
         "preset": {"type": "string", "enum": ["draft", "preview", "final"]},
         "renderer": {"type": "string", "enum": ["cards", "clay"]},
+        "character_style": {"$ref": "#/$defs/charStyle"},
         "output": {"$ref": "#/$defs/relpath"},
         "burn_subtitles": {"type": "boolean"},
         "subtitle_speaker_labels": {"type": "boolean"},

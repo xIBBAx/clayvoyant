@@ -24,24 +24,25 @@ never cost anything unless you ask for them.
 ## The reference film
 
 <p align="center">
-  <img src="docs/media/film/loop.gif" width="800" alt="Eight seconds of the starter film: Leo, a clay character in a terracotta jacket, says he has won a free tablet and only needs to confirm his login in the next ten minutes. Each line appears as a large subtitle, his name tag is highlighted and the two listening colleagues are dimmed.">
+  <img src="docs/media/film/loop.gif" width="800" alt="Eight seconds of the starter film in the cut-out style: Leo, a paper cut-out figure in a terracotta jacket, talks as he says he has won a free tablet and only needs to confirm his login in the next ten minutes; his mouth moves with the words. Each line appears as a large subtitle, his name tag is highlighted and the two listening colleagues are dimmed.">
 </p>
 
 The 12-scene starter film, **Security Awareness in Twelve Stories** (14 min 23 s,
-1920 x 1080), was rendered by this tool from the starter template with one fictional
-organisation's branding, Quillmere Logistics. It covers phishing, passwords and MFA, phone
+1920 x 1080), was rendered by this tool from the starter template in the cut-out character style,
+with one fictional organisation's branding, Quillmere Logistics. It covers phishing, passwords and MFA, phone
 impersonation, payment fraud, clear desk and tailgating, removable media, remote work, data
 handling, AI tools and incident reporting.
 
-The film, its SRT and WebVTT subtitles, an 83-second trailer and the worked example in English and
-Hindi are attached to the [v0.1.0 release](https://github.com/xIBBAx/security-awareness-studio/releases/tag/v0.1.0)
-with SHA-256 checksums. How each one was checked is in
+The film, its SRT and WebVTT subtitles, an 83-second trailer in each of the four character styles
+and the worked example in English and Hindi are attached to the
+[latest release](https://github.com/xIBBAx/security-awareness-studio/releases/latest) with SHA-256
+checksums. How each one was checked is in
 [docs/media/film/VERIFY.md](docs/media/film/VERIFY.md).
 
-What you see is what this release makes: illustrated cards with hard cuts between them, a still
-portrait of whoever is speaking, and every line in large on-screen text. The characters are not
-animated. The voices in these films are the free offline placeholder, which is silent; the dialogue
-is in the subtitles. A film made with Sarvam or ElevenLabs voices uses your own account.
+What you see is what this release makes: illustrated cards with hard cuts between them, whoever is
+speaking, and every line in large on-screen text. In the drawn styles the speaker's mouth moves with
+the words and the characters blink; bodies stay still. The voices in these films are the free
+offline placeholder, which is silent; the dialogue is in the subtitles. A film made with Sarvam or ElevenLabs voices uses your own account.
 
 <p>
   <img src="docs/media/film/stills/01-title.png" width="49%" alt="Title card: the Quillmere Logistics logo above the film title, Security Awareness in Twelve Stories.">
@@ -52,9 +53,26 @@ is in the subtitles. A film made with Sarvam or ElevenLabs voices uses your own 
 
 ## Meet the characters
 
-Five clay-style characters, designed for this project, come with the starter project. Their names, pronouns, voices,
-spoken names and dialogue are all set in your project file; their ids stay the same, so renaming
-one never breaks a scene.
+Five characters, designed for this project, come with the starter project, in four styles you
+choose with one line (`render.character_style`). Their names, pronouns, voices, spoken names and
+dialogue are all set in your project file; their ids stay the same, so renaming one never breaks a
+scene.
+
+<p align="center">
+  <img src="docs/media/characters/styles.png" width="720" alt="The five characters in four styles, one row each: v1 sketch with graphite outlines and hatching; v2 flat with clean flat colour; v3 cut-out with layered paper, cut edges and soft shadows; v4 clay, the 3D clay portraits.">
+</p>
+
+| Style | | |
+|---|---|---|
+| `v1` sketch | graphite and wash, like a storyboard | talks and blinks |
+| `v2` flat | clean flat colour, like an explainer | talks and blinks |
+| `v3` cutout | layered paper with shadows and grain | talks and blinks |
+| `v4` clay | the 3D clay portraits (default) | still |
+
+The first three are drawn by this tool from scratch at render time, so you can also **describe a
+new character in a few words** (hair, skin, outfit including a kurta or a headscarf, glasses,
+beard, bindi...) and get them in every drawn style without any artwork. Preview your cast before
+rendering: `sastudio characters my-film --sheet cast.png`.
 
 | | Character |
 |---|---|
@@ -64,23 +82,23 @@ one never breaks a scene.
 | <img src="docs/media/characters/nadia.png" width="60" alt="Nadia, a clay figure with a low bun and a plum jacket"> | **Nadia** · `nadia` · Operations manager<br>Busy, brisk, protective of her team. Nobody rushes her twice. |
 | <img src="docs/media/characters/rook.png" width="60" alt="Rook, a clay figure in a charcoal suit with swept-back hair"> | **Rook** · `rook` · The impersonator<br>Charming, patient, never who they say they are. Turns up as a courier, a caller, a "boss". |
 
-You can rename any of them, change their pronouns and voices, remove them, or add your own
-characters with any portrait image. Changing their 3D appearance needs the clay renderer, which is
-not part of this release ([CHARACTERS.md](docs/CHARACTERS.md)).
+You can rename any of them, change their pronouns, voices and looks, remove them, or add your own
+characters by description or with any portrait image. New 3D clay characters need the clay
+renderer, which is not part of this release ([CHARACTERS.md](docs/CHARACTERS.md)).
 
 ## What it does
 
-| | In 0.1 |
+| | Today |
 |---|---|
 | **Your organisation** | Name, short name, logo, colours, security reporting email and URL, team names, your own words for "colleagues" or "laptop", an announcement on the title card. Set once, used everywhere. |
-| **Characters** | Stable ids with display names, spoken names, pronouns, gendered grammar, per-language names and provider-specific pronunciation hints. |
+| **Characters** | Four styles (sketch, flat, cut-out, clay); new characters described in text; stable ids with display names, spoken names, pronouns, gendered grammar, per-language names and provider-specific pronunciation hints. |
 | **Scenes** | YAML scenes of dialogue and on-screen cards, turned on or off, with dependency checks between scenes, key-point cards, policy notes and time limits. |
 | **Languages** | One film per language from the same project. English and Hindi samples included; Sarvam's catalogue lists English (India) and ten Indian languages. |
 | **Voices** | Sarvam (Bulbul v2, v3, v4-flash), ElevenLabs (v2 to v4 and Flash models) and a free offline placeholder. Content-addressed cache, character budgets, retries, rate limits and a request ledger. |
-| **Video** | The cards renderer: still character portraits on illustrated cards, with hard cuts; 960x540, 1280x720 or 1920x1080 at 24 fps, H.264 and AAC. Only changed scenes are rendered again. |
+| **Video** | The cards renderer: characters on illustrated cards, with hard cuts; in the drawn styles the speaker talks and blinks; 960x540, 1280x720 or 1920x1080 at 24 fps, H.264 and AAC. Only changed scenes are rendered again. |
 | **Accessibility** | SRT and WebVTT subtitles with speaker tags, optional burned-in subtitles, transcripts, Devanagari text shaping, colour-contrast checks, no flashing effects. |
 | **Checks** | `validate` before rendering; every finished film is checked with `ffprobe` for frame count and audio length; a manifest records checksums. |
-| **Not in 0.1** | The clay renderer (animated 3D puppets), live-tested provider integrations, a graphical editor. See the [roadmap](docs/ROADMAP.md). |
+| **Not yet** | Body animation (gestures, walking), the clay renderer (animated 3D puppets), live-tested provider integrations, a graphical editor. See the [roadmap](docs/ROADMAP.md). |
 
 ## How it works
 
@@ -242,7 +260,7 @@ Left: Rendering one scene. Right: The manifest records what was built.
 | | |
 |---|---|
 | **Minimum** | Any 64-bit computer that runs Python 3.11+ and FFmpeg with libx264; about 1 GB of free memory; no GPU. |
-| **Tested** | Intel Core i7-10750H (12 threads), 7.7 GB of memory for WSL2, Ubuntu 24.04: the whole 14-minute starter film in 74 s at 1280x720 (237 MB peak memory) and 2 min 22 s at 1920x1080 (615 MB). |
+| **Tested** | Intel Core i7-10750H (12 threads), 7.7 GB of memory for WSL2, Ubuntu 24.04: the whole 14-minute starter film in 74 s at 1280x720 (237 MB peak memory) and 2 min 22 s at 1920x1080 (615 MB). In the cut-out style, with talking characters, the 1080p film took 2 min 18 s (6 parallel jobs). |
 | **Faster** | More CPU threads: scenes render in parallel (`--jobs`). A GPU does not speed up the cards renderer. |
 
 These are measurements on one machine, not promises ([REQUIREMENTS.md](docs/REQUIREMENTS.md)).
@@ -293,7 +311,7 @@ material and unlicensed content out of the project. Please follow the
 ## License
 
 The code is under the [MIT License](LICENSE). The media made for this project (characters,
-portraits, logos, sample scripts) are shared under the same licence, and the bundled fonts under the SIL Open Font
+portraits, the drawn styles, logos, sample scripts) are shared under the same licence, and the bundled fonts under the SIL Open Font
 License; every file is listed in [ASSET_LICENSES.md](ASSET_LICENSES.md). Films you make are yours,
 and you don't need to credit this project in them. Speech you generate is governed by your voice
 provider's terms.

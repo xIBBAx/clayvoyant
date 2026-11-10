@@ -7,8 +7,10 @@ optionally, burned-in subtitles. Frames are piped straight into FFmpeg.
 
 from __future__ import annotations
 
+import hashlib
 import math
 import subprocess
+from collections import OrderedDict
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -17,7 +19,7 @@ from PIL import Image, ImageDraw, ImageFilter
 from ..audio.ffmpeg import ffmpeg_exe
 from ..errors import RenderError
 from ..timeline import Beat, SceneTimeline
-from . import style
+from . import figures, style
 from .style import Palette, fit_text, font_for, readable_on, rgb, text_width, wrap_px
 
 PRESETS = {
@@ -40,6 +42,7 @@ class Visuals:
     backdrop_images: dict[str, Image.Image] = field(default_factory=dict)  # scene id -> image
     clay: dict[str, Path] = field(default_factory=dict)  # line id -> folder of rendered clay frames
     clay_step: int = 2
+    figures: dict[str, dict[str, Image.Image]] = field(default_factory=dict)  # drawn styles: variant -> image
 
 
 def ease(t: float) -> float:
@@ -88,10 +91,10 @@ class SceneRenderer:
             grad.putpixel((0, y), tuple(int(top[i] + (bottom[i] - top[i]) * t) for i in range(3)))
         return grad.resize((self.W, self.H))
 
-    def portrait(self, cid: str, height: int) -> Image.Image:
-        key = (cid, height)
+    def portrait(self, cid: str, height: int, variant: str = "rest") -> Image.Image:
+        key = (cid, height, variant)
         if key not in self._portrait_cache:
-            src = self.vis.portraits.get(cid)
+            src = (self.vis.figures.get(cid) or {}).get(variant) or self.vis.portraits.get(cid)
             if src is None:
                 src = avatar(self.vis.names.get(cid, cid), self.vis.colors.get(cid, self.pal.primary), 512)
             w = max(1, int(src.width * height / src.height))
@@ -227,11 +230,33 @@ class SceneRenderer:
             level = round(env * 6) / 6  # quantise so resized portraits can be cached
             grow = ease(f / 5.0)
             ph = int(h * (0.94 + 0.04 * grow + 0.012 * level))
-            p = self.portrait(cid, ph)
+            p = self.portrait(cid, ph, self.speaker_variant(beat, f))
             y = self.H - p.height - int(self.S(10) * level)
             im.alpha_composite(p, (cx - p.width // 2, max(0, y)))
             self.name_pill(im, beat.speaker_name or cid, cx, self.H - ph, ease(f / 6.0))
         return self._overlays(im, beat, f)
+
+    def speaker_variant(self, beat: Beat, f: int) -> str:
+        """Which drawn variant the speaker shows on frame f: mouth from the voice, eyes blink now and then.
+
+        Drawn characters are animated on twos (12 changes a second), like stop motion. With real
+        audio the mouth follows its loudness; with the silent placeholder voice it follows the
+        letters of the subtitle being spoken, so vowels open the mouth. Clay portraits never change.
+        """
+        if not self.vis.figures.get(beat.speaker or ""):
+            return "rest"
+        f2 = f - f % 2
+        t = f2 / self.tl.fps
+        if beat.env and max(beat.env) > 0.02:
+            e = beat.env[f2] if f2 < len(beat.env) else 0.0
+            mouth = 0 if e < 0.12 else 1 if e < 0.45 else 2
+        else:
+            cue = next((c for c in beat.cues if c[0] <= t < c[1]), None)
+            mouth = figures.mouth_for(cue[2], (t - cue[0]) / max(1e-6, cue[1] - cue[0])) if cue else 0
+        h = int(hashlib.sha256((beat.speaker or "").encode()).hexdigest()[:6], 16)
+        blink = f2 > 6 and (f2 + h - h % 2) % (66 + h % 41 - h % 41 % 2) < 4  # two drawings, on twos
+        name = ("rest", "talk1", "talk2")[mouth]
+        return ("blink" if mouth == 0 else name + "_blink") if blink else name
 
     def _overlays(self, im: Image.Image, beat: Beat, f: int) -> Image.Image:
         if self.vis.burn_subtitles:
@@ -391,15 +416,21 @@ class SceneRenderer:
     def frames(self):
         for beat in self.tl.beats:
             last_key, last = None, None
+            seen: OrderedDict = OrderedDict()  # recent frames of this beat: talking mouths repeat a few states
             for f in range(beat.frames):
                 if beat.kind == "line":
                     env = beat.env[f] if f < len(beat.env) else 0.0
                     t = f / self.tl.fps
                     cue = next((c[2] for c in beat.cues if c[0] <= t < c[1]), None) if self.vis.burn_subtitles else None
                     clay_idx = f - f % self.vis.clay_step if beat.line_id in self.vis.clay else None
-                    key = ("line", round(env * 6), min(f, 6), cue, clay_idx)
+                    key = ("line", round(env * 6), min(f, 6), cue, clay_idx, self.speaker_variant(beat, f))
                     if key != last_key or last is None:
-                        last = self.frame_line(beat, f).convert("RGB").tobytes()
+                        last = seen.get(key)
+                        if last is None:
+                            last = self.frame_line(beat, f).convert("RGB").tobytes()
+                            seen[key] = last
+                            if len(seen) > 12:
+                                seen.popitem(last=False)
                         last_key = key
                     yield last
                     continue

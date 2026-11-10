@@ -21,6 +21,8 @@ Every change from the starter template is marked `CHANGED` in [studio.yaml](stud
 | Two languages, with Hindi topic names on the title cards | `project.languages`, `project.labels.topics` |
 | How a word is spoken ("Quillmere" as "Quill meer") | `speech.lexicon` |
 | Output: fast draft preset, speaker names in the `.srt` file | `render` |
+| Character style: v3 cut-out, drawn and animated | `render.character_style` |
+| Kabir described in text: a kurta instead of the jacket | `characters[leo].look.design` |
 
 ## Run it
 

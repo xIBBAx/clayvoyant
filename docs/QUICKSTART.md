@@ -40,9 +40,23 @@ sastudio render my-film --preset draft
 
 Only the scenes you changed are rendered again.
 
+## Pick a character style
+
+```bash
+sastudio characters my-film --sheet cast.png   # your cast in all four styles, side by side
+```
+
+Then add one line under `render:` in `my-film/studio.yaml` and render again:
+
+```yaml
+render:
+  character_style: v3    # v1 sketch, v2 flat, v3 cutout (these three talk and blink), v4 clay (default)
+```
+
 ## Next steps
 
 - Rename characters, change voices and languages: [CONFIGURATION.md](CONFIGURATION.md)
+- Styles and describing your own characters: [CHARACTERS.md](CHARACTERS.md)
 - Real voices: [VOICE_PROVIDERS.md](VOICE_PROVIDERS.md) and [API_SETUP.md](API_SETUP.md)
 - Write scenes: [SCENES.md](SCENES.md)
 - Presets, single scenes, subtitles and output files: [RENDERING.md](RENDERING.md)
