@@ -3,10 +3,15 @@
 This uses only free, local tools. No API key, no GPU.
 
 ```bash
-sastudio init my-film                     # copy the starter project
+sastudio init my-film --org "Your Organisation" --email security@your-org.in
 sastudio validate my-film                 # check it
-sastudio render my-film --preset draft    # render it
+sastudio render my-film --preset draft    # render it: about a minute
 ```
+
+`init` puts your organisation's name and reporting address into the copy of the starter project.
+Add `--style v3` for drawn cut-out characters that talk and blink, `--logo logo.png` for your
+logo and `--report-url https://...` for a reporting form. Without them you get example values,
+which `init` points out, and a final render refuses to put an example address in a film.
 
 The film, subtitles and transcript are in `my-film/build/en-IN/`:
 

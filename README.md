@@ -131,12 +131,15 @@ sastudio doctor                   # checks everything and says how to fix what i
 ## Your first film
 
 ```bash
-sastudio init my-film                     # copy the 12-scene starter project
+sastudio init my-film --org "Your Organisation" --email security@your-org.in --style v3
 sastudio validate my-film
 sastudio render my-film --preset draft    # about a minute; no account, no GPU
 ```
 
-The film, subtitles, transcript and manifest are in `my-film/build/en-IN/`. Then make it yours:
+`init` copies the 12-scene starter project with your name, reporting address and character style
+(`--logo your-logo.png` and `--report-url` too); every option is optional, and a plain
+`sastudio init my-film` gives the example values to edit later. The film, subtitles, transcript
+and manifest are in `my-film/build/en-IN/`. Then make it yours:
 
 ## Make it yours
 

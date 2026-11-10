@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- `sastudio init` takes your organisation's details: `--org`, `--short-name`, `--email`,
+  `--report-url`, `--style` and `--logo` (any image, saved as PNG). Every option is checked before
+  anything is created, values are written safely (quotes, Hindi and other scripts), and the
+  template's explanatory comments stay. A plain `init` now says which reporting contacts are
+  still placeholders.
+- `.gitignore` keeps local editor and AI-agent settings (`.claude/`, `.cursor/`, `.codex/` and
+  others) out of the repository.
+- Design for an open clay-motion renderer, with measured render costs: `docs/CLAY_MOTION.md`.
+
 ## 0.2.0 (2026-11-10)
 
 ### Characters in four styles

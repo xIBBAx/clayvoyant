@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import errno
 import json
+import re
 import shutil
 import sys
 from importlib import resources
@@ -12,6 +13,7 @@ from pathlib import Path
 
 from . import __version__
 from .errors import StudioError
+from .safepath import atomic_write_text
 
 TEMPLATES = ("starter", "short", "education")
 
@@ -29,18 +31,100 @@ def _load(path: str):
     return p
 
 
+EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+def _init_options(a) -> dict:
+    """Check every `init` option before anything is created, so a typo never leaves a half-made folder."""
+    from .render import figures
+
+    out: dict = {}
+    for flag, value, limit in (("--org", a.org, 80), ("--short-name", a.short_name, 30)):
+        if value is not None:
+            value = value.strip()
+            if not value or len(value) > limit or any(ord(c) < 32 for c in value) or any(c in value for c in "{}"):
+                raise StudioError(f"{flag} must be 1-{limit} characters on one line, without braces.")
+            out[flag] = value
+    if a.email is not None:
+        if not EMAIL_RE.match(a.email) or len(a.email) > 254:
+            raise StudioError(f"--email '{a.email}' is not an email address.", "Use the address people should report to.")
+        out["--email"] = a.email
+    if a.report_url is not None:
+        if not re.match(r"^https://[^\s]+$", a.report_url) or len(a.report_url) > 300:
+            raise StudioError("--report-url must be an https:// address without spaces.")
+        out["--report-url"] = a.report_url
+    if a.style is not None:
+        code = figures.STYLE_ALIASES.get(a.style.lower())
+        if code is None:
+            raise StudioError(f"Unknown style '{a.style}'.", "Use v1 (sketch), v2 (flat), v3 (cutout) or v4 (clay).")
+        out["--style"] = code
+    if a.logo is not None:
+        from PIL import Image
+
+        logo = Path(a.logo)
+        try:
+            with Image.open(logo) as im:
+                im.load()
+                out["--logo"] = im.convert("RGBA")
+        except (OSError, ValueError) as e:
+            raise StudioError(f"--logo {logo} is not a readable image ({e}).", "Use a PNG or JPEG file.") from None
+    return out
+
+
+def _yaml_str(value: str) -> str:
+    return json.dumps(value, ensure_ascii=False)  # a JSON string is a valid YAML double-quoted string
+
+
+def _short_name(org: str) -> str:
+    if len(org) <= 18:
+        return org
+    words = [w.strip(",.") for w in org.split() if w.lower() not in ("the", "a")]
+    return (words[0] if words else org)[:30]
+
+
 def cmd_init(a) -> int:
     dest = Path(a.folder)
     if dest.exists() and any(dest.iterdir()):
         raise StudioError(f"{dest} already exists and is not empty.", "Choose a new folder name.")
     if a.template not in TEMPLATES:
         raise StudioError(f"Unknown template '{a.template}'.", f"Templates: {', '.join(TEMPLATES)}")
+    opts = _init_options(a)
     skip = shutil.ignore_patterns("__pycache__", "__init__.py")
     # Every template shares the starter's scenes and artwork; a template folder only overrides studio.yaml.
     for name in dict.fromkeys(["starter", a.template]):
         with resources.as_file(resources.files("sastudio.templates").joinpath(name)) as s:
             shutil.copytree(s, dest, dirs_exist_ok=True, ignore=skip)
-    print(f"Created {dest}. Next:\n  sastudio validate {dest}\n  sastudio render {dest} --voice-fallback offline")
+    if opts:
+        yml = dest / "studio.yaml"
+        text = yml.read_text("utf-8")
+        fields = {"name": opts.get("--org"), "short_name": opts.get("--short-name"),
+                  "security_email": opts.get("--email"), "reporting_url": opts.get("--report-url")}
+        if fields["name"] and not fields["short_name"]:
+            fields["short_name"] = _short_name(fields["name"])
+        for key, value in fields.items():
+            if value is not None:
+                # replace only the value: the comments that explain each line stay
+                text, n = re.subn(rf'^  {key}: "[^"\n]*"', lambda _m, k=key, v=value: f"  {k}: {_yaml_str(v)}",
+                                  text, count=1, flags=re.M)
+                if n != 1:
+                    raise StudioError(f"The {a.template} template has no organization.{key} line to set.")
+        if "--style" in opts:
+            text, n = re.subn(r"^  # character_style: v2 [^\n]*$", f"  character_style: {opts['--style']}", text,
+                              count=1, flags=re.M)
+            if n != 1:
+                raise StudioError(f"The {a.template} template has no character_style line to set.")
+        atomic_write_text(yml, text)
+        if "--logo" in opts:
+            opts["--logo"].save(dest / "assets" / "logo.png")
+    print(f"Created {dest}.")
+    from .project import load_project, placeholder_contacts
+
+    p = load_project(dest)
+    for found in placeholder_contacts(p):
+        print(f"  Still a placeholder: {found}. Set it with --email / --report-url, or in studio.yaml,"
+              " before a final render.")
+    print(f"Next:\n  sastudio validate {dest}\n  sastudio characters {dest} --sheet {dest / 'cast.png'}\n"
+          f"  sastudio render {dest} --preset draft")
     return 0
 
 
@@ -247,6 +331,12 @@ def parser() -> argparse.ArgumentParser:
     s = sub.add_parser("init", help="create a new project from a template")
     s.add_argument("folder")
     s.add_argument("--template", default="starter", choices=TEMPLATES)
+    s.add_argument("--org", help="your organisation's name, as shown and spoken")
+    s.add_argument("--short-name", help="a short form of the name (default: taken from --org)")
+    s.add_argument("--email", help="where people report incidents, e.g. security@your-org.in")
+    s.add_argument("--report-url", help="an https:// form or portal for reports (optional)")
+    s.add_argument("--style", help="character style: v1 sketch, v2 flat, v3 cutout, v4 clay (default)")
+    s.add_argument("--logo", help="your logo (PNG or JPEG); saved as assets/logo.png")
     s.set_defaults(fn=cmd_init)
 
     s = sub.add_parser("doctor", help="check your computer for everything needed")
