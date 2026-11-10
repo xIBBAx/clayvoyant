@@ -53,3 +53,16 @@ desktop.ini
 .idea/
 .vscode/
 
+# Local editor and AI-agent settings: they can hold machine paths, permission lists or tokens,
+# and are never part of the project
+.claude/
+CLAUDE.local.md
+.cursor/
+.codex/
+.aider*
+.continue/
+.windsurf/
+.zed/
+.hermes/
+.mcp.json
+
