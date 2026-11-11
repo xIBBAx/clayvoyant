@@ -193,3 +193,26 @@ def test_phoneme_marks_drive_the_mouth_when_a_voice_reports_them(film):
     cues = next(ln for ln in job["lines"] if ln["id"] == lid)["cues"]
     assert [s for _, s in cues][:4] == ["A", "D", "G", "F"]
     assert cues[0][0] == pytest.approx(0.03, abs=0.01)   # the provider's leading silence is trimmed off, as in the audio
+
+
+def test_a_prop_insert_is_filmed_and_a_card_is_left_to_the_compositor(monkeypatch):
+    """A line under `camera: insert, who: [laptop]` used to be skipped silently, so a clay film fell back to the
+    drawn style for it. Now the prop is filmed and the line is heard over it; a `card:` line is still drawn as a card."""
+    from types import SimpleNamespace as NS
+
+    filmed: list[str] = []
+    monkeypatch.setattr(SM.clay, "build_rigs", lambda *a, **k: None)
+    monkeypatch.setattr(SM, "scene_job", lambda *a, **k: {})
+    monkeypatch.setattr(SM, "film_shot", lambda project, part, shot, frames, preset, label, log: filmed.append(label) or Path(label))
+    monkeypatch.setattr(SM, "_line_folder", lambda project, folder, name, beat, frames: folder)
+    card = D.Shot(lines=["c1"], camera="insert", who=[], focus=None)
+    prop = D.Shot(lines=["l2"], camera="insert", who=["laptop"], focus=None)
+    talk = D.Shot(lines=["l3"], camera="medium", who=["ana"], focus="ana")
+    spans = [NS(line=NS(id=i), beat=b, frames=24, start=b, end=b + 24) for i, b in (("c1", 0), ("l2", 24), ("l3", 48))]
+    plan = NS(sides={"ana": "left"}, shots=[card, prop, talk])
+    monkeypatch.setattr(SM, "shot_frames", lambda shot, sp: [0, 2])
+    out = SM.film_scene(NS(), NS(id="s"), plan, spans, "draft", log=lambda *_: None)
+    assert filmed == ["s_s02_draft", "s_s03_draft"]
+    assert set(out) == {"l2", "l3"}
+    assert SM.is_card(card) and not SM.is_card(prop) and not SM.is_card(talk)
+

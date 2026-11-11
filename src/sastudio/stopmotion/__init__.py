@@ -240,6 +240,12 @@ def shot_frames(shot: D.Shot, spans: list[Span]) -> list[int]:
     return sorted(set(out))
 
 
+def is_card(shot: D.Shot) -> bool:
+    """An on-screen card (a line written as `card:`): drawn by the compositor, not filmed. An insert the director
+    points at a prop of the set (`camera: insert, who: [laptop]`) is filmed: the prop, with the line heard over it."""
+    return shot.camera == "insert" and not shot.who
+
+
 def shot_job(scene_part: dict, shot: D.Shot, frames: list[int], preset: str) -> dict:
     """The job for one shot: the scene, trimmed to what can affect these frames, and a camera."""
     w, h, samples = PRESETS[preset]
@@ -503,7 +509,7 @@ def film_scene(project, scene, plan: D.ScenePlan, spans: list[Span], preset: str
         out[TITLE_KEY + scene.id] = _line_folder(project, folder, f"{scene.id}.title.{preset}", 0, title_frames)
     for i, shot in enumerate(plan.shots):
         ids = [lid for lid in shot.lines if lid in by_line]
-        if shot.camera == "insert" or not ids:
+        if is_card(shot) or not ids:
             continue
         n += 1
         frames = shot_frames(shot, spans)
@@ -614,8 +620,8 @@ def render_shot(project, scene_id: str, shot_index: int, preset: str, out: Path,
     if not 0 <= shot_index < len(plan.shots):
         raise ConfigError(f"Scene {scene_id} has {len(plan.shots)} shots.", "See them with `sastudio direct`.")
     shot = plan.shots[shot_index]
-    if shot.camera == "insert":
-        raise ConfigError("Insert shots (on-screen cards) are drawn by the cards renderer, not filmed.", "Choose another shot.")
+    if is_card(shot):
+        raise ConfigError("That shot is an on-screen card: the compositor draws it, it is not filmed.", "Choose another shot.")
     spans = spans_estimated(project, scene)
     clay.build_rigs(project, ids=list(plan.sides), log=log)
     part = scene_job(project, scene, plan, spans)
@@ -635,7 +641,7 @@ def render_scene(project, scene_id: str, preset: str, out: Path, log=print) -> P
     all_frames: list[Path] = []
     for i, shot in enumerate(plan.shots):
         frames = shot_frames(shot, spans)
-        if shot.camera == "insert" or not frames:
+        if is_card(shot) or not frames:
             continue
         folder = film_shot(project, part, shot, frames, preset, f"{scene_id}_s{i + 1:02d}_{preset}_silent", log)
         all_frames += [folder / f"{f:06d}.png" for f in frames]
@@ -644,3 +650,4 @@ def render_scene(project, scene_id: str, preset: str, out: Path, log=print) -> P
     _encode(all_frames, out)
     log(f"Wrote {out} ({len(all_frames)} drawings, {len(all_frames) * STEP / FPS:.1f} s, silent)")
     return out
+
