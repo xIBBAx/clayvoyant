@@ -28,7 +28,7 @@ from ..render import clay
 
 FPS = 24
 STEP = 2
-ENGINE_VERSION = "5"  # bump when the engine changes what it draws: every cached shot is filmed again
+ENGINE_VERSION = "6"  # bump when the engine changes what it draws: every cached shot is filmed again
 PRESETS = {"draft": (960, 540, 6), "preview": (1280, 720, 12), "final": (1920, 1080, 24)}
 LEAD = 3              # frames of breath before a line when there is no recorded audio to time it
 TITLE_KEY = "title:"  # the opening shot of a scene, in the dict film_scene returns
@@ -509,6 +509,8 @@ def _film(project, job: dict, frames: list[int], label: str, what: str, log=prin
     left = sum(1 for f in frames if not (out / f"{f:06d}.png").exists())
     log(f"  {label}: {what}, {len(frames)} drawings" + (f" ({len(frames) - left} already done)" if left != len(frames) else ""))
     retries = int(_env_number("SASTUDIO_CLAY_RETRIES", RETRIES))
+    for stale in out.glob("*.part.png") if out.is_dir() else []:
+        stale.unlink(missing_ok=True)     # a drawing a stopped Blender was half way through writing
     for attempt in range(retries + 1):
         todo = [f for f in frames if not (out / f"{f:06d}.png").exists()]
         try:

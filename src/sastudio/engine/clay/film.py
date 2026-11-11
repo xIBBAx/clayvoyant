@@ -399,7 +399,31 @@ def frame_shot(shot=None, only=None):
     pos.z += dict(low=-.75, high=1.0).get(CAM.get('height', 'eye'), 0) * (dist / 6) ** .5
     if len(heads) > 1:
         pos = fit(pos, aim, heads)
+    elif shot in LEAD_ROOM:
+        # Lead room: a face sits on the far side of the frame from the person it is talking or listening to, with the
+        # open space in front of it. The camera trucks sideways (its angle is kept), so the eyeline reads across the cut.
+        partner = partner_of(who[0])
+        if partner:
+            right = (aim - pos).normalized().cross(V((0, 0, 1))).normalized()
+            toward = clamp((eyes(partner) - aim).dot(right) / 1.5, -1, 1)
+            width = FRAME_H.get(shot, 2.9) * s.render.resolution_x / s.render.resolution_y
+            shift = right * (toward * LEAD_ROOM[shot] * width)
+            pos, aim = pos + shift, aim + shift
     return pos, aim, (CAM.get('focus') if CAM.get('focus') in PERF.actors else who[0])
+
+
+LEAD_ROOM = dict(close_up=.12, reaction=.12, medium=.10, extreme_close_up=.06)   # share of the frame's width
+
+
+def partner_of(name):
+    """Who this person is playing to during the shot: the line's listener if they speak, the speaker if they listen."""
+    for ln in JOB.get('lines') or []:
+        if ln.get('end', 0) <= F0 or ln.get('start', 0) >= F1:
+            continue
+        other = (ln.get('to') if ln.get('who') == name else ln.get('who'))
+        if other and other != name and other in PERF.actors:
+            return other
+    return next((n for n, a in PERF.actors.items() if n != name and a.P.vis), None)
 
 
 def look_through(pos, aim):
