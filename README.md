@@ -102,9 +102,10 @@ No model files, no photographs, nothing to license.
 </p>
 
 **The camera.** Nine framings, seven moves, seven lighting moods, depth of field. Left alone, the
-planner cuts like an editor: an answer gets a close-up, a question is seen over a shoulder, a
-scene's last word pushes in, and no scene opens the way the last one did. `sastudio direct` prints
-the shot list before anything is filmed.
+planner cuts like an editor: an answer gets a close-up, a question is seen over a shoulder, a long
+line cuts away to the listener between two words, and no scene opens or ends the way the one before
+it did. Every face gets room to look into, and no shot shows the back of a speaker's head.
+`sastudio direct` prints the shot list before anything is filmed.
 
 **Beginnings.** A scene opens on a filmed shot of its place with the title over it, entered the
 way the story asks: a slow push into the room, a door that opens, the camera pulling back from an
@@ -172,6 +173,10 @@ Measured on one laptop (Intel Core i7-10750H, 12 threads, GeForce GTX 1660 Ti wi
   otherwise the spelling and the loudness of the voice.
 - There is no sound-effect or music library yet: a film has its dialogue and, if you add one, a
   music track. Rendering on a remote GPU is not built.
+- Another language is another film: you write each line's translation in the scene file and
+  render once per language. Nothing translates for you.
+- The `final` preset (1920x1080) has not yet been run for a whole film; the sample was built with
+  `preview`. CI has no Blender, so the clay smoke test runs only where Blender is installed.
 - The starter scenes are general guidance, not policy. Replace each procedure with your own.
 
 ## Documentation

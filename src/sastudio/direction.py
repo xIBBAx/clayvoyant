@@ -52,6 +52,35 @@ LIGHTING: dict[str, dict] = {
     "dramatic": {"key_k": 4300, "fill": 0.10, "rim": 0.60, "exposure": -0.2, "softness": 0.25, "practicals": False},
     "suspense": {"key_k": 3800, "fill": 0.20, "rim": 0.45, "exposure": -0.4, "softness": 0.35, "practicals": True},
 }
+# A scene can tune its light on top of the preset (`direction.light`): the YAML name, the engine's name, and the range.
+LIGHT_KNOBS: dict[str, tuple[str, float, float]] = {
+    "temperature": ("key_k", 1800, 9000),          # the key's colour, in kelvin
+    "key_direction": ("key_azimuth", -180, 180),   # degrees: 0 from behind the camera, 90 from camera right, 180 from behind the set
+    "key_height": ("key_height", 5, 85),           # degrees above the horizon
+    "key_strength": ("key_strength", 0.1, 4),      # times the preset's key
+    "fill": ("fill", 0, 1.5),                      # shadow side, as a share of the key
+    "rim": ("rim", 0, 2),                          # the edge light from behind
+    "softness": ("softness", 0, 1),                # 0 hard shadows, 1 very soft
+    "exposure": ("exposure", -3, 3),               # stops
+    "sun_direction": ("sun_azimuth", -180, 180),   # where the sun (or the window light) comes from
+    "sun_height": ("sun_height", 3, 85),
+    "sun_strength": ("sun_strength", 0, 4),
+    "sky": ("sky", 0, 4),                          # how bright the world outside is
+    "bounce": ("bounce", 0, 1),                    # a warm board below the camera that lifts faces in a backlit room
+}
+
+
+def light_overrides(scene) -> dict:
+    """The scene's `direction.light`, in the engine's terms. Absent keys keep the preset (and the cache) unchanged."""
+    light = ((getattr(scene, "direction", None) or {}).get("light")) or {}
+    out = {LIGHT_KNOBS[k][0]: v for k, v in light.items() if k in LIGHT_KNOBS}
+    if light.get("practicals") is not None:
+        out["practicals"] = bool(light["practicals"])
+    if light.get("tint"):
+        out["tint"] = light["tint"]
+    return out
+
+
 # Gestures: the body parts they use (two gestures in one line may not share a part), seconds,
 # and whether they play once, hold for the line, or loop.
 GESTURES: dict[str, dict] = {
@@ -151,6 +180,7 @@ class ScenePlan:
     transition_in: str
     sides: dict[str, str]
     shots: list[Shot]
+    light: list[str] = field(default_factory=list)   # the light knobs this scene turns (`direction.light`)
 
 
 def _suggest(value: str, choices) -> str:
@@ -222,6 +252,11 @@ def validate(project) -> list[Problem]:
         elif tr == "fade_from_black" and idx > 0 and not d.get("time_jump"):
             out.append(Problem("error", f"{where}.transition_in", "A fade from black is only for the first scene or a "
                                "jump in time.", "Add `time_jump: true` if time has passed, or use a cut."))
+        end = d.get("end_with") or {}
+        if end.get("camera") and end["camera"] not in SHOTS:
+            out.append(Problem("error", f"{where}.end_with.camera", f"Unknown camera '{end['camera']}'.", _suggest(end["camera"], SHOTS)))
+        if end.get("move") and end["move"] not in MOVES:
+            out.append(Problem("error", f"{where}.end_with.move", f"Unknown camera move '{end['move']}'.", _suggest(end["move"], MOVES)))
         if d.get("open_with") and d["open_with"] not in SHOTS:
             out.append(Problem("error", f"{where}.open_with", f"Unknown camera '{d['open_with']}'.",
                                _suggest(d["open_with"], SHOTS)))
@@ -289,6 +324,22 @@ def validate(project) -> list[Problem]:
                 out.append(Problem("error", f"{w}.go", f"The {set_name} set has no mark '{ln.go}'.", _suggest(ln.go, set_info["marks"])))
             if ln.to and ln.to not in present:
                 out.append(Problem("error", f"{w}.to", f"'{ln.to}' is not in this scene.", "Add them to `extras`."))
+            for n, b in enumerate(getattr(ln, "beats", None) or [], 1):
+                wb = f"{w}.beats[{n}]"
+                who = b.get("who") or ln.who
+                if who not in present:
+                    out.append(Problem("error", f"{wb}.who", f"'{who}' is not in this scene.", _suggest(who, present)))
+                g = b.get("act")
+                if g and g not in GESTURES:
+                    out.append(Problem("error", f"{wb}.act", f"Unknown gesture '{g}'.", _suggest(g, GESTURES)))
+                elif g and GESTURES[g].get("prop") and GESTURES[g]["prop"] not in set_info["props"]:
+                    out.append(Problem("error", f"{wb}.act", f"'{g}' needs a {GESTURES[g]['prop']}, and the {set_name} set has none."))
+                elif g in ("sit_down", "stand_up", "walk_in", "walk_out"):
+                    out.append(Problem("error", f"{wb}.act", f"'{g}' moves someone across the set; give it to a line's `act`.",
+                                       "Beats are for business in place: a nod, a look, a mug, a phone."))
+                if b.get("feeling") and b["feeling"] not in EMOTIONS:
+                    out.append(Problem("warning", f"{wb}.feeling", f"'{b['feeling']}' is not an expression the clay renderer "
+                                       "knows; it will look neutral.", _suggest(b["feeling"], EMOTIONS)))
     return out
 
 
@@ -349,6 +400,7 @@ def plan(project) -> list[ScenePlan]:
     """Direct every enabled scene: explicit shots where given, varied defaults everywhere else."""
     plans: list[ScenePlan] = []
     prev_set = None
+    prev_end = None
     for s in (x for x in project.scenes if x.enabled):
         d = s.direction or {}
         set_name = d.get("set") or _default_set(s)
@@ -378,7 +430,11 @@ def plan(project) -> list[ScenePlan]:
             if ln.is_card:
                 shots.append(_shot(s, [ln.id], "insert", [], None, "static", {}, "an on-screen card"))
                 continue
-            cam, on, move, reason = _choose(s, d, ln, i, shots, present, prev_set, set_name, last_id, seed)
+            if ln.id == last_id and shots and not ln.camera:
+                cam, on, move, reason = _ending(d, ln, present, prev_end, seed)
+                prev_end = (cam, move)
+            else:
+                cam, on, move, reason = _choose(s, d, ln, i, shots, present, prev_set, set_name, last_id, seed)
             react = _reaction(d, ln, cam, present, shots, last_id, seed + i)
             if react:
                 listener, at = react
@@ -395,7 +451,7 @@ def plan(project) -> list[ScenePlan]:
                 if any(x.camera == "two_shot" and set(x.who) == set(sh.who) for x in near):
                     sh.fallback = "medium"      # a two-shot of these two is already next to it
         plans.append(ScenePlan(s.id, set_name, d.get("lighting") or _default_lighting(s),
-                               d.get("transition_in", "cut"), sides, shots))
+                               d.get("transition_in", "cut"), sides, shots, sorted((d.get("light") or {}).keys())))
         prev_set = set_name
     return plans
 
@@ -421,6 +477,30 @@ def _reaction(d, ln, cam, present, shots, last_id, seed):
     return listener, round(.55 + (seed % 3) * .05, 2)
 
 
+# How a scene can end, and why. The planner never ends two scenes in a row the same way.
+ENDINGS = [
+    ("close_up", "push_in", "the scene's last word: closer"),
+    ("wide", "pull_out", "the matter is settled: we leave them in the place"),
+    ("two_shot", "static", "the last word lands on both of them"),
+]
+
+
+def _ending(d, ln, present, prev_end, seed):
+    """The last shot of a scene. `direction.end_with: {camera, move, why}` decides it; otherwise the first scene ends
+    closer and each later one ends differently from the one before (a two-shot needs someone to share it with)."""
+    listener = ln.to if ln.to in present and ln.to != ln.who else next((c for c in present if c != ln.who), None)
+    want = d.get("end_with")
+    if want:
+        cam = want.get("camera", "close_up")
+        on = present if cam in ("wide", "establishing") else ([ln.who, listener] if SHOTS[cam]["min"] == 2 and listener
+                                                              else [ln.who])
+        return cam, on, want.get("move", "static"), want.get("why") or "the scene asks to end this way"
+    options = [e for e in ENDINGS if (e[0], e[1]) != prev_end and (e[0] != "two_shot" or listener)]
+    cam, move, why = ENDINGS[0] if prev_end is None else options[seed % len(options)]
+    on = present if cam == "wide" else ([ln.who, listener] if cam == "two_shot" else [ln.who])
+    return cam, on, move, why
+
+
 def _choose(s, d, ln, i, shots, present, prev_set, set_name, last_id, seed):
     listener = ln.to or next((c for c in present if c != ln.who), None)
     if ln.camera:
@@ -441,8 +521,6 @@ def _choose(s, d, ln, i, shots, present, prev_set, set_name, last_id, seed):
             opener, why = options[seed % len(options)]
         on = present if opener in ("establishing", "wide") else [ln.who]
         return opener, on, "static", why
-    if ln.id == last_id:
-        return "close_up", [ln.who], "push_in", "the scene's last word: closer"
     spoken_before = {x.who for x in s.lines[:i]}
     if ln.who not in spoken_before:
         return ("wide" if len(present) > 2 else "medium"), (present if len(present) > 2 else [ln.who]), "static", \
@@ -528,7 +606,8 @@ def describe(plans: list[ScenePlan]) -> str:
     rows = []
     for p in plans:
         lt = LIGHTING[p.lighting] if p.lighting in LIGHTING else {}
-        rows.append(f"{p.scene}: {p.set} set, {p.lighting} light ({lt.get('key_k', '?')} K), enters by {p.transition_in}")
+        tuned = f", tuned: {', '.join(p.light)}" if getattr(p, "light", None) else ""
+        rows.append(f"{p.scene}: {p.set} set, {p.lighting} light ({lt.get('key_k', '?')} K{tuned}), enters by {p.transition_in}")
         rows.append("   ".join(f"{c} {side}" for c, side in p.sides.items()) and
                     "   screen sides: " + ", ".join(f"{c} {side}" for c, side in p.sides.items()))
         for n, sh in enumerate(p.shots, 1):

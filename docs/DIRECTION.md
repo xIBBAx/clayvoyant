@@ -25,9 +25,11 @@ helpful_caller: office set, office light (4500 K), enters by cut
 The automatic plan follows ordinary film grammar: every scene opens on a filmed shot of its place
 with the title over it; the first line in a new place shows everyone in it, and a return to a known
 place opens differently each time; someone joining a conversation is seen in
-context; a question is seen past the listener's shoulder and its answer closer; the last word of a
-scene gets a slow push in; the same framing is never cut to itself (a jump cut); held shots are
-cut after about 12 seconds; and each character keeps their side of the screen.
+context; a question is seen past the listener's shoulder and its answer closer; a long line cuts
+to the listener between two words; the first scene ends with a slow push in on the last word, and
+no scene ends the way the one before it did (pull back to leave them in the place, or hold on both
+of them); the same framing is never cut to itself (a jump cut); held shots are cut after about 12
+seconds; and each character keeps their side of the screen.
 
 ## Change one thing
 
@@ -43,7 +45,15 @@ On a line:
     to: leo                         # who they are talking to: their eyeline
     go: standing_right              # a mark they walk to as the line begins (they sit if it is a seat)
     reactions: { leo: surprised }   # how listeners take it
+    beats:                          # business at a moment inside the line (0 = its first word, 1 = its last)
+      - { at: 0.35, who: leo, act: lean_in }
+      - { at: 0.8, who: leo, feeling: suspicious, act: tilt_head }
 ```
+
+A beat is how a scene gets its timing: the listener's doubt arrives on the word that earns it, not
+when the line starts. `who` defaults to the speaker; a beat takes any gesture that stays in place
+(a nod, a look, a mug, a phone) and any feeling. Walking, sitting and standing belong to a line's
+`act`, which moves the person before the words.
 
 On a scene:
 
@@ -53,6 +63,7 @@ direction:
   set: office                       # where it happens
   lighting: suspense                # how it is lit
   open_with: close_up               # how the scene begins
+  end_with: { camera: wide, move: pull_out, why: "he is alone with it now" }   # how it ends, and why
   transition_in: cut                # how we arrive from the previous scene
   object: phone                     # for follow_object: the thing the scene opens on
   extras: [nadia]                   # in the scene without a line
@@ -145,6 +156,43 @@ A short, sharp line (six words or fewer, ending in `!` or spoken surprised) gets
 
 Each lighting preset differs in colour temperature, contrast and shadow, so they look different
 from one another.
+
+### Light
+
+A preset is a starting point. `direction.light` turns its knobs for one scene, so a room can have
+its own light: where the key comes from, how hard it is, what colour the room is, how bright the
+world outside the window is. Leave a knob out and the preset's value stands (and shots already
+filmed are kept).
+
+```yaml
+direction:
+  lighting: warm_interior
+  light:
+    key_direction: 65        # degrees: 0 from behind the camera, 90 from camera right, 180 from behind the set
+    key_height: 18           # degrees above the floor: low and long for late afternoon
+    temperature: 2900        # the key's colour, kelvin
+    tint: "#FFD9B8"          # a colour cast over key and fill
+    sun_direction: 120       # the window light comes from behind and to the right...
+    sun_height: 9
+    bounce: 0.5              # ...so a warm board below the camera lifts the faces
+    sky: 0.6                 # a dimmer world outside
+```
+
+| Knob | Range | What it does |
+|---|---|---|
+| `temperature` | 1800-9000 | the key light's colour, in kelvin |
+| `key_direction`, `key_height` | -180-180, 5-85 | where the key comes from (the fill moves to the other side) |
+| `key_strength` | 0.1-4 | times the preset's key |
+| `fill`, `rim` | 0-1.5, 0-2 | the shadow side and the edge light from behind |
+| `softness` | 0-1 | 0 hard shadows, 1 very soft |
+| `exposure` | -3-3 | stops |
+| `sun_direction`, `sun_height`, `sun_strength` | -180-180, 3-85, 0-4 | the sun, or the daylight through a window |
+| `sky` | 0-4 | how bright the world outside is |
+| `bounce` | 0-1 | a warm fill from below the camera, for a backlit room |
+| `tint` | `#RRGGBB` | a colour cast over key and fill |
+| `practicals` | true/false | whether the set's own lamps are lit |
+
+`sastudio direct` lists the knobs a scene turns next to its lighting.
 
 | Gesture | Uses | Kind | Needs |
 |---|---|---|---|

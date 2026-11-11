@@ -202,6 +202,25 @@ def scene_job(project, scene, plan: D.ScenePlan, spans: list[Span], lang: str | 
             if g == "walk_in":
                 c = next(x for x in cast if x["id"] == ln.who)
                 c["enter_from"] = "door" if set_info.get("door") else "offscreen"
+        for b in getattr(ln, "beats", None) or []:
+            # business at a point inside the line, on the line's own clock: Odile nods at "fishing"
+            who = b.get("who") or ln.who
+            if who not in plan.sides:
+                continue
+            f = int(sp.start + float(b["at"]) * max(1, sp.end - sp.start))
+            if b.get("feeling") and _mood(b["feeling"]):
+                keys.append(dict(who=who, frame=f, f=_mood(b["feeling"])))
+                last_mood[who] = _mood(b["feeling"])
+            g = b.get("act")
+            if g in D.GESTURES:
+                to = ln.who if who != ln.who else ln.to
+                ks, hands = _gesture_keys(who, g, f, max(f + 24, sp.end), to, set_info)
+                keys += ks
+                if hands:
+                    manual.add(who)
+                if g in CARRIED:
+                    carry.append({"who": who, "prop": CARRIED[g], "start": f - 8, "end": max(f + 24, sp.end) + 8,
+                                  "color": (project.org.get("palette") or {}).get("accent")})
         if ln.go:
             keys.append(dict(who=ln.who, frame=sp.start - 8, walk=ln.go))
         mood = _mood(ln.emotion)
@@ -226,7 +245,7 @@ def scene_job(project, scene, plan: D.ScenePlan, spans: list[Span], lang: str | 
     return {"set": {"name": plan.set, "palette": org.get("palette") or {}, "org": org.get("short_name") or org.get("name"),
                     "seed": int(hashlib.sha256(scene.id.encode()).hexdigest()[:6], 16) % 997 + 1,
                     "time": (scene.setting or {}).get("time_of_day", "day")},
-            "lighting": dict(D.LIGHTING[plan.lighting], name=plan.lighting),
+            "lighting": dict(D.LIGHTING[plan.lighting], name=plan.lighting, **D.light_overrides(scene)),
             "cast": cast, "lines": lines, "keys": sorted(keys, key=lambda x: x["frame"]), "door": doors, "carry": carry, "fps": FPS,
             **({"aliases": _aliases()} if any(c.get("model") for c in cast) else {})}
 

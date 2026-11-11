@@ -157,6 +157,7 @@ class Line:
     camera: str | None = None  # a camera preset for this line
     reactions: dict[str, str] = field(default_factory=dict)  # how the listeners take it: character id -> emotion
     go: str | None = None  # a mark of the set the speaker walks to as the line begins
+    beats: list[dict] = field(default_factory=list)  # [{at, who, act, feeling}]: business at a point inside the line
 
     @property
     def is_card(self) -> bool:
@@ -395,7 +396,8 @@ def load_project(root: str | Path, *, check: bool = True) -> Project:
                  translations=ln.get("translations") or {}, spoken=ln.get("spoken") or {},
                  emotion=ln.get("emotion"), to=ln.get("to"), pause_after=ln.get("pause_after"), card=ln.get("card"),
                  act=list(ln.get("act") or []), camera=ln.get("camera"),
-                 reactions=dict(ln.get("reactions") or {}), go=ln.get("go"))
+                 reactions=dict(ln.get("reactions") or {}), go=ln.get("go"),
+                 beats=[dict(b) for b in ln.get("beats") or []])
             for ln in s["lines"]
         ]
         scenes.append(Scene(
