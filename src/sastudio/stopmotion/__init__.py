@@ -231,13 +231,43 @@ def scene_job(project, scene, plan: D.ScenePlan, spans: list[Span], lang: str | 
             **({"aliases": _aliases()} if any(c.get("model") for c in cast) else {})}
 
 
-def shot_frames(shot: D.Shot, spans: list[Span]) -> list[int]:
-    """The scene frames a shot shows, on twos within each line's beat (the grid the cards compositor reads)."""
+REST_SHAPES = ("X", "A")   # the mouth at rest, or closed on m/b/p: where an editor cuts inside a line
+
+
+def cut_point(sp: Span, frac: float, cues: list | None) -> int:
+    """Where inside a line a cut at `frac` of it really lands: the drawing (on twos, from the beat) nearest that point
+    at which the speaker's mouth rests for at least two frames, between 35 and 80 % of the line; the plain fraction
+    when no such moment exists. Both shots on either side of the cut ask this, so they always agree."""
+    want = frac * sp.frames
+    rests = []
+    cues = list(cues or [])
+    for (t, shape), nxt in zip(cues, cues[1:] + [(None, None)], strict=False):
+        if shape in REST_SHAPES and (nxt[0] is None or (nxt[0] - t) * FPS >= 2):
+            rests.append(sp.lead + t * FPS)
+    near = [r for r in rests if .35 * sp.frames <= r <= .8 * sp.frames]
+    k = int(round(min(near, key=lambda r: abs(r - want)) if near else want))
+    k -= k % STEP
+    return max(STEP, min(sp.frames - 1 - (sp.frames - 1) % STEP, k))
+
+
+def shot_frames(shot: D.Shot, spans: list[Span], cues: dict | None = None) -> list[int]:
+    """The scene frames a shot shows, on twos within each line's beat (the grid the cards compositor reads).
+    A shot with `part` shows a piece of its one line, cut where `cut_point` says (`cues`: line id -> mouth cues)."""
     out: list[int] = []
     for sp in spans:
         if sp.line.id in shot.lines:
-            out += [sp.beat + f for f in range(0, sp.frames, STEP)]
+            fs = range(0, sp.frames, STEP)
+            if shot.part:
+                a, b = shot.part
+                lo = 0 if a <= 0 else cut_point(sp, a, (cues or {}).get(sp.line.id))
+                hi = sp.frames if b >= 1 else cut_point(sp, b, (cues or {}).get(sp.line.id))
+                fs = [f for f in fs if lo <= f < hi]
+            out += [sp.beat + f for f in fs]
     return sorted(set(out))
+
+
+def line_cues(scene_part: dict) -> dict:
+    return {ln["id"]: ln.get("cues") or [] for ln in scene_part.get("lines") or []}
 
 
 def is_card(shot: D.Shot) -> bool:
@@ -258,7 +288,8 @@ def shot_job(scene_part: dict, shot: D.Shot, frames: list[int], preset: str) -> 
     job.update(mode="film", frames=frames, width=w, height=h, samples=samples,
                camera={"shot": shot.camera, "who": list(shot.who), "focus": shot.focus, "lens": shot.lens or D.SHOTS[shot.camera]["lens"],
                        "fstop": shot.fstop, "move": shot.move, "height": shot.height,
-                       **({"position": shot.position, "aim": shot.aim} if shot.position and shot.aim else {})})
+                       **({"position": shot.position, "aim": shot.aim} if shot.position and shot.aim else {}),
+                       **({"fallback": shot.fallback} if shot.camera == "over_shoulder" and shot.fallback != "two_shot" else {})})
     return job
 
 
@@ -454,6 +485,11 @@ def _film(project, job: dict, frames: list[int], label: str, what: str, log=prin
     if (out / ".done").exists() and all((out / f"{f:06d}.png").exists() for f in frames):
         log(f"  {label}: unchanged, reused")
         return out
+    # the same job filmed under another label (a shot added earlier in the scene renumbers the ones after it)
+    for other in sorted(out.parent.glob(f"*.{key}")) if out.parent.is_dir() else []:
+        if (other / ".done").exists() and all((other / f"{f:06d}.png").exists() for f in frames):
+            log(f"  {label}: unchanged, reused (filmed as {other.name.rsplit('.', 1)[0]})")
+            return other
     job = dict(job, rig=str(clay.rig_dir(project)), out=str(out), font=str(_font()))
     left = sum(1 for f in frames if not (out / f"{f:06d}.png").exists())
     log(f"  {label}: {what}, {len(frames)} drawings" + (f" ({len(frames) - left} already done)" if left != len(frames) else ""))
@@ -499,7 +535,9 @@ def film_scene(project, scene, plan: D.ScenePlan, spans: list[Span], preset: str
     clay.build_rigs(project, ids=list(plan.sides), log=log)
     part = scene_job(project, scene, plan, spans, lang, phonemes)
     by_line = {sp.line.id: sp for sp in spans}
+    cues = line_cues(part)
     out: dict[str, Path] = {}
+    sources: dict[str, list[tuple[Path, set[int]]]] = {}
     n = 0
     if title_frames:
         # the scene's title is laid over a real shot of the place: no card between scenes
@@ -512,22 +550,32 @@ def film_scene(project, scene, plan: D.ScenePlan, spans: list[Span], preset: str
         if is_card(shot) or not ids:
             continue
         n += 1
-        frames = shot_frames(shot, spans)
+        frames = shot_frames(shot, spans, cues)
         folder = film_shot(project, part, shot, frames, preset, f"{scene.id}_s{i + 1:02d}_{preset}", log)
         for lid in ids:
-            sp = by_line[lid]
-            out[lid] = _line_folder(project, folder, f"{scene.id}.{lid}.{preset}", sp.beat, sp.frames)
+            sources.setdefault(lid, []).append((folder, set(frames)))
+    for lid, src in sources.items():
+        sp = by_line[lid]
+        out[lid] = _line_folder(project, src, f"{scene.id}.{lid}.{preset}", sp.beat, sp.frames)
     return out
 
 
-def _line_folder(project, folder: Path, name: str, beat: int, frames: int) -> Path:
-    """A beat's own view of a shot: its drawings numbered 00001.png on twos, as the compositor reads them."""
-    dest = project.root / ".studio" / "work" / "clay" / "lines" / f"{name}.{folder.name[-20:]}"
+def _line_folder(project, folder, name: str, beat: int, frames: int) -> Path:
+    """A beat's own view of its shots: its drawings numbered 00001.png on twos, as the compositor reads them.
+    `folder` is one shot's folder, or [(folder, scene frames it holds), ...] for a line cut between shots."""
+    src_list = [(folder, None)] if isinstance(folder, Path) else list(folder)
+    tag = src_list[0][0].name[-20:] if len(src_list) == 1 else \
+        hashlib.sha256("|".join(f.name for f, _ in src_list).encode()).hexdigest()[:20]
+    dest = project.root / ".studio" / "work" / "clay" / "lines" / f"{name}.{tag}"
     if not (dest / ".done").exists():
         shutil.rmtree(dest, ignore_errors=True)
         dest.mkdir(parents=True)
         for f in range(0, frames, STEP):
-            src = folder / f"{beat + f:06d}.png"
+            fr = beat + f
+            home = next((d for d, held in src_list if held is None or fr in held), None)
+            if home is None:
+                raise RenderError(f"{name}: no shot films scene frame {fr}.", "Check the `part` pieces of this line.")
+            src = home / f"{fr:06d}.png"
             try:
                 os.link(src, dest / f"{f + 1:05d}.png")
             except OSError:
@@ -625,7 +673,7 @@ def render_shot(project, scene_id: str, shot_index: int, preset: str, out: Path,
     spans = spans_estimated(project, scene)
     clay.build_rigs(project, ids=list(plan.sides), log=log)
     part = scene_job(project, scene, plan, spans)
-    frames = shot_frames(shot, spans)
+    frames = shot_frames(shot, spans, line_cues(part))
     folder = film_shot(project, part, shot, frames, preset, f"{scene_id}_s{shot_index + 1:02d}_{preset}_silent", log)
     _encode([folder / f"{f:06d}.png" for f in frames], out)
     log(f"Wrote {out} ({len(frames)} drawings)")
@@ -640,7 +688,7 @@ def render_scene(project, scene_id: str, preset: str, out: Path, log=print) -> P
     part = scene_job(project, scene, plan, spans)
     all_frames: list[Path] = []
     for i, shot in enumerate(plan.shots):
-        frames = shot_frames(shot, spans)
+        frames = shot_frames(shot, spans, line_cues(part))
         if is_card(shot) or not frames:
             continue
         folder = film_shot(project, part, shot, frames, preset, f"{scene_id}_s{i + 1:02d}_{preset}_silent", log)

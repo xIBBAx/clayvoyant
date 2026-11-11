@@ -85,7 +85,29 @@ the acting area is around `[0, 0.5, 0]`):
 
 `who` is the character (or, for an `insert`, the prop) the shot shows; `focus` must be one of
 them; `seconds` must be long enough for the dialogue; `lens_mm` (12-200), `fstop` (1.2-22) and
-`height` (`eye`, `low`, `high`) override the camera's defaults.
+`height` (`eye`, `low`, `high`) override the camera's defaults. An `insert` on a prop is filmed:
+the prop fills the frame and the line is heard over it.
+
+### Cutting inside a line
+
+An editor rarely holds one face for a whole long line. Give a line two shots, each with the `part`
+of the line it covers, and the film cuts between them while the line plays on:
+
+```yaml
+    - { lines: [hc_04], camera: close_up, who: rook, part: [0, 0.6] }
+    - { lines: [hc_04], camera: reaction, who: leo, part: [0.6, 1] }      # Leo hears the rest of it
+```
+
+The pieces of a line must run from 0 to 1 without gaps. The cut does not land on the exact
+fraction: it moves to the nearest drawing, between 35 and 80 % of the line, where the speaker's
+mouth is at rest (a pause, or lips closed on m, b or p), so it never chops a word.
+
+You get this without writing it, too. When a line runs longer than about 3.4 seconds and its own
+shot shows only the speaker, the automatic plan cuts to the listener 55-65 % of the way through,
+and the next line by that listener opens a size wider. `sastudio direct` shows each cut as
+`lines hc_04 0%-60%` and `60%-100%`. Turn it off for a scene with `direction: { reactions: false }`.
+A short, sharp line (six words or fewer, ending in `!` or spoken surprised) gets an
+`extreme_close_up`.
 
 ## What you can name
 
@@ -95,7 +117,7 @@ them; `seconds` must be long enough for the dialogue; `lens_mm` (12-200), `fstop
 | `wide` | 28 mm | full figures | 1-6 |
 | `medium` | 40 mm | waist up | 1 |
 | `two_shot` | 35 mm | two figures, waist up | 2 |
-| `over_shoulder` | 50 mm | the speaker past the listener's shoulder (a two-shot when the listener stands behind the speaker) | 2 |
+| `over_shoulder` | 50 mm | the speaker past the listener's shoulder (a two-shot, or a medium when a two-shot of the pair is next to it, if the listener stands behind the speaker) | 2 |
 | `close_up` | 65 mm | head and shoulders | 1 |
 | `extreme_close_up` | 100 mm | eyes and mouth | 1 |
 | `reaction` | 65 mm | a listener's face while someone else speaks | 1 |

@@ -599,6 +599,10 @@
               "type": "string",
               "maxLength": 40
             },
+            "reactions": {
+              "type": "boolean",
+              "description": "Cut to the listener part way through long lines (default true)."
+            },
             "extras": {
               "type": "array",
               "items": {
@@ -679,6 +683,17 @@
                         "maxItems": 6
                       }
                     ]
+                  },
+                  "part": {
+                    "type": "array",
+                    "items": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 1
+                    },
+                    "minItems": 2,
+                    "maxItems": 2,
+                    "description": "A piece of one line, [from, to] as fractions of it: cut inside the line (docs/DIRECTION.md)."
                   },
                   "position": {
                     "type": "array",

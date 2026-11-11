@@ -204,13 +204,13 @@ def test_a_prop_insert_is_filmed_and_a_card_is_left_to_the_compositor(monkeypatc
     monkeypatch.setattr(SM.clay, "build_rigs", lambda *a, **k: None)
     monkeypatch.setattr(SM, "scene_job", lambda *a, **k: {})
     monkeypatch.setattr(SM, "film_shot", lambda project, part, shot, frames, preset, label, log: filmed.append(label) or Path(label))
-    monkeypatch.setattr(SM, "_line_folder", lambda project, folder, name, beat, frames: folder)
+    monkeypatch.setattr(SM, "_line_folder", lambda project, src, name, beat, frames: src[0][0])
     card = D.Shot(lines=["c1"], camera="insert", who=[], focus=None)
     prop = D.Shot(lines=["l2"], camera="insert", who=["laptop"], focus=None)
     talk = D.Shot(lines=["l3"], camera="medium", who=["ana"], focus="ana")
     spans = [NS(line=NS(id=i), beat=b, frames=24, start=b, end=b + 24) for i, b in (("c1", 0), ("l2", 24), ("l3", 48))]
     plan = NS(sides={"ana": "left"}, shots=[card, prop, talk])
-    monkeypatch.setattr(SM, "shot_frames", lambda shot, sp: [0, 2])
+    monkeypatch.setattr(SM, "shot_frames", lambda shot, sp, cues=None: [0, 2])
     out = SM.film_scene(NS(), NS(id="s"), plan, spans, "draft", log=lambda *_: None)
     assert filmed == ["s_s02_draft", "s_s03_draft"]
     assert set(out) == {"l2", "l3"}
@@ -237,3 +237,57 @@ def test_clean_shots_is_a_dry_run_until_yes_and_keeps_the_newest_of_each_shot(pr
     assert not old.exists() and new.exists() and other.exists()
     assert main(["clean", str(project_dir), "--shots", "--all"]) == 0
     assert "Would free" in capsys.readouterr().out and new.exists()
+
+
+def test_a_cut_inside_a_line_lands_where_the_mouth_rests_and_the_pieces_tile_the_line():
+    from types import SimpleNamespace as NS
+
+    sp = SM.Span(line=NS(id="l1"), beat=100, frames=96, lead=6, speech=84)
+    # speech cues in seconds from the voice's start: the mouth rests ('X') at 1.5 s, i.e. frame 6 + 36 = 42 of the beat
+    cues = [(0.0, "B"), (0.6, "C"), (1.5, "X"), (1.75, "E"), (3.2, "X")]
+    assert SM.cut_point(sp, .55, cues) == 42          # 52.8 wanted, 42 is the nearest rest inside 35-80 %
+    assert SM.cut_point(sp, .55, []) == 52            # no rest known: the plain fraction, on twos
+    a = D.Shot(lines=["l1"], camera="close_up", who=["ana"], focus="ana", part=[0, .55])
+    b = D.Shot(lines=["l1"], camera="reaction", who=["dev"], focus="dev", part=[.55, 1])
+    fa, fb = SM.shot_frames(a, [sp], {"l1": cues}), SM.shot_frames(b, [sp], {"l1": cues})
+    assert fa[-1] < fb[0] == 142 and sorted(fa + fb) == list(range(100, 196, SM.STEP))
+
+
+def test_a_line_cut_between_two_shots_takes_each_drawing_from_its_own_shot(tmp_path):
+    from types import SimpleNamespace as NS
+
+    one, two = tmp_path / "shotA.aaaa", tmp_path / "shotB.bbbb"
+    for d, frames in ((one, (10, 12)), (two, (14, 16))):
+        d.mkdir()
+        for f in frames:
+            (d / f"{f:06d}.png").write_text(d.name)
+    dest = SM._line_folder(NS(root=tmp_path), [(one, {10, 12}), (two, {14, 16})], "s.l1.draft", 10, 8)
+    assert [(dest / f"{i:05d}.png").read_text() for i in (1, 3, 5, 7)] == [one.name, one.name, two.name, two.name]
+
+
+def test_a_shot_renumbered_by_an_earlier_cut_is_reused_not_filmed_again(tmp_path, monkeypatch):
+    from types import SimpleNamespace as NS
+
+    monkeypatch.setattr(SM, "rig_stamps", lambda project, cast: {})
+    monkeypatch.setattr(SM, "_font", lambda: "font.ttf")
+    monkeypatch.setattr(SM, "run_blender", lambda *a, **k: pytest.fail("filmed again"))
+    job = {"cast": [{"id": "ana"}], "camera": {"shot": "medium"}}
+    key = SM._digest(job, {})
+    old = tmp_path / ".studio" / "cache" / "clay" / f"s_s03_draft.{key}"
+    old.mkdir(parents=True)
+    (old / "000000.png").write_bytes(b"x")
+    (old / ".done").write_text(key)
+    log: list[str] = []
+    assert SM._film(NS(root=tmp_path), job, [0], "s_s04_draft", "medium", log=log.append) == old
+    assert "filmed as s_s03_draft" in log[0]
+
+
+def test_an_over_the_shoulder_next_to_a_two_shot_of_the_same_pair_falls_back_to_a_medium():
+    root = Path(__file__).resolve().parents[1] / "examples" / "the-fast-one"
+    plan = next(p for p in D.plan(load_project(root)) if p.scene == "nearly")
+    ots = next(s for s in plan.shots if s.camera == "over_shoulder")
+    assert ots.fallback == "medium"
+    scene = next(s for s in load_project(root).scenes if s.id == "nearly")
+    spans = SM.spans_estimated(load_project(root), scene)
+    part = SM.scene_job(load_project(root), scene, plan, spans)
+    assert SM.shot_job(part, ots, SM.shot_frames(ots, spans), "draft")["camera"]["fallback"] == "medium"

@@ -21,9 +21,18 @@ def test_starter_plans_without_problems(starter):
     plans = D.plan(starter)
     assert len(plans) == len([s for s in starter.scenes if s.enabled])
     for p in plans:
-        covered = [lid for sh in p.shots for lid in sh.lines]
+        covered: list[str] = []
+        pieces: dict[str, list] = {}
+        for sh in p.shots:
+            for lid in sh.lines:
+                if sh.part:
+                    pieces.setdefault(lid, []).append(sh.part)
+                if not covered or covered[-1] != lid or not sh.part:
+                    covered.append(lid)
         scene = next(s for s in starter.scenes if s.id == p.scene)
         assert covered == [ln.id for ln in scene.lines]  # every line, once, in order
+        for lid, ps in pieces.items():                   # a line cut in two is covered from start to end
+            assert ps[0][0] == 0 and ps[-1][1] == 1 and all(a[1] == b[0] for a, b in zip(ps, ps[1:], strict=False)), lid
 
 
 def test_plan_is_deterministic(starter):
@@ -140,3 +149,34 @@ def test_direction_guide_lists_every_preset():
     for group in (D.SHOTS, D.MOVES, D.LIGHTING, D.GESTURES, D.SETS, D.TRANSITIONS):
         for name in group:
             assert f"`{name}`" in doc, f"docs/DIRECTION.md does not list {name}"
+
+
+def test_long_lines_cut_to_the_listener_part_way_through(starter):
+    plans = D.plan(starter)
+    reactions = [sh for p in plans for sh in p.shots if sh.camera == "reaction"]
+    assert reactions, "no reaction cut anywhere in the starter film"
+    for p in plans:
+        for a, b in zip(p.shots, p.shots[1:], strict=False):
+            if b.camera == "reaction" and b.part:
+                assert a.lines == b.lines and a.part == [0, b.part[0]], "the speaker's piece comes first"
+                assert b.who and b.who[0] not in a.who, "the reaction is on someone other than the speaker"
+                assert .5 <= b.part[0] <= .7
+    assert "%-100%" in D.describe(plans)       # the shot list shows where a line is cut
+
+
+def test_reactions_can_be_turned_off_per_scene(tmp_path):
+    proj = _scene(write_project(tmp_path / "p"), "    direction:\n      reactions: false\n")
+    assert not any(sh.part for sh in D.plan(proj)[0].shots)
+
+
+def test_a_line_can_be_cut_by_hand_and_its_pieces_must_meet(tmp_path):
+    ok = _scene(write_project(tmp_path / "a"), "    direction:\n      shots:\n"
+                "        - { lines: [l1], camera: close_up, who: ana, part: [0, 0.5] }\n"
+                "        - { lines: [l1], camera: reaction, who: dev, part: [0.5, 1] }\n")
+    assert _errors(ok) == []
+    first = D.plan(ok)[0].shots[:2]
+    assert [(s.camera, s.part) for s in first] == [("close_up", [0, 0.5]), ("reaction", [0.5, 1])]
+    gap = _scene(write_project(tmp_path / "b"), "    direction:\n      shots:\n"
+                 "        - { lines: [l1], camera: close_up, who: ana, part: [0, 0.4] }\n"
+                 "        - { lines: [l1], camera: reaction, who: dev, part: [0.5, 1] }\n")
+    assert any("without gaps" in p.message for p in _errors(gap))

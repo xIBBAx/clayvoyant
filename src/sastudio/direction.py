@@ -139,6 +139,8 @@ class Shot:
     reason: str = ""
     position: list[float] | None = None  # the camera's exact place in the set, when the scene gives one
     aim: list[float] | None = None  # and the point it looks at
+    part: list[float] | None = None  # a piece of one line [from, to] as fractions: a cut inside the line
+    fallback: str = "two_shot"  # what an over-the-shoulder becomes when it would see the speaker from behind
 
 
 @dataclass
@@ -225,15 +227,26 @@ def validate(project) -> list[Problem]:
                                _suggest(d["open_with"], SHOTS)))
         line_ids = [ln.id for ln in s.lines]
         covered: dict[str, int] = {}
+        pieces: dict[str, list[tuple[float, float, str]]] = {}
         for n, shot in enumerate(d.get("shots") or [], 1):
             w = f"{where}.shots[{n}]"
+            part = shot.get("part")
+            if part is not None:
+                if len(shot.get("lines") or []) != 1:
+                    out.append(Problem("error", f"{w}.part", "A shot with `part` films a piece of one line.",
+                                       "Give it exactly one line."))
+                elif not (0 <= part[0] < part[1] <= 1):
+                    out.append(Problem("error", f"{w}.part", "`part` is [from, to] with 0 <= from < to <= 1.",
+                                       "For example [0, 0.6] and then [0.6, 1]."))
+                else:
+                    pieces.setdefault(shot["lines"][0], []).append((float(part[0]), float(part[1]), w))
             for lid in shot.get("lines") or []:
                 if lid not in line_ids:
                     out.append(Problem("error", w, f"No line '{lid}' in this scene.", _suggest(lid, line_ids)))
-                elif lid in covered:
+                elif lid in covered and not (part is not None and lid in pieces):
                     out.append(Problem("error", w, f"Line '{lid}' is already in shot {covered[lid]}."))
                 else:
-                    covered[lid] = n
+                    covered.setdefault(lid, n)
             out += _check_shot(shot, w, present, set_info, set_name)
             secs = shot.get("seconds")
             if secs:
@@ -241,6 +254,11 @@ def validate(project) -> list[Problem]:
                 if secs < need:
                     out.append(Problem("error", f"{w}.seconds", f"The dialogue in this shot needs about {need:.1f} s, "
                                        f"longer than {secs} s.", "Lengthen the shot or split the lines."))
+        for lid, ps in pieces.items():
+            ps.sort()
+            if ps[0][0] != 0 or ps[-1][1] != 1 or any(a[1] != b[0] for a, b in zip(ps, ps[1:], strict=False)):
+                out.append(Problem("error", ps[0][2] + ".part", f"The pieces of line '{lid}' must run from 0 to 1 "
+                                   "without gaps or overlaps.", "For example [0, 0.6] in one shot and [0.6, 1] in the next."))
         order = [covered[lid] for lid in line_ids if lid in covered]
         if order != sorted(order):
             out.append(Problem("error", f"{where}.shots", "Shots must follow the order of the lines."))
@@ -336,7 +354,10 @@ def plan(project) -> list[ScenePlan]:
         set_name = d.get("set") or _default_set(s)
         present = _present(s, d)
         sides = {cid: ("left" if i % 2 == 0 else "right") for i, cid in enumerate(present)}  # screen direction holds
-        explicit = {lid: shot for shot in d.get("shots") or [] for lid in shot.get("lines") or []}
+        explicit: dict[str, list[dict]] = {}
+        for shot in d.get("shots") or []:
+            for lid in shot.get("lines") or []:
+                explicit.setdefault(lid, []).append(shot)
         seed = int(hashlib.sha256(s.id.encode()).hexdigest()[:8], 16)
         spoken = [ln for ln in s.lines if not ln.is_card]
         last_id = spoken[-1].id if spoken else None
@@ -346,24 +367,58 @@ def plan(project) -> list[ScenePlan]:
             if ln.id in done:
                 continue
             if ln.id in explicit:
-                spec = explicit[ln.id]
-                ids = list(spec.get("lines") or [])
-                done.update(ids)
-                cam = spec.get("camera", "medium")
-                on = _on_list(spec.get("who")) or ([ln.who] if ln.who else [])
-                shots.append(_shot(s, ids, cam, on, spec.get("focus") or (on[0] if on else None),
-                                   spec.get("move", "static"), spec, "as written in the scene"))
+                for spec in sorted(explicit[ln.id], key=lambda x: (x.get("part") or [0])[0]):
+                    ids = list(spec.get("lines") or [])
+                    done.update(ids)
+                    cam = spec.get("camera", "medium")
+                    on = _on_list(spec.get("who")) or ([ln.who] if ln.who else [])
+                    shots.append(_shot(s, ids, cam, on, spec.get("focus") or (on[0] if on else None),
+                                       spec.get("move", "static"), spec, "as written in the scene"))
                 continue
             if ln.is_card:
                 shots.append(_shot(s, [ln.id], "insert", [], None, "static", {}, "an on-screen card"))
                 continue
             cam, on, move, reason = _choose(s, d, ln, i, shots, present, prev_set, set_name, last_id, seed)
-            shots.append(_shot(s, [ln.id], cam, on, ln.who, move, {}, reason))
+            react = _reaction(d, ln, cam, present, shots, last_id, seed + i)
+            if react:
+                listener, at = react
+                shots.append(_shot(s, [ln.id], cam, on, ln.who, move, {"part": [0, at]}, reason))
+                shots.append(_shot(s, [ln.id], "reaction", [listener], listener, "static", {"part": [at, 1]},
+                                   f"cut inside the line to {listener} listening, where {ln.who}'s mouth rests"))
+                shots[-1].acts = {}
+            else:
+                shots.append(_shot(s, [ln.id], cam, on, ln.who, move, {}, reason))
         shots = _merge_holds(shots)
+        for k, sh in enumerate(shots):
+            if sh.camera == "over_shoulder":
+                near = [x for x in (shots[k - 1] if k else None, shots[k + 1] if k + 1 < len(shots) else None) if x]
+                if any(x.camera == "two_shot" and set(x.who) == set(sh.who) for x in near):
+                    sh.fallback = "medium"      # a two-shot of these two is already next to it
         plans.append(ScenePlan(s.id, set_name, d.get("lighting") or _default_lighting(s),
                                d.get("transition_in", "cut"), sides, shots))
         prev_set = set_name
     return plans
+
+
+REACT_MIN_SECONDS = 3.4   # a line shorter than this is not cut in two
+
+
+def _reaction(d, ln, cam, present, shots, last_id, seed):
+    """Whether to cut away to the listener part way through a line: (listener, fraction) or None.
+
+    The line must be long enough to carry two shots, the speaker's own shot must show only the speaker, and the scene
+    must not have just cut to a reaction. The cut lands between 55 and 65 % of the line; the filming snaps it to a
+    drawing where the speaker's mouth is at rest. `direction.reactions: false` turns this off for a scene."""
+    if d.get("reactions", True) is False or ln.id == last_id or not shots or cam not in ("close_up", "medium"):
+        return None
+    listener = ln.to if ln.to in present and ln.to != ln.who else next((c for c in present if c != ln.who), None)
+    if not listener or _estimate(ln) < REACT_MIN_SECONDS:
+        return None
+    if any(sh.camera == "reaction" for sh in shots[-2:]):
+        return None
+    if shots[-1].camera == cam and shots[-1].who == [ln.who]:
+        return None     # the same framing continues from the line before: the planner joins them into one shot
+    return listener, round(.55 + (seed % 3) * .05, 2)
 
 
 def _choose(s, d, ln, i, shots, present, prev_set, set_name, last_id, seed):
@@ -393,11 +448,17 @@ def _choose(s, d, ln, i, shots, present, prev_set, set_name, last_id, seed):
         return ("wide" if len(present) > 2 else "medium"), (present if len(present) > 2 else [ln.who]), "static", \
             f"{ln.who} joins the conversation: seen in context"
     prev = s.lines[i - 1] if i else None
+    words = len((ln.say or "").split())
+    if shots[-1].camera == "reaction" and shots[-1].who == [ln.who]:
+        # we cut to this person listening; now they answer: a size wider, so the cut reads as a cut
+        return "medium", [ln.who], "static", "the listener answers: wider than the reaction"
+    if words <= 6 and ((ln.say or "").rstrip().endswith("!") or ln.emotion in ("surprised", "shocked")) and \
+            not (shots and shots[-1].camera in ("close_up", "extreme_close_up") and shots[-1].who == [ln.who]):
+        return "extreme_close_up", [ln.who], "static", "a short, sharp line: on the eyes"
     if prev is not None and (prev.say or "").rstrip().endswith("?") and prev.who != ln.who:
         return "close_up", [ln.who], "static", "an answer to a question"
     if (ln.say or "").rstrip().endswith("?") and listener:
         return "over_shoulder", [ln.who, listener], "static", "a question, seen past the listener"
-    words = len((ln.say or "").split())
     rotation = ["two_shot", "medium", "over_shoulder", "medium", "wide", "close_up"] if len(present) == 2 else \
                ["medium", "wide", "medium", "close_up", "two_shot", "medium"]
     cam = rotation[(seed + i) % len(rotation)]
@@ -418,12 +479,14 @@ def _choose(s, d, ln, i, shots, present, prev_set, set_name, last_id, seed):
 def _shot(s, ids, cam, on, focus, move, spec, reason) -> Shot:
     lines = [ln for ln in s.lines if ln.id in ids]
     info = SHOTS.get(cam, SHOTS["medium"])
-    secs = spec.get("seconds") or round(sum(_estimate(ln) for ln in lines), 2)
+    part = list(spec["part"]) if spec.get("part") is not None else None
+    secs = spec.get("seconds") or round(sum(_estimate(ln) for ln in lines) * ((part[1] - part[0]) if part else 1), 2)
     return Shot(lines=list(ids), camera=cam, who=list(on), focus=focus, move=move, seconds=secs,
                 lens=int(spec.get("lens_mm") or info["lens"]), height=spec.get("height", "eye"),
                 fstop=float(spec.get("fstop") or info["fstop"]),
                 acts={ln.id: list(ln.act) for ln in lines if ln.act}, reason=reason,
-                position=list(spec["position"]) if spec.get("position") else None, aim=list(spec["aim"]) if spec.get("aim") else None)
+                position=list(spec["position"]) if spec.get("position") else None, aim=list(spec["aim"]) if spec.get("aim") else None,
+                part=part)
 
 
 MAX_HOLD = 12.0  # seconds a held static shot may run before the planner cuts
@@ -439,7 +502,7 @@ def _merge_holds(shots: list[Shot]) -> list[Shot]:
     for sh in shots:
         last = out[-1] if out else None
         same = (last is not None and last.camera == sh.camera and last.who == sh.who and last.camera != "insert"
-                and "as written in the scene" not in (last.reason, sh.reason))
+                and "as written in the scene" not in (last.reason, sh.reason) and not last.part and not sh.part)
         if same and (sh.move == "push_in" or last.seconds + sh.seconds <= MAX_HOLD):
             last.lines += sh.lines
             last.seconds = round(last.seconds + sh.seconds, 2)
@@ -472,5 +535,6 @@ def describe(plans: list[ScenePlan]) -> str:
             who = ", ".join(sh.who) or "-"
             acts = "; ".join(f"{k}: {'+'.join(v)}" for k, v in sh.acts.items())
             rows.append(f"  {n:>2}. {sh.camera:<16} {sh.lens:>3} mm  {sh.move:<8} {sh.seconds:>5.1f} s  on {who:<18}"
-                        f" lines {','.join(sh.lines)}" + (f"  [{acts}]" if acts else "") + f"  ({sh.reason})")
+                        f" lines {','.join(sh.lines)}" + (f" {sh.part[0]:.0%}-{sh.part[1]:.0%}" if sh.part else "")
+                        + (f"  [{acts}]" if acts else "") + f"  ({sh.reason})")
     return "\n".join(r for r in rows if r)

@@ -355,10 +355,10 @@ def fit(pos, aim, heads, margin=.84):
     return pos
 
 
-def frame_shot(shot=None):
+def frame_shot(shot=None, only=None):
     """Where the camera stands at the start of the shot and what it looks at, from the people as they really are."""
     shot = shot or CAM.get('shot', 'medium')
-    who = [w for w in CAM.get('who') or [] if w in PERF.actors and PERF.actors[w].P.vis] or [n for n, a in PERF.actors.items() if a.P.vis][:1]
+    who = [w for w in only or CAM.get('who') or [] if w in PERF.actors and PERF.actors[w].P.vis] or [n for n, a in PERF.actors.items() if a.P.vis][:1]
     if CAM.get('position') and CAM.get('aim'):
         # the director put the camera exactly here: it is not second-guessed
         return V(CAM['position']), V(CAM['aim']), (CAM.get('focus') if CAM.get('focus') in PERF.actors else (who[0] if who else None))
@@ -387,8 +387,9 @@ def frame_shot(shot=None):
         # of the set, and see the back of the speaker's head. Then the pair is filmed as a two-shot from the front.
         to_cam = V((pos.x - sp.x, pos.y - sp.y, 0))
         if to_cam.length > 1e-6 and to_cam.normalized().dot(facing(who[0])) < .26:
-            print(f'FILM over_shoulder would see {who[0]} from behind: filmed as a two-shot', flush=True)
-            return frame_shot('two_shot')
+            fb = CAM.get('fallback') or 'two_shot'
+            print(f'FILM over_shoulder would see {who[0]} from behind: filmed as a {fb.replace("_", "-")}', flush=True)
+            return frame_shot(fb, only=[who[0]] if fb != 'two_shot' else None)
         return pos, V((sp.x, sp.y, sp.z - .1)), who[0]
     # stand on the side the subject is turned towards, for a three-quarter view of the face
     yaw = sum((PERF.actors[w].last_yaw or 0) for w in who) / len(who)
