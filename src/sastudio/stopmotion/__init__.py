@@ -1,11 +1,12 @@
-"""Clay stop-motion renderer (experimental): films one planned shot in Blender.
+"""Clay stop motion: turns a project's scenes into shots for the clay engine and films them in Blender.
 
-This is the first working piece of the clay-motion renderer described in docs/CLAY_MOTION.md.
-It builds a Blender job from the project, the shot plan (sastudio.direction) and the characters'
-`look.design`, runs Blender in the background and encodes the drawings, animated on twos, into a
-clip. What it does today: clay characters on a branded set, lighting presets, the planned camera
-and its move, replacement mouths following the words, blinks, eyelines, breathing and arm and head
-gestures. Not yet: walking, sitting, props in hands, real audio, and assembly into the full film.
+The work is split in two. This module, in ordinary Python, reads the project, the shot plan (sastudio.direction) and
+the timing of the voices, and writes a *job* for each shot: the set, the light, the cast, every spoken line with its
+mouth shapes, every acting key and a camera. The engine (engine/clay/film.py), inside Blender, builds the scene and
+films the frames. Acting is a pure function of the frame, so shots of one scene always agree, a changed line only
+re-films the shots it can affect, and an interrupted shot resumes at its first missing frame.
+
+Films are animated on twos (twelve drawings a second, each held for two frames), the cadence of stop motion.
 """
 
 from __future__ import annotations
@@ -16,34 +17,35 @@ import math
 import os
 import shutil
 import subprocess
+from dataclasses import dataclass, field
 from importlib import resources
 from pathlib import Path
 
+from .. import claydesign, lipsync
 from .. import direction as D
 from ..errors import ConfigError, RenderError, ToolMissing
-from ..render import figures
+from ..render import clay
 
 FPS = 24
-SCENE_VERSION = "1"  # bump when the Blender scene builder changes what it draws
-PRESETS = {"draft": (960, 540, 8), "preview": (1280, 720, 16), "final": (1920, 1080, 48)}
-NOT_YET = {"sit_down", "stand_up", "walk_in", "walk_out"}
-HEAD_Z, CHEST_Z, BODY_Z = 0.312, 0.215, 0.17
-SIDES_X = {"left": [-0.13, -0.29], "right": [0.13, 0.29]}
-# frame height (m) and the height the camera aims at: room above the hair, never cutting the head
-FRAME_H = {"establishing": None, "wide": 0.50, "medium": 0.27, "two_shot": 0.31, "over_shoulder": 0.22,
-           "close_up": 0.15, "extreme_close_up": 0.075, "reaction": 0.15, "insert": 0.09}
-# faces sit in the upper half of the frame, so subtitles never cover a mouth
-AIM_Z = {"wide": 0.19, "medium": 0.255, "two_shot": 0.26, "close_up": 0.305, "reaction": 0.305,
-         "extreme_close_up": 0.300, "over_shoulder": 0.300}
+STEP = 2
+ENGINE_VERSION = "3"  # bump when the engine changes what it draws: every cached shot is filmed again
+PRESETS = {"draft": (960, 540, 6), "preview": (1280, 720, 12), "final": (1920, 1080, 24)}
+LEAD = 3              # frames of breath before a line when there is no recorded audio to time it
+# Gestures of the direction vocabulary and the engine's gesture each one plays.
+HANDS = {"shrug": "shrug", "point": "point", "wave": "wave", "open_palms": "present", "thumbs_up": "thumb",
+         "hand_on_chin": "chin", "arms_folded": "cross", "phone_to_ear": "phone", "typing": "typing"}
+MOODS = {"neutral": "neutral", "happy": "happy", "worried": "worry", "surprised": "surprise", "suspicious": "brow",
+         "confident": "proud", "embarrassed": "oops", "relieved": "relief"}
+ENGINE_MOODS = ("grin", "shock", "sad", "smug", "deadpan", "think", "annoyed", "recognise", "concern", "hesitate", "warm",
+                "wince", "tender")
 
 
 def find_blender() -> tuple[str, bool]:
     """Blender to run, and whether it is a Windows build used from WSL. SASTUDIO_BLENDER wins."""
     exe = os.environ.get("SASTUDIO_BLENDER") or shutil.which("blender") or shutil.which("blender.exe")
     if not exe:
-        raise ToolMissing("The clay stop-motion renderer needs Blender 4.2 or newer.",
-                          "Install it from blender.org and put it on PATH, or set SASTUDIO_BLENDER to blender's path. "
-                          "On WSL2, point SASTUDIO_BLENDER at the Windows blender.exe: its EEVEE uses the GPU.")
+        raise ToolMissing("The clay renderer needs Blender 4.2 or newer.",
+                          "Install it from blender.org and put it on PATH, or set SASTUDIO_BLENDER to blender's path.")
     return exe, exe.lower().endswith(".exe") and os.name != "nt"
 
 
@@ -51,380 +53,352 @@ def _winpath(p: Path) -> str:
     return subprocess.run(["wslpath", "-w", str(p)], capture_output=True, text=True, check=True).stdout.strip()
 
 
-def _vfov(lens: float) -> float:
-    return 2 * math.atan((36 * 9 / 16) / 2 / lens)
+# ----------------------------------------------------------------------------------------------- timing
+@dataclass
+class Span:
+    """One beat of a scene on the scene's own clock (frames from the start of the scene's video)."""
+    line: object            # the project's Line
+    beat: int               # first frame of the beat
+    frames: int             # frames the beat lasts
+    lead: int = 0           # frames before the voice starts
+    speech: int = 0         # frames the voice lasts
+    env: list = field(default_factory=list)
+    text: str = ""
+
+    @property
+    def start(self) -> int:
+        return self.beat + self.lead
+
+    @property
+    def end(self) -> int:
+        return self.start + self.speech
 
 
-def _positions(plan: D.ScenePlan) -> dict[str, tuple[tuple[float, float, float], float]]:
-    used = {"left": 0, "right": 0}
-    out = {}
-    for cid, side in plan.sides.items():
-        xs = SIDES_X[side]
-        x = xs[min(used[side], len(xs) - 1)]
-        used[side] += 1
-        out[cid] = ((x, 0.18, 0.0), 0.42 if side == "left" else -0.42)  # cheated toward the camera
+def spans_from_timeline(scene, tl) -> list[Span]:
+    """The scene's spoken lines as the build timed them from the real audio."""
+    by_id = {ln.id: ln for ln in scene.lines}
+    out, at = [], 0
+    for b in tl.beats:
+        if b.kind == "line" and b.line_id in by_id:
+            env = list(b.env[b.audio_offset:])
+            out.append(Span(by_id[b.line_id], at, b.frames, b.audio_offset, max(1, len(env)), env, b.text))
+        at += b.frames
     return out
 
 
-def camera_keys(shot: D.Shot, pos: dict, frames: int) -> dict:
-    lens = shot.lens or D.SHOTS[shot.camera]["lens"]
-    if shot.camera == "establishing":
-        start, aim = (0.0, -1.05, 0.46), (0.0, 0.25, 0.20)
-        end = start
-    else:
-        who = [c for c in shot.who if c in pos] or list(pos)[:1]
-        heads = [Vector3(pos[c][0][0], pos[c][0][1], HEAD_Z) for c in who]
-        aim_z = AIM_Z.get(shot.camera, HEAD_Z)
-        cx = sum(h.x for h in heads) / len(heads)
-        cy = sum(h.y for h in heads) / len(heads)
-        aim = (cx, cy, aim_z)
-        dist = (FRAME_H[shot.camera] / 2) / math.tan(_vfov(lens) / 2)
-        if shot.camera == "over_shoulder" and len(who) == 2:
-            sp, ls = pos[who[0]][0], pos[who[1]][0]
-            dx, dy = sp[0] - ls[0], sp[1] - ls[1]
-            n = math.hypot(dx, dy) or 1.0
-            aim = (sp[0], sp[1], AIM_Z["over_shoulder"])
-            back = dist + n
-            side = 1 if ls[0] > sp[0] else -1
-            start = (sp[0] - dx / n * back + side * 0.025, sp[1] - dy / n * back - 0.30, HEAD_Z + 0.01)
-        else:
-            # stand on the side the character is looking towards, for a three-quarter view of the face
-            facing = sum(pos[c][1] for c in who) / len(who)
-            ang = facing * (0.75 if len(who) == 1 else 0.35)
-            start = (cx + math.sin(ang) * dist, cy - math.cos(ang) * dist, aim_z + 0.01)
-        height = {"low": -0.05, "high": 0.07}.get(shot.height, 0.0)
-        start = (start[0], start[1], start[2] + height)
-        end = start
-        if shot.move in ("push_in", "pull_out"):
-            k = (0.90 if shot.camera in ("close_up", "extreme_close_up", "reaction") else 0.80) if shot.move == "push_in" \
-                else 1.22
-            end = tuple(a + (s - a) * k for s, a in zip(start, aim, strict=True))
-        elif shot.move == "orbit":
-            ang = 0.18
-            dx, dy = start[0] - aim[0], start[1] - aim[1]
-            end = (aim[0] + dx * math.cos(ang) - dy * math.sin(ang), aim[1] + dx * math.sin(ang) + dy * math.cos(ang), start[2])
-    return {"lens": lens, "fstop": shot.fstop, "focus": shot.focus if shot.camera != "establishing" else None,
-            "keys": {1: [start, aim], max(1, frames): [end, aim]}}
+def spans_estimated(project, scene) -> list[Span]:
+    """Timing without audio, from the length of the words: for previews of the direction (`sastudio motion`)."""
+    out, at = [], 0
+    for ln in scene.lines:
+        if ln.is_card:
+            continue
+        speech = max(12, math.ceil(D._estimate(ln) * FPS))
+        frames = LEAD + speech + 8
+        out.append(Span(ln, at, frames, LEAD, speech, [], project.display(ln.say or "", project.language)))
+        at += frames
+    return out
 
 
-class Vector3:
-    def __init__(self, x, y, z):
-        self.x, self.y, self.z = x, y, z
+# ----------------------------------------------------------------------------------------------- the scene
+def _mood(name: str | None) -> str | None:
+    if not name:
+        return None
+    return MOODS.get(name) or (name if name in ENGINE_MOODS else None)
 
 
-REST = {"left": {"shoulder": [0.0, 0.10, 0.0], "elbow": [-0.12, 0.0, 0.0]},
-        "right": {"shoulder": [0.0, -0.10, 0.0], "elbow": [-0.12, 0.0, 0.0]}}
-POSES = {  # arm targets for gestures that hold a pose (left/right shoulder and elbow, Euler radians)
-    "point": {"right": {"shoulder": [-1.25, -0.10, 0.0], "elbow": [-0.15, 0.0, 0.0]}},
-    "wave": {"right": {"shoulder": [-0.20, -2.30, 0.0], "elbow": [0.0, -0.35, 0.0]}},
-    "open_palms": {"left": {"shoulder": [-0.25, 0.30, 0.0], "elbow": [-1.35, 0.0, 0.0]},
-                   "right": {"shoulder": [-0.25, -0.30, 0.0], "elbow": [-1.35, 0.0, 0.0]}},
-    "shrug": {"left": {"shoulder": [-0.15, 0.55, 0.0], "elbow": [-1.20, 0.0, 0.0]},
-              "right": {"shoulder": [-0.15, -0.55, 0.0], "elbow": [-1.20, 0.0, 0.0]}},
-    "thumbs_up": {"right": {"shoulder": [-0.55, -0.15, 0.0], "elbow": [-1.45, 0.0, 0.0]}},
-    "hand_on_chin": {"right": {"shoulder": [-0.55, 0.25, 0.0], "elbow": [-2.35, 0.0, 0.0]}},
-    "arms_folded": {"left": {"shoulder": [-0.35, -0.15, 0.0], "elbow": [-1.85, 0.0, 0.0]},
-                    "right": {"shoulder": [-0.35, 0.15, 0.0], "elbow": [-1.85, 0.0, 0.0]}},
-    "phone_to_ear": {"left": {"shoulder": [-0.45, 0.45, 0.0], "elbow": [-2.45, 0.0, 0.0]}},
-    "typing": {"left": {"shoulder": [-0.60, 0.05, 0.0], "elbow": [-0.95, 0.0, 0.0]},
-               "right": {"shoulder": [-0.60, -0.05, 0.0], "elbow": [-0.95, 0.0, 0.0]}},
-}
+def _gesture_keys(who: str, g: str, f0: int, f1: int, to: str | None, set_info: dict) -> tuple[list[dict], bool]:
+    """Acting keys for one gesture of the direction vocabulary on a line from f0 to f1 -> (keys, uses the hands)."""
+    info = D.GESTURES[g]
+    k = lambda f, **d: dict(who=who, frame=int(f), **d)  # noqa: E731
+    if g == "nod":
+        return [k(f0 + 2, nod=.2), k(f0 + 9, nod=0), k(f0 + 15, nod=.12), k(f0 + 22, nod=0)], False
+    if g == "shake_head":
+        return [k(f0 + 2, turn=.28), k(f0 + 8, turn=-.28), k(f0 + 14, turn=.2), k(f0 + 20, turn=0)], False
+    if g == "tilt_head":
+        return [k(f0 + 2, tilt=.17), k(max(f0 + 26, f1 - 6), tilt=0)], False
+    if g == "lean_in":
+        return [k(f0, lean=.1), k(f1 + 4, lean=0)], False
+    if g == "turn_to":
+        return ([k(f0 - 6, face=to), k(f1 + 10, face=None)] if to else []), False
+    if g == "sit_down":
+        return [k(f0, walk="seat")], False
+    if g == "stand_up":
+        return [k(f0, seat=False), k(f0 + 14, walk="home")], False
+    if g == "walk_in":
+        return [k(-900, on=False), k(f0 - 44, on=True), k(f0 - 44, walk="home")], False
+    if g == "walk_out":
+        return [k(f1 - 6, walk="door" if set_info.get("door") else "offscreen", leave=True)], False
+    hand = HANDS[g]
+    if info["kind"] == "once":
+        hold = int(info["seconds"] * FPS) + 14
+        return [k(f0 + 2, g=hand), k(min(f0 + 2 + hold, f1 + 4), g="talk" if f1 - (f0 + hold) > 20 else "rest")], True
+    return [k(f0 - 4, g=hand), k(f1 + 6, g="rest")], True
 
 
-def _ease(x: float) -> float:
-    x = max(0.0, min(1.0, x))
-    return x * x * (3 - 2 * x)
-
-
-def tracks(project, scene, shot: D.Shot, pos: dict, step: int) -> tuple[dict, int]:
-    """Per-drawing acting for everyone in the scene: mouth, blink, head, breath, arms."""
-    lines = [ln for ln in scene.lines if ln.id in shot.lines]
-    for ln in lines:
+def scene_job(project, scene, plan: D.ScenePlan, spans: list[Span], lang: str | None = None) -> dict:
+    """Everything about a scene that every one of its shots shares: place, light, people, words, acting."""
+    lang = lang or project.language
+    set_info = D.SETS.get(plan.set, D.SETS["office"])
+    d = scene.direction or {}
+    blocking = d.get("blocking") or {}
+    cast = []
+    for cid in plan.sides:
+        if cid not in project.characters:
+            raise ConfigError(f"No character '{cid}'.", "List them with `sastudio characters`.")
+        c = {"id": cid, "style": claydesign.acting_style(project, cid)}
+        if blocking.get(cid):
+            c["mark"] = blocking[cid]
+        cast.append(c)
+    lines, keys, doors = [], [], []
+    last_mood: dict[str, str] = {}
+    for sp in spans:
+        ln = sp.line
+        manual = set()
         for g in ln.act or []:
-            if g in NOT_YET:
-                raise ConfigError(f"Line {ln.id}: the clay renderer cannot film '{g}' yet.",
-                                  "Remove it from `act`; walking and sitting are planned (docs/CLAY_MOTION.md).")
-    spans, t = [], 0.35
-    for ln in lines:
-        dur = D._estimate(ln)
-        spans.append((ln, t, t + dur))
-        t += dur + 0.25
-    frames = max(int(round((t + 0.3) * FPS)), int(shot.seconds * FPS))
-    out: dict = {}
-    for cid in pos:
-        h = int(hashlib.sha256(cid.encode()).hexdigest()[:6], 16)
-        body_yaw = pos[cid][1]
-        tr = {}
-        for f in range(1, frames + 1, step):
-            ts = (f - 1) / FPS
-            cur = next(((ln, a, b) for ln, a, b in spans if a <= ts < b), None)
-            speaker = cur[0].who if cur else (lines[-1].who if lines else None)
-            mouth = 0
-            if cur and cur[0].who == cid:
-                mouth = figures.mouth_for(cur[0].say or "", (ts - cur[1]) / max(0.01, cur[2] - cur[1]))
-            look_at = speaker if speaker and speaker != cid else ((cur[0].to if cur else None) or
-                                                                   next((c for c in pos if c != cid), None))
-            yaw = 0.0
-            if look_at and look_at in pos:
-                dx = pos[look_at][0][0] - pos[cid][0][0]
-                yaw = max(-0.55, min(0.55, (0.6 if dx > 0 else -0.6) - body_yaw))
-            pitch = 0.035 * math.sin(ts * 7.0 + h) if mouth else 0.0
-            roll = 0.03 * math.sin(ts * 0.8 + h)
-            arms = json.loads(json.dumps(REST))
-            for ln, a, b in spans:
-                if ln.who != cid:
-                    continue
-                for g in ln.act or []:
-                    info = D.GESTURES[g]
-                    if info["kind"] == "once":
-                        k = _ease((ts - a - 0.15) / 0.3) * (1 - _ease((ts - a - 0.15 - info["seconds"]) / 0.3))
-                    else:
-                        k = _ease((ts - a) / 0.35) * (1 - _ease((ts - b) / 0.35))
-                    if k <= 0:
-                        continue
-                    if g == "nod":
-                        pitch += 0.20 * k * math.sin(min(1.0, (ts - a) / info["seconds"]) * math.pi)
-                    elif g == "shake_head":
-                        yaw += 0.25 * k * math.sin((ts - a) * 14)
-                    elif g == "tilt_head":
-                        roll += 0.18 * k
-                    elif g in ("turn_to", "lean_in"):
-                        pitch += 0.08 * k
-                    for side, pose in POSES.get(g, {}).items():
-                        for joint in ("shoulder", "elbow"):
-                            arms[side][joint] = [r + (p - r) * k for r, p in zip(arms[side][joint], pose[joint], strict=True)]
-                    if g == "wave":
-                        arms["right"]["elbow"][1] += 0.35 * k * math.sin((ts - a) * 12)
-                    if g == "typing":
-                        for side in ("left", "right"):
-                            arms[side]["elbow"][0] += 0.06 * k * math.sin((ts - a) * 20 + (side == "left"))
-            blink = f > 6 and (f + h - h % 2) % (70 + h % 37 - h % 37 % 2) < 4
-            tr[f] = {"mouth": mouth, "blink": blink, "head": [pitch, yaw, roll],
-                     "breath": 1.0 + 0.012 * math.sin(ts * 2 * math.pi / 3.6 + h), "arms": arms}
-        out[cid] = tr
-    return out, frames
+            ks, hands = _gesture_keys(ln.who, g, sp.start, sp.end, ln.to, set_info)
+            keys += ks
+            if hands:
+                manual.add(ln.who)
+            if g == "walk_in":
+                c = next(x for x in cast if x["id"] == ln.who)
+                c["enter_from"] = "door" if set_info.get("door") else "offscreen"
+                if set_info.get("door"):
+                    doors.append([sp.start - 50, sp.start + 6])
+            if g == "walk_out" and set_info.get("door"):
+                doors.append([sp.end + 20, sp.end + 90])
+        mood = _mood(ln.emotion)
+        if mood and last_mood.get(ln.who) != mood:
+            keys.append(dict(who=ln.who, frame=sp.start - 6, f=mood))
+            last_mood[ln.who] = mood
+        for cid, feeling in (getattr(ln, "reactions", None) or {}).items():
+            m = _mood(feeling)
+            if m and cid in plan.sides:
+                keys.append(dict(who=cid, frame=sp.start + min(18, sp.speech // 3), f=m))
+                last_mood[cid] = m
+        cues = lipsync.cues_from_text(sp.text or project.display(ln.say or "", lang), sp.env, FPS) if sp.speech else []
+        lines.append({"id": ln.id, "who": ln.who, "start": sp.start, "end": sp.end, "cues": cues, "to": ln.to,
+                      "manual": sorted(manual)})
+    org = project.org
+    return {"set": {"name": plan.set, "palette": org.get("palette") or {}, "org": org.get("short_name") or org.get("name"),
+                    "seed": int(hashlib.sha256(scene.id.encode()).hexdigest()[:6], 16) % 997 + 1,
+                    "time": (scene.setting or {}).get("time_of_day", "day")},
+            "lighting": dict(D.LIGHTING[plan.lighting], name=plan.lighting),
+            "cast": cast, "lines": lines, "keys": sorted(keys, key=lambda x: x["frame"]), "door": doors, "fps": FPS}
 
 
-def build_job(project, plan: D.ScenePlan, shot_index: int, preset: str, out_dir: Path) -> dict:
-    scene = next(s for s in project.scenes if s.id == plan.scene)
-    shot = plan.shots[shot_index]
-    pos = _positions(plan)
+def shot_frames(shot: D.Shot, spans: list[Span]) -> list[int]:
+    """The scene frames a shot shows, on twos within each line's beat (the grid the cards compositor reads)."""
+    out: list[int] = []
+    for sp in spans:
+        if sp.line.id in shot.lines:
+            out += [sp.beat + f for f in range(0, sp.frames, STEP)]
+    return sorted(set(out))
+
+
+def shot_job(scene_part: dict, shot: D.Shot, frames: list[int], preset: str) -> dict:
+    """The job for one shot: the scene, trimmed to what can affect these frames, and a camera."""
     w, h, samples = PRESETS[preset]
-    step = 2
-    trk, frames = tracks(project, scene, shot, pos, step)
-    chars = [_char_job(project, cid, p, yaw) for cid, (p, yaw) in pos.items()]
-    st = D.SETS.get(plan.set, D.SETS["office"])
-    logo = project.org.get("logo")
-    return {"palette": project.org.get("palette") or {}, "lighting": D.LIGHTING[plan.lighting],
-            "props": st["props"], "furniture": ["desk"] if st["seats"] else [],
-            "logo": str(project.path(logo, "organization.logo")) if logo else None,
-            "characters": chars, "camera": camera_keys(shot, pos, frames), "tracks": trk,
-            "frame_start": 1, "frame_end": frames, "step": step, "width": w, "height": h, "samples": samples,
-            "aliases": _aliases(), "out": str(out_dir)}
+    last = frames[-1] + 40
+    job = dict(scene_part)
+    job["lines"] = [ln for ln in scene_part["lines"] if ln["start"] <= last]
+    job["keys"] = [k for k in scene_part["keys"] if k["frame"] <= last]
+    job["door"] = [dr for dr in scene_part["door"] if dr[0] <= last]
+    job.update(mode="film", frames=frames, width=w, height=h, samples=samples,
+               camera={"shot": shot.camera, "who": list(shot.who), "focus": shot.focus, "lens": shot.lens or D.SHOTS[shot.camera]["lens"],
+                       "fstop": shot.fstop, "move": shot.move, "height": shot.height})
+    return job
 
 
-def _aliases() -> dict:
-    from .. import models
-
-    return {"bones": models.BONES, "shapes": models.SHAPES}
-
-
-def _char_job(project, cid: str, pos=(0.0, 0.0, 0.0), yaw: float = 0.0) -> dict:
-    """One character for the Blender job: its clay design, or the model it was given."""
-    if cid not in project.characters:
-        raise ConfigError(f"No character '{cid}'.", "List them with `sastudio characters`.")
-    look = project.characters[cid].look or {}
-    c = {"id": cid, "pos": list(pos), "yaw": yaw, "design": figures.normalize(look.get("design"), look.get("preset"))}
-    if look.get("model"):
-        path = project.path(look["model"], f"characters.{cid}.look.model")
-        if not path.is_file():
-            raise ConfigError(f"{cid}'s model {look['model']} is missing.", "Import it again with `sastudio model import`.")
-        c["model"] = str(path)
-        c["model_yaw"] = float(look.get("model_yaw") or 0.0)
-        c["model_sha"] = hashlib.sha256(path.read_bytes()).hexdigest()[:16]  # a changed file re-films the shot
-    return c
+def _digest(job: dict, rigs: dict) -> str:
+    body = json.dumps({"job": job, "rigs": rigs, "v": ENGINE_VERSION}, sort_keys=True, default=str)
+    return hashlib.sha256(body.encode()).hexdigest()[:20]
 
 
-def _rest_track() -> dict:
-    return {1: {"mouth": 0, "blink": False, "head": [0.0, 0.0, 0.0], "breath": 1.0,
-                "arms": json.loads(json.dumps(REST))}}
+# ----------------------------------------------------------------------------------------------- Blender
+def _font() -> Path:
+    fonts = resources.files("sastudio").joinpath("data").joinpath("fonts")
+    with resources.as_file(fonts) as fdir:
+        return Path(fdir) / "AtkinsonHyperlegibleNext[wght].ttf"
 
 
-def _run_blender(job: dict, work: Path, log=print, marker: str = "STOPMOTION done") -> str:
-    """Run the Blender scene builder on a job; paths are converted for a Windows Blender under WSL."""
+def run_blender(job: dict, work: Path, log=print, timeout: float = 48 * 3600) -> None:
+    """Run the engine on a job; paths are converted for a Windows Blender under WSL. Progress goes to `log`."""
+    clay.require_engine()
     exe, wsl_win = find_blender()
     conv = _winpath if wsl_win else str
-    for key in ("out", "logo", "export", "save_blend"):
+    job = dict(job)
+    for key in ("rig", "out", "font"):
         if job.get(key):
             job[key] = conv(Path(job[key]))
-    for c in job["characters"]:
-        if c.get("model"):
-            c["model"] = conv(Path(c["model"]))
+    job["device"] = clay.clay_device()
     work.mkdir(parents=True, exist_ok=True)
     (work / "job.json").write_text(json.dumps(job), "utf-8")
-    with resources.as_file(resources.files("sastudio.stopmotion").joinpath("blender_scene.py")) as script:
+    with resources.as_file(clay.ENGINE.joinpath("clay").joinpath("film.py")) as script:
         cmd = [exe, "-b", "--factory-startup", "-P", conv(Path(script)), "--", conv(work / "job.json")]
-        res = subprocess.run(cmd, capture_output=True, text=True, check=False)
-    if marker not in res.stdout:
-        raise RenderError("Blender did not finish:\n" + (res.stdout + res.stderr).strip()[-1500:])
-    return res.stdout
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8", errors="replace")
+        tail: list[str] = []
+        for line in proc.stdout:
+            line = line.rstrip()
+            tail = (tail + [line])[-30:]
+            if line.startswith("FILM device"):
+                cpu = job["device"] == "GPU" and line.startswith("FILM device CPU")
+                log(("    warning: " if cpu else "    ") + line[5:]
+                    + (" - rendering on the CPU is much slower; check your GPU driver" if cpu else ""))
+            elif line.startswith("FILM frame "):
+                n = line.split()[2]
+                done, total = n.split("/")
+                if int(done) % 12 == 0 or done == total:
+                    log(f"    drawing {done} of {total} ({line.split()[-1]})")
+        code = proc.wait(timeout=timeout)
+    if code != 0 or not any(t.startswith("FILM done") for t in tail):
+        raise RenderError("Blender did not finish the shot:\n    " + "\n    ".join(tail[-14:]))
 
 
-def render_portrait(project, cid: str, *, samples: int = 32, log=print) -> Path:
-    """A still of one character (clay or imported model) for the cards styles; sets `look.portrait`.
+def rig_stamps(project, cast: list[str]) -> dict:
+    rig = clay.rig_dir(project)
+    return {cid: (rig / cid / ".params").read_text() if (rig / cid / ".params").exists() else "" for cid in cast}
 
-    Saved as assets/characters/<id>_3d.png (never over a portrait someone made), cropped to the figure
-    on a transparent background, like the bundled clay portraits.
-    """
+
+def film_shot(project, scene_part: dict, shot: D.Shot, frames: list[int], preset: str, label: str, log=print) -> Path:
+    """Film one shot (or reuse it): returns the folder holding its frames, named by scene frame number."""
+    job = shot_job(scene_part, shot, frames, preset)
+    cast = [c["id"] for c in job["cast"]]
+    key = _digest(job, rig_stamps(project, cast))
+    out = project.root / ".studio" / "cache" / "clay" / f"{label}.{key}"
+    if (out / ".done").exists() and all((out / f"{f:06d}.png").exists() for f in frames):
+        log(f"  {label}: unchanged, reused")
+        return out
+    job.update(rig=str(clay.rig_dir(project)), out=str(out), font=str(_font()))
+    left = sum(1 for f in frames if not (out / f"{f:06d}.png").exists())
+    log(f"  {label}: {shot.camera}, {len(frames)} drawings" + (f" ({len(frames) - left} already done)" if left != len(frames) else ""))
+    run_blender(job, project.root / ".studio" / "work" / "clay" / label, log)
+    missing = [f for f in frames if not (out / f"{f:06d}.png").exists()]
+    if missing:
+        raise RenderError(f"{label}: Blender finished but {len(missing)} frame(s) are missing.")
+    (out / ".done").write_text(key)
+    return out
+
+
+def film_scene(project, scene, plan: D.ScenePlan, spans: list[Span], preset: str, lang: str | None = None, log=print) -> dict[str, Path]:
+    """Film every shot of a scene. Returns {line id: folder of that line's frames, numbered 00001.png on twos}."""
+    if preset not in PRESETS:
+        raise ConfigError(f"Unknown preset '{preset}'.", f"Use one of {', '.join(PRESETS)}.")
+    clay.build_rigs(project, ids=list(plan.sides), log=log)
+    part = scene_job(project, scene, plan, spans, lang)
+    by_line = {sp.line.id: sp for sp in spans}
+    out: dict[str, Path] = {}
+    n = 0
+    for i, shot in enumerate(plan.shots):
+        ids = [lid for lid in shot.lines if lid in by_line]
+        if shot.camera == "insert" or not ids:
+            continue
+        n += 1
+        frames = shot_frames(shot, spans)
+        folder = film_shot(project, part, shot, frames, preset, f"{scene.id}_s{i + 1:02d}_{preset}", log)
+        for lid in ids:
+            sp = by_line[lid]
+            dest = project.root / ".studio" / "work" / "clay" / "lines" / f"{scene.id}.{lid}.{preset}.{folder.name[-20:]}"
+            if not (dest / ".done").exists():
+                shutil.rmtree(dest, ignore_errors=True)
+                dest.mkdir(parents=True)
+                for f in range(0, sp.frames, STEP):
+                    src = folder / f"{sp.beat + f:06d}.png"
+                    try:
+                        os.link(src, dest / f"{f + 1:05d}.png")
+                    except OSError:
+                        shutil.copyfile(src, dest / f"{f + 1:05d}.png")
+                (dest / ".done").write_text("ok")
+            out[lid] = dest
+    return out
+
+
+# ----------------------------------------------------------------------------------------------- stills
+def render_portrait(project, cid: str, *, samples: int = 48, log=print, force: bool = True, feeling: str = "warm") -> Path:
+    """A still of one character for the cards styles and the cast page: assets/characters/<id>_clay.png."""
     from PIL import Image
 
-    from .. import models
-
-    c = _char_job(project, cid, (0.0, 0.0, 0.0), 0.30)
-    aim, lens = (0.0, 0.0, 0.215), 50.0
-    dist = (0.36 / 2) / math.tan(_vfov(lens) / 2)
-    cam = (math.sin(0.30) * dist * 0.4, -dist, 0.24)
-    job = {"mode": "portrait", "palette": project.org.get("palette") or {}, "lighting": D.LIGHTING["soft_studio"],
-           "props": [], "furniture": [], "logo": None, "characters": [c],
-           "camera": {"lens": lens, "fstop": 8.0, "focus": cid, "keys": {1: [cam, aim]}},
-           "tracks": {cid: _rest_track()}, "frame_start": 1, "frame_end": 1, "step": 1,
-           "width": 900, "height": 1200, "samples": samples, "aliases": _aliases()}
+    if cid not in project.characters:
+        raise ConfigError(f"No character '{cid}'.", "List them with `sastudio characters`.")
+    rel = f"assets/characters/{cid}_clay.png"
+    target = project.root / rel
+    if target.exists() and not force:
+        return target
+    clay.build_rigs(project, ids=[cid], log=log)
     work = project.root / ".studio" / "work" / "portraits" / cid
     shutil.rmtree(work, ignore_errors=True)
-    job["out"] = str(work / "frames")
-    (work / "frames").mkdir(parents=True)
+    job = {"mode": "portrait", "rig": str(clay.rig_dir(project)), "out": str(work / "frames"), "font": str(_font()),
+           "width": 1200, "height": 1600, "samples": samples, "fps": FPS, "frames": [0], "transparent": True,
+           "set": {"name": "studio", "palette": project.org.get("palette") or {}}, "lighting": dict(D.LIGHTING["soft_studio"], name="soft_studio"),
+           "cast": [{"id": cid, "pos": [0, 0], "face": 0.14, "feeling": feeling}], "lines": [], "keys": [], "door": [],
+           "camera": {"shot": "portrait", "who": [cid], "lens": 50, "fstop": 8}}
     log(f"Rendering a portrait of {cid}...")
-    _run_blender(job, work, log)
+    run_blender(job, work, log)
     shots = sorted((work / "frames").glob("*.png"))
     if not shots:
         raise RenderError("Blender wrote no portrait.")
     im = Image.open(shots[0]).convert("RGBA")
     bb = im.getchannel("A").point(lambda a: 255 if a > 8 else 0).getbbox()
     if not bb:
-        raise RenderError(f"The portrait of {cid} is empty: the model may be too small, hidden or facing away.",
-                          "Check it with `sastudio model inspect`, or set `--yaw` when importing.")
+        raise RenderError(f"The portrait of {cid} is empty.")
     im = im.crop((max(0, bb[0] - 24), max(0, bb[1] - 24), min(im.width, bb[2] + 24), min(im.height, bb[3] + 24)))
     im = im.resize((max(1, int(im.width * 820 / im.height)), 820), Image.LANCZOS)
-    rel = f"assets/characters/{cid}_3d.png"
-    target = project.root / rel
     target.parent.mkdir(parents=True, exist_ok=True)
     im.save(target, optimize=True)
-    yml = project.root / "studio.yaml"
-    yml.write_text(models._set_look(yml.read_text("utf-8"), cid, {"portrait": rel}), "utf-8")
     return target
 
 
-EXPORT_FORMATS = (".glb", ".fbx", ".obj", ".blend")
-
-
-def export_character(project, cid: str, out: Path, log=print) -> Path:
-    """Write one character (its clay figure, or its model as fitted to the cast) to GLB, FBX, OBJ or .blend."""
-    out = Path(out).resolve()
-    if out.suffix.lower() not in EXPORT_FORMATS:
-        raise ConfigError(f"Cannot export to {out.suffix or 'a file without an extension'}.",
-                          "Use .glb (most tools and the web), .fbx (game engines), .obj (any 3D tool) or .blend.")
-    job = {"mode": "export", "characters": [_char_job(project, cid)], "export": str(out), "aliases": _aliases()}
-    out.parent.mkdir(parents=True, exist_ok=True)
-    work = project.root / ".studio" / "work" / "export" / cid
-    shutil.rmtree(work, ignore_errors=True)
-    log(f"Exporting {cid} to {out.name}...")
-    _run_blender(job, work, log, marker="STOPMOTION exported")
-    if not out.is_file() or out.stat().st_size == 0:
-        raise RenderError(f"Blender did not write {out}.")
-    return out
-
-
-def render_shot(project, scene_id: str, shot_index: int, preset: str, out: Path, log=print,
-                blend: Path | None = None) -> Path:
-    """Film one planned shot and encode it (on twos) into `out` (an .mp4); `blend` also saves it as a .blend."""
+# ----------------------------------------------------------------------------------------------- previews
+def _plan_for(project, scene_id: str):
     plans = {p.scene: p for p in D.plan(project)}
     if scene_id not in plans:
         raise ConfigError(f"No enabled scene '{scene_id}'.", "List scenes with `sastudio scenes`.")
-    plan = plans[scene_id]
-    if not 0 <= shot_index < len(plan.shots):
-        raise ConfigError(f"Scene {scene_id} has {len(plan.shots)} shots.", "See them with `sastudio direct`.")
-    if plan.shots[shot_index].camera == "insert":
-        raise ConfigError("Insert shots (props and cards) are not filmed in clay yet.", "Choose another shot.")
-    job = build_job(project, plan, shot_index, preset, Path("frames"))
-    digest = hashlib.sha256(json.dumps({k: v for k, v in job.items() if k != "out"}, sort_keys=True,
-                                       default=str).encode() + SCENE_VERSION.encode()).hexdigest()[:16]
-    cached = project.root / ".studio" / "cache" / "stopmotion" / f"{digest}.mp4"
-    if cached.is_file() and cached.stat().st_size > 0 and not blend:  # nothing that affects this shot changed
-        out.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(cached, out)
-        log(f"Reused {scene_id} shot {shot_index + 1} (unchanged)")
-        return out
-    work = project.root / ".studio" / "work" / "stopmotion" / f"{scene_id}_{shot_index + 1:02d}_{preset}"
-    if work.exists():
-        shutil.rmtree(work)
-    (work / "frames").mkdir(parents=True)
-    job["out"] = str(work / "frames")
-    if blend:
-        job["save_blend"] = str(Path(blend).resolve())
-        Path(blend).resolve().parent.mkdir(parents=True, exist_ok=True)
-    log(f"Filming {scene_id} shot {shot_index + 1} ({plan.shots[shot_index].camera}, {job['frame_end']} frames on twos)...")
-    _run_blender(job, work, log)
-    drawings = sorted((work / "frames").glob("*.png"))
-    if not drawings:
-        raise RenderError("Blender wrote no frames.")
-    out.parent.mkdir(parents=True, exist_ok=True)
+    return plans[scene_id], next(s for s in project.scenes if s.id == scene_id)
+
+
+def _encode(folder_frames: list[Path], out: Path) -> None:
     from ..audio.ffmpeg import ffmpeg_exe
 
-    subprocess.run([ffmpeg_exe(), "-v", "error", "-y", "-framerate", str(FPS // job["step"]), "-pattern_type", "glob",
-                    "-i", str(work / "frames" / "*.png"), "-vf", f"fps={FPS}", "-c:v", "libx264", "-crf", "18",
-                    "-pix_fmt", "yuv420p", "-map_metadata", "-1", str(out)], check=True)
-    cached.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copyfile(out, cached)
-    log(f"Wrote {out} ({len(drawings)} drawings)")
+    out.parent.mkdir(parents=True, exist_ok=True)
+    listing = out.with_suffix(".frames.txt")
+    listing.write_text("".join(f"file '{p.as_posix()}'\nduration {STEP / FPS}\n" for p in folder_frames), "utf-8")
+    subprocess.run([ffmpeg_exe(), "-v", "error", "-y", "-f", "concat", "-safe", "0", "-i", str(listing), "-vf", f"fps={FPS}",
+                    "-c:v", "libx264", "-crf", "18", "-pix_fmt", "yuv420p", "-map_metadata", "-1", str(out)], check=True)
+    listing.unlink(missing_ok=True)
+
+
+def render_shot(project, scene_id: str, shot_index: int, preset: str, out: Path, log=print) -> Path:
+    """Film one planned shot without voices (timed from the words) and encode it: a quick look at the direction."""
+    plan, scene = _plan_for(project, scene_id)
+    if not 0 <= shot_index < len(plan.shots):
+        raise ConfigError(f"Scene {scene_id} has {len(plan.shots)} shots.", "See them with `sastudio direct`.")
+    shot = plan.shots[shot_index]
+    if shot.camera == "insert":
+        raise ConfigError("Insert shots (on-screen cards) are drawn by the cards renderer, not filmed.", "Choose another shot.")
+    spans = spans_estimated(project, scene)
+    clay.build_rigs(project, ids=list(plan.sides), log=log)
+    part = scene_job(project, scene, plan, spans)
+    frames = shot_frames(shot, spans)
+    folder = film_shot(project, part, shot, frames, preset, f"{scene_id}_s{shot_index + 1:02d}_{preset}_silent", log)
+    _encode([folder / f"{f:06d}.png" for f in frames], out)
+    log(f"Wrote {out} ({len(frames)} drawings)")
     return out
-
-
-def _srt_time(t: float) -> str:
-    ms = int(round(t * 1000))
-    return f"{ms // 3600000:02d}:{ms // 60000 % 60:02d}:{ms // 1000 % 60:02d},{ms % 1000:03d}"
 
 
 def render_scene(project, scene_id: str, preset: str, out: Path, log=print) -> Path:
-    """Film every shot of a scene (reusing unchanged ones), join them and add subtitles from the plan."""
-    from ..audio.ffmpeg import ffmpeg_exe
-
-    plans = {p.scene: p for p in D.plan(project)}
-    if scene_id not in plans:
-        raise ConfigError(f"No enabled scene '{scene_id}'.", "List scenes with `sastudio scenes`.")
-    plan = plans[scene_id]
-    scene = next(s for s in project.scenes if s.id == scene_id)
-    work = project.root / ".studio" / "work" / "stopmotion" / f"{scene_id}_{preset}_scene"
-    work.mkdir(parents=True, exist_ok=True)
-    parts, cues, offset = [], [], 0.0
+    """Film every shot of a scene without voices and join them: a silent preview of the direction."""
+    plan, scene = _plan_for(project, scene_id)
+    spans = spans_estimated(project, scene)
+    clay.build_rigs(project, ids=list(plan.sides), log=log)
+    part = scene_job(project, scene, plan, spans)
+    all_frames: list[Path] = []
     for i, shot in enumerate(plan.shots):
-        if shot.camera == "insert":
-            log(f"  shot {i + 1}: insert shots are not filmed in clay yet; skipped")
+        frames = shot_frames(shot, spans)
+        if shot.camera == "insert" or not frames:
             continue
-        clip = render_shot(project, scene_id, i, preset, work / f"shot_{i + 1:02d}.mp4", log)
-        dur = float(subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0",
-                                    str(clip)], capture_output=True, text=True, check=True).stdout.strip())
-        t = 0.35
-        for ln in (x for x in scene.lines if x.id in shot.lines):
-            d = D._estimate(ln)
-            cues.append((offset + t, offset + t + d, project.display(ln.say or "", project.language)))
-            t += d + 0.25
-        parts.append(clip)
-        offset += dur
-    listing = work / "shots.txt"
-    listing.write_text("".join(f"file '{p.as_posix()}'\n" for p in parts), "utf-8")
-    srt = work / "scene.srt"
-    srt.write_text("".join(f"{n}\n{_srt_time(a)} --> {_srt_time(b)}\n{text}\n\n" for n, (a, b, text) in enumerate(cues, 1)),
-                   "utf-8")
-    joined = work / "joined.mp4"
-    subprocess.run([ffmpeg_exe(), "-v", "error", "-y", "-f", "concat", "-safe", "0", "-i", str(listing), "-c", "copy",
-                    str(joined)], check=True)
-    fonts = resources.files("sastudio").joinpath("data").joinpath("fonts")
-    with resources.as_file(fonts) as fdir:
-        style = "FontName=Atkinson Hyperlegible Next,FontSize=17,Bold=1,BorderStyle=3,Outline=6,BackColour=&H90202020,MarginV=24"
-        vf = f"subtitles={srt.as_posix()}:fontsdir={Path(fdir).as_posix()}:force_style='{style}'"
-        out.parent.mkdir(parents=True, exist_ok=True)
-        subprocess.run([ffmpeg_exe(), "-v", "error", "-y", "-i", str(joined), "-vf", vf, "-c:v", "libx264", "-crf", "18",
-                        "-pix_fmt", "yuv420p", "-map_metadata", "-1", str(out)], check=True)
-    out.with_suffix(".srt").write_text(srt.read_text("utf-8"), "utf-8")
-    log(f"Wrote {out} ({len(parts)} shots, {offset:.1f} s)")
+        folder = film_shot(project, part, shot, frames, preset, f"{scene_id}_s{i + 1:02d}_{preset}_silent", log)
+        all_frames += [folder / f"{f:06d}.png" for f in frames]
+    if not all_frames:
+        raise RenderError(f"Scene {scene_id} has no spoken lines to film.")
+    _encode(all_frames, out)
+    log(f"Wrote {out} ({len(all_frames)} drawings, {len(all_frames) * STEP / FPS:.1f} s, silent)")
     return out

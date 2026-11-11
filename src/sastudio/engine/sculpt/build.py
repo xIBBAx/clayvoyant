@@ -3,7 +3,7 @@
     python engine/sculpt/build.py <characters folder or .json> <output rig folder> [ids] [--jobs N]
 
 Needs numpy, scipy and scikit-image (`pip install security-awareness-studio[clay]`).
-Each character file is JSON: {"head": {...}, "body": {..., "torso": "knit_vest|blazer|suit_jacket"}}.
+Each character file is JSON: {"head": {..., "hairstyle": one of hair.STYLE}, "body": {..., "torso": one of TORSO}}.
 Output: <rig>/<id>/*.npz and <rig>/meta.json, which engine/clay/puppet.py loads inside Blender.
 """
 import argparse
@@ -17,10 +17,12 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.join(HERE, '..', 'clay'))  # faceops and handrig are shared with the Blender side
 from heads import VIS, eye_y, make_brow, make_eye, make_head, make_lids, make_teeth, surface_y  # noqa: E402
-from bodies import HAND, blazer, knit_vest, make_hand, make_hand_rig, make_shoe, mesh, suit_jacket  # noqa: E402
+from bodies import (HAND, blazer, hoodie, knit_vest, kurta, make_hand, make_hand_rig, make_shoe, mesh, shirt,  # noqa: E402
+                    suit_jacket, sweater, zip_jacket)
 import hair as H  # noqa: E402
 
-TORSO = dict(knit_vest=knit_vest, blazer=blazer, suit_jacket=suit_jacket)
+TORSO = dict(knit_vest=knit_vest, blazer=blazer, suit_jacket=suit_jacket, shirt=shirt, sweater=sweater, hoodie=hoodie, kurta=kurta,
+             zip_jacket=zip_jacket)
 FACE = ('es', 'ez', 'eye', 'W', 'mz', 'mcurve', 'mh', 'browz', 'browy', 'eyey', 'lidU', 'lidL', 'toe')
 HEAD_DEFAULTS = dict(es=.176, ez=.50, eye=.098, W=.108, mz=.198, mcurve=.012, mh=.0095, browz=.648, lipU=.028,
                      lipL=.036, lidU=-11, lidL=9, irisr=.58)
@@ -100,7 +102,6 @@ def main():
     jobs = []
     for n in names:
         jobs += [('head', n), ('hair', n), ('torso', n), ('shoe', n)]
-        jobs += [('hand', n, h, s) for h in HAND for s in (1, -1)]
         jobs += [('handrig', n, s) for s in (1, -1)]
     t = time.time()
     with Pool(a.jobs, initializer=init, initargs=(cast, root)) as P:
@@ -111,6 +112,9 @@ def main():
     for n in names:
         meta[n] = {k: v for k, v in cast[n]['body'].items() if isinstance(v, (int, float, str))}
         meta[n]['face'] = {k: cast[n]['head'][k] for k in FACE}
+        if cast[n]['head'].get('hairstyle') == 'headscarf':
+            # a scarf is matte woven cloth and is wrapped firm: it never shines or lags like hair
+            meta[n].update(headwear=True, rigidhair=True, hwfabric=cast[n]['head'].get('scarfFabric', 'jersey'))
     json.dump(meta, open(meta_path, 'w'), indent=1)
     print('built', len(jobs), 'assets in', round(time.time() - t, 1), 's')
 

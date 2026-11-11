@@ -109,11 +109,29 @@ def slit_sdf(P, p):
     hh = slit_h(x, p)
     return np.maximum(np.maximum(np.abs(z - zL) - hh, np.abs(x) - p['W']), y + .29)
 
+def beard_zone(P, p):
+    """Negative where a full beard grows: the chin, the jaw and up the cheek to the ear, clear of the lips."""
+    x, y, z = P
+    lo, mz, W, ez = p.get('long', 0), p['mz'], p['W'], p['ez']
+    ax = np.abs(x)
+    top = mz - .06 + np.clip((ax - W * .95) / (.43 - W * .95), 0, 1) ** 2.2 * (ez - mz - .06)
+    return np.maximum(np.maximum(ell(P, (0, -.17, .15 - lo), (.455, .38, .27)), z - top), y - .10)
+
+def moustache_zone(P, p):
+    W = p['W']
+    droop = .03 * (np.abs(P[0]) / W) ** 2
+    return ell((P[0], P[1], P[2] + droop), (0, -.40, p['mz'] + .052), (W * 1.12, .13, .03))
+
 def head_sdf(P, p):
     d = skull_sdf(P, p)
     x, y, z = P
     bump, t, zL, dz = _lips(P, p)
     d = d - bump
+    if p.get('beard'):
+        # a beard is clay laid on the jaw and combed downward; it is part of the head, so it moves with the mouth
+        d = d - (.022 * p['beard'] + .004 * np.sin(x * 70 + 2.2 * LUMP(P, 2.2)) * np.sin(z * 34)) * sm_(.02, -.02, beard_zone(P, p))
+    if p.get('moustache'):
+        d = d - (.024 * p['moustache'] + .003 * np.sin(x * 120)) * sm_(.012, -.012, moustache_zone(P, p))
     mz = p['mz']
     # philtrum, and the soft crease under the lower lip
     d = d + .0035 * np.exp(-(x / .02) ** 2) * ((z > mz + .03) & (z < mz + .13)) * (y < -.3)
@@ -177,6 +195,14 @@ def head_paint(p):
         bump, t, zL, dz = _lips(P, p)
         return np.where((np.abs(P[0]) < W) & (P[1] < -.15), (np.abs(t) - 1) * .012, .05)
     R.append((lips, lip, .0035, 0))
+    hc = p.get('facehair', p['hair'])
+    if p.get('beard'):
+        R.append((lambda P: beard_zone(P, p), hc, .016, 0))
+    if p.get('moustache'):
+        R.append((lambda P: moustache_zone(P, p), hc, .01, 0))
+    if p.get('bindi'):
+        zb = p['ez'] + .185
+        R.append((lambda P: ell(P, (0, surface_y(p, 0, zb), zb), (.019, .03, .019)), p['bindi'], .003, 0))
     def inner(P):
         return np.maximum(np.minimum(pocket_sdf(P, p), slit_sdf(P, p)) - .009, -.395 - P[1])
     # the wet inside of the lips: when the jaw drops this is what catches the light, and bare skin there reads as grey clay

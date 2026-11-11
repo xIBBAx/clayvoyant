@@ -155,6 +155,7 @@ class Line:
     card: dict[str, Any] | None = None
     act: list[str] = field(default_factory=list)  # gestures (docs/DIRECTION.md)
     camera: str | None = None  # a camera preset for this line
+    reactions: dict[str, str] = field(default_factory=dict)  # how the listeners take it: character id -> emotion
 
     @property
     def is_card(self) -> bool:
@@ -385,7 +386,8 @@ def load_project(root: str | Path, *, check: bool = True) -> Project:
             Line(id=ln["id"], scene_id=s["id"], who=ln.get("who"), say=ln.get("say"),
                  translations=ln.get("translations") or {}, spoken=ln.get("spoken") or {},
                  emotion=ln.get("emotion"), to=ln.get("to"), pause_after=ln.get("pause_after"), card=ln.get("card"),
-                 act=list(ln.get("act") or []), camera=ln.get("camera"))
+                 act=list(ln.get("act") or []), camera=ln.get("camera"),
+                 reactions=dict(ln.get("reactions") or {}))
             for ln in s["lines"]
         ]
         scenes.append(Scene(

@@ -4,8 +4,8 @@ Direction is data. A scene may say nothing (the planner directs it with sensible
 defaults), name a few things (a lighting preset, a camera for one line), or spell out every shot.
 Everything named is checked against the presets below; nothing unknown is silently ignored.
 
-This module plans and validates; it does not render. The clay-motion renderer (in development,
-see docs/CLAY_MOTION.md) reads the plan. `sastudio direct` prints it, so a plan can be read and
+This module plans and validates; it does not render. The clay renderer (sastudio.stopmotion and the
+engine in engine/clay) films the plan. `sastudio direct` prints it, so a plan can be read and
 corrected before anything is rendered.
 """
 
@@ -74,23 +74,33 @@ GESTURES: dict[str, dict] = {
     "walk_in": {"parts": {"legs", "torso"}, "seconds": 2.0, "kind": "once"},
     "walk_out": {"parts": {"legs", "torso"}, "seconds": 2.0, "kind": "once"},
 }
-EMOTIONS = ("neutral", "happy", "worried", "surprised", "suspicious", "confident", "embarrassed", "relieved")
+EMOTIONS = ("neutral", "happy", "worried", "surprised", "suspicious", "confident", "embarrassed", "relieved",
+            # the clay engine's finer shades
+            "grin", "shock", "sad", "smug", "deadpan", "think", "annoyed", "recognise", "concern", "hesitate", "warm", "wince", "tender")
 # Sets: the places a character can stand or sit, the props on hand, and whether there is a door.
 SETS: dict[str, dict] = {
     "office": {"marks": ["desk", "desk_2", "standing_left", "standing_right", "window", "door"],
-               "seats": ["desk", "desk_2"], "props": ["laptop", "phone", "mug", "badge", "printer", "plant",
-                                                      "poster"], "door": True},
+               "seats": ["desk", "desk_2"], "props": ["laptop", "laptop_2", "phone", "mug", "badge", "printer",
+                                                      "plant", "poster"], "door": True},
     "reception": {"marks": ["counter", "visitor", "standing_left", "standing_right", "door"], "seats": [],
-                  "props": ["badge", "phone", "visitor_book", "plant", "poster"], "door": True},
+                  "props": ["badge", "badge_reader", "phone", "visitor_book", "plant", "poster", "monitor"],
+                  "door": True},
     "meeting_room": {"marks": ["head_of_table", "left_seat", "right_seat", "screen", "door"],
                      "seats": ["head_of_table", "left_seat", "right_seat"],
                      "props": ["laptop", "phone", "mug", "screen", "poster"], "door": True},
     "home_desk": {"marks": ["desk", "sofa", "window"], "seats": ["desk", "sofa"],
                   "props": ["laptop", "phone", "mug", "plant", "router"], "door": False},
-    "cafe": {"marks": ["table_left", "table_right", "counter", "door"], "seats": ["table_left", "table_right"],
+    "cafe": {"marks": ["table_left", "table_right", "table_left_2", "table_right_2", "counter", "door"],
+             "seats": ["table_left", "table_right", "table_left_2", "table_right_2"],
              "props": ["laptop", "phone", "mug", "wifi_sign"], "door": True},
     "corridor": {"marks": ["left", "centre", "right", "door"], "seats": [],
                  "props": ["badge", "phone", "poster", "badge_reader"], "door": True},
+    "street": {"marks": ["pavement_left", "pavement_right", "bench", "bus_stop", "shop_door", "far_left", "far_right"],
+               "seats": ["bench"], "props": ["phone", "car", "bus_stop"], "door": False},
+    "classroom": {"marks": ["teacher", "board", "teacher_desk", "front_desk_left", "front_desk_right", "standing_left",
+                            "standing_right", "door"], "seats": ["teacher_desk", "front_desk_left", "front_desk_right"],
+                  "props": ["board", "laptop", "map", "phone"], "door": True},
+    "studio": {"marks": ["centre"], "seats": [], "props": [], "door": False},
 }
 # Transitions: a clean cut unless a story event motivates something else. No wipes or spins.
 TRANSITIONS: dict[str, str] = {

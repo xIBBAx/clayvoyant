@@ -5,6 +5,10 @@ from sdfkit import *
 from heads import skull_sdf
 HL = Field(37, sigma=6)
 
+def _mixhex(a, b, t):
+    a, b = [int(a[i:i + 2], 16) for i in (1, 3, 5)], [int(b[i:i + 2], 16) for i in (1, 3, 5)]
+    return '#%02x%02x%02x' % tuple(round(x + (y - x) * t) for x, y in zip(a, b))
+
 def hairline(P, tb):
     """Where the hair starts, as height by bearing round the head: tb = [(bearing 0 front..pi back, z), ...]."""
     th = np.arctan2(np.abs(P[0]), -P[1])
@@ -106,7 +110,58 @@ def low_bun(P, p):
     d = smin(d, b, .02)
     return d + .0015 * HL(P, 1.2)
 
-STYLE = dict(curls=curls, bob=bob, side_sweep=side_sweep, swept_back=swept_back, low_bun=low_bun)
+WOMEN = [(0, .875), (.5, .84), (.85, .74), (1.1, .62), (1.32, .55), (1.8, .56), (2.2, .42), (3.15, .34)]
+
+def short(P, p):
+    """A neat short cut: close at the sides, a little length on top, brushed forward."""
+    d = shell(P, p, .02, MEN, k=.012)
+    top = smax(ell(P, (0, -.03, .94), (.405, .455, .12)), hairline(P, MEN) - .05, .03)
+    d = smin(d, top, .04)
+    c = P[1] * .9 + .25 * np.abs(P[0]) + .2 * HL(P, 1.8)
+    return d + flow(c, 30, .0045, 110, .0012) * smooth01(.55, .78, P[2]) + .0015 * HL(P, 1.2)
+
+def long(P, p):
+    """Long hair with a centre part, tucked behind the ears and falling to the shoulders."""
+    fw = p.get('fw', 1)
+    outer = ell(P, (0, .10, .47), (.525 * fw, .50, .66))
+    d = sub(outer, ell(P, (0, -.50, .36), (.40 * fw, .42, .56)), .035)
+    d = smax(d, -(P[2] + .16 - .10 * np.clip(-P[1], 0, .4)), .03)          # the ends: shoulder length, a little shorter in front
+    d = smax(d, -(P[1] + .16 + .5 * np.maximum(.42 - P[2], 0)), .04)        # nothing hangs in front of the shoulders
+    d = d + .006 * np.exp(-(P[0] / .008) ** 2) * (P[2] > .9) * (P[1] < .15)   # the part
+    az = np.arctan2(P[0], P[1] + .05)
+    d = d + flow(az * 1.6 + .3 * HL(P, 1.5), 16, .008, 76, .0018) * smooth01(.98, .72, P[2])
+    for s_ in (-1, 1):
+        d = smin(d, path(P, [(s_ * .06, -.42, .96), (s_ * .34, -.34, .84), (s_ * .47, -.10, .62), (s_ * .48, .05, .30)], .06, .04, k=.03), .03)
+    return d + .002 * HL(P, 1.2)
+
+def ponytail(P, p):
+    """Swept back off the face into a high ponytail."""
+    d = shell(P, p, .024, WOMEN, k=.012, jag=0)
+    c = np.arctan2(np.abs(P[0]) + .02, P[2] - .2) + .6 * P[1]
+    d = d + flow(c, 30, .0032, 120, .001)
+    d = smin(d, ell(P, (0, .50, .70), (.085, .07, .085)), .03)               # the band
+    tail = path(P, [(0, .52, .72), (0, .70, .56), (0, .70, .26), (0, .60, .02), (0, .55, -.10)], .10, .034, k=.05)
+    d = smin(d, tail + flow(P[0] * 1.4 + .25 * HL(P, 1.6), 30, .006, 110, .0016), .03)
+    return d + .0015 * HL(P, 1.2)
+
+def headscarf(P, p):
+    """A scarf wrapped close round the head and under the chin, the face framed in an oval."""
+    fw = p.get('fw', 1)
+    d = smin(skull_sdf(P, p) - .03, ell(P, (0, .07, .63), (.485 * fw, .50, .47)), .07)
+    d = smin(d, cone(P, (0, .07, .34), (0, .09, -.10), .30, .36), .09)        # round the neck and into the collar
+    d = sub(d, ell(P, (0, -.56, .43), (.325 * fw, .36, .40)), .03)            # the opening for the face
+    d = smin(d, path(P, [(-.31 * fw, -.33, .78), (0, -.40, .90), (.31 * fw, -.33, .78)], .022), .02)   # the folded front edge
+    # folds running back from the face and down from the crown
+    d = d + .0045 * np.sin(P[2] * 30 + P[1] * 12 + 1.5 * HL(P, 1.4)) * smooth01(.10, .40, P[1] + .30) + .004 * np.sin(np.arctan2(P[0], P[1]) * 9) * (P[2] < .3)
+    return d + .002 * HL(P, 1.2)
+
+def bald(P, p):
+    """No hair: the shadow of a close shave, a skin's thickness over the scalp."""
+    return shell(P, p, .004, MEN, k=.006, jag=0)
+
+STYLE = dict(curls=curls, bob=bob, side_sweep=side_sweep, swept_back=swept_back, low_bun=low_bun,
+             short=short, long=long, ponytail=ponytail, headscarf=headscarf, bald=bald)
+LOW = dict(long=-.36, ponytail=-.2, headscarf=-.13)     # how far below the neck pivot a style reaches
 def make_hair(name, p, out):
     """Build the hair mesh for style p['hairstyle'] (see STYLE)."""
     style = p.get('hairstyle', name)
@@ -124,7 +179,12 @@ def make_hair(name, p, out):
         def s2(P):
             return smin(fn(P, p), cone(P, (-.24, .56, .64), (.24, .44, .30), .011), .002)
         return mesh(s2, (-.7, -.72, .10), (.7, .78, 1.45), 150, paint=paint, base=p['hair'], path_=out, smooth=.5, cavity=.65)
-    return mesh(lambda P: fn(P, p), (-.72, -.72, .10), (.72, .72, 1.5), 150, paint=paint, base=p['hair'], path_=out, smooth=.6, cavity=.75)
+    base = p['hair']
+    if style == 'bald':
+        paint, base = [], _mixhex(p['skin'], p['hair'], .14)
+    lo = LOW.get(style, .10)
+    return mesh(lambda P: fn(P, p), (-.72, -.72, lo), (.72, .86 if lo < .1 else .72, 1.5), 150 if lo >= .1 else 170, paint=paint, base=base, path_=out,
+                smooth=.6, cavity=.75 if style not in ('headscarf', 'bald') else .4)
 
 
 def make_acc(name, p, out):

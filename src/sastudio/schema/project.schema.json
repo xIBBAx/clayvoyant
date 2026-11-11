@@ -88,6 +88,9 @@
             },
             "color": {
               "$ref": "#/$defs/color"
+            },
+            "highlight": {
+              "$ref": "#/$defs/color"
             }
           }
         },
@@ -102,7 +105,9 @@
                 "jacket",
                 "shirt",
                 "sweater",
-                "kurta"
+                "kurta",
+                "hoodie",
+                "vest"
               ]
             },
             "color": {
@@ -149,6 +154,96 @@
               "moustache",
               "bindi"
             ]
+          }
+        },
+        "body": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Body type for the clay figure.",
+          "properties": {
+            "build": {
+              "enum": [
+                "slim",
+                "average",
+                "broad"
+              ]
+            },
+            "height": {
+              "enum": [
+                "short",
+                "average",
+                "tall"
+              ]
+            },
+            "frame": {
+              "enum": [
+                "feminine",
+                "masculine",
+                "neutral"
+              ]
+            }
+          }
+        },
+        "face": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Nudges to the clay face, each from -1 to 1.",
+          "properties": {
+            "width": {
+              "type": "number",
+              "minimum": -1,
+              "maximum": 1
+            },
+            "jaw": {
+              "type": "number",
+              "minimum": -1,
+              "maximum": 1
+            },
+            "chin": {
+              "type": "number",
+              "minimum": -1,
+              "maximum": 1
+            },
+            "nose": {
+              "type": "number",
+              "minimum": -1,
+              "maximum": 1
+            },
+            "nose_width": {
+              "type": "number",
+              "minimum": -1,
+              "maximum": 1
+            },
+            "cheeks": {
+              "type": "number",
+              "minimum": -1,
+              "maximum": 1
+            },
+            "brows": {
+              "type": "number",
+              "minimum": -1,
+              "maximum": 1
+            },
+            "eyes": {
+              "type": "number",
+              "minimum": -1,
+              "maximum": 1
+            },
+            "length": {
+              "type": "number",
+              "minimum": -1,
+              "maximum": 1
+            },
+            "mouth": {
+              "type": "number",
+              "minimum": -1,
+              "maximum": 1
+            },
+            "lips": {
+              "type": "number",
+              "minimum": -1,
+              "maximum": 1
+            }
           }
         }
       }
@@ -311,6 +406,18 @@
         "camera": {
           "type": "string",
           "maxLength": 40
+        },
+        "reactions": {
+          "type": "object",
+          "propertyNames": {
+            "$ref": "#/$defs/id"
+          },
+          "additionalProperties": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "maxProperties": 8,
+          "description": "How listeners take the line: character id -> emotion (docs/DIRECTION.md)."
         }
       },
       "oneOf": [
@@ -909,6 +1016,74 @@
                 "type": "number",
                 "minimum": -180,
                 "maximum": 180
+              },
+              "seed": {
+                "type": [
+                  "string",
+                  "integer"
+                ],
+                "maxLength": 40,
+                "description": "Changes the small differences that make this face its own."
+              },
+              "acting": {
+                "type": "object",
+                "additionalProperties": false,
+                "description": "How the character carries themselves in clay films.",
+                "properties": {
+                  "energy": {
+                    "type": "number",
+                    "minimum": 0.2,
+                    "maximum": 1.6
+                  },
+                  "looseness": {
+                    "type": "number",
+                    "minimum": 0.2,
+                    "maximum": 1.6
+                  },
+                  "posture": {
+                    "type": "number",
+                    "minimum": -1,
+                    "maximum": 1
+                  },
+                  "pace": {
+                    "type": "number",
+                    "minimum": 0.6,
+                    "maximum": 1.6
+                  }
+                }
+              },
+              "clay": {
+                "type": "object",
+                "additionalProperties": false,
+                "description": "Sculpt parameters set outright (advanced; docs/CHARACTERS.md).",
+                "properties": {
+                  "head": {
+                    "type": "object",
+                    "maxProperties": 60,
+                    "additionalProperties": {
+                      "type": [
+                        "number",
+                        "string",
+                        "array"
+                      ],
+                      "maxLength": 40,
+                      "maxItems": 12
+                    }
+                  },
+                  "body": {
+                    "type": "object",
+                    "maxProperties": 60,
+                    "additionalProperties": {
+                      "type": [
+                        "number",
+                        "string",
+                        "array"
+                      ],
+                      "maxLength": 40,
+                      "maxItems": 12
+                    }
+                  }
+                }
               }
             }
           }

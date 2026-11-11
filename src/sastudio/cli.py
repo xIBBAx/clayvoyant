@@ -154,24 +154,35 @@ def cmd_direct(a) -> int:
 
 
 def cmd_motion(a) -> int:
-    """Experimental: film a scene (or one shot) with the clay stop-motion renderer in Blender."""
+    """Film a scene (or one shot) in clay without voices: a quick look at the direction."""
     from . import stopmotion
 
     p = _load(a.project)
-    preset = a.preset or "preview"
+    preset = a.preset or "draft"
     if preset not in stopmotion.PRESETS:
         raise StudioError(f"Unknown preset '{preset}'.", f"Use one of {', '.join(stopmotion.PRESETS)}.")
     out = Path(a.out) if a.out else p.root / "build" / "motion" / (
         f"{a.scene}_shot{a.shot}_{preset}.mp4" if a.shot else f"{a.scene}_{preset}.mp4")
-    print("Experimental: the clay stop-motion renderer films one scene at a time (docs/CLAY_MOTION.md).")
-    if a.blend and not a.shot:
-        raise StudioError("--blend saves one shot: add --shot <n>.", "See the shots with `sastudio direct`.")
+    print("A silent preview, timed from the words. For the finished film with voices: sastudio film <project>")
     if a.shot:
-        stopmotion.render_shot(p, a.scene, a.shot - 1, preset, out, blend=Path(a.blend) if a.blend else None)
-        if a.blend:
-            print(f"Saved the shot as {a.blend}: open it in Blender to refine the animation or lighting.")
+        stopmotion.render_shot(p, a.scene, a.shot - 1, preset, out)
     else:
         stopmotion.render_scene(p, a.scene, preset, out)
+    return 0
+
+
+def cmd_film(a) -> int:
+    """The whole film in clay stop motion: voices, sculpted characters, sets, cameras, subtitles, one command."""
+    from .build import build
+
+    p = _load(a.project)
+    res = build(p, language=a.lang, scene_ids=_scenes(a.scenes), preset=a.preset, fallback=a.voice_fallback,
+                burn=True if a.burn_subtitles else None, jobs=a.jobs, renderer="clay",
+                allow_placeholder_contacts=a.allow_placeholder_contacts)
+    for w in res.warnings:
+        print(f"warning: {w}")
+    print(json.dumps({"video": str(res.video), "srt": str(res.srt), "vtt": str(res.vtt),
+                      "transcript": str(res.transcript), "rendered": res.rendered, "reused": res.reused}, indent=1))
     return 0
 
 
@@ -454,13 +465,24 @@ def parser() -> argparse.ArgumentParser:
     s.add_argument("--out", help="where to write the export (.glb, .fbx, .obj or .blend)")
     s.set_defaults(fn=cmd_model)
 
-    s = sub.add_parser("motion", help="experimental: film a scene in clay stop motion with Blender")
+    s = sub.add_parser("film", help="make the film in clay stop motion (needs Blender): voices, sets, cameras, subtitles")
+    s.add_argument("project")
+    s.add_argument("--scenes", help="comma-separated scene ids")
+    s.add_argument("--lang")
+    s.add_argument("--preset", choices=["draft", "preview", "final"], help="960x540, 1280x720 or 1920x1080")
+    s.add_argument("--voice-fallback", choices=["offline"], help="use free placeholder voices for lines not generated yet")
+    s.add_argument("--burn-subtitles", action="store_true")
+    s.add_argument("--allow-placeholder-contacts", action="store_true",
+                   help="render a final film that still shows placeholder reporting contacts")
+    s.add_argument("--jobs", type=int)
+    s.set_defaults(fn=cmd_film)
+
+    s = sub.add_parser("motion", help="a silent clay preview of one scene or shot, to check the direction")
     s.add_argument("project")
     s.add_argument("--scene", required=True)
     s.add_argument("--shot", type=int, help="film only this shot (numbers as in `sastudio direct`)")
-    s.add_argument("--preset", choices=["draft", "preview", "final"], help="960x540, 1280x720 (default) or 1920x1080")
+    s.add_argument("--preset", choices=["draft", "preview", "final"], help="960x540 (default), 1280x720 or 1920x1080")
     s.add_argument("--out", help="where to write the clip (default: build/motion/ in the project)")
-    s.add_argument("--blend", help="with --shot: also save the shot as a .blend file to open in Blender")
     s.set_defaults(fn=cmd_motion)
 
     s = sub.add_parser("script", help="print the resolved script (what is shown and what is spoken)")

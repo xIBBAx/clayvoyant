@@ -9,7 +9,7 @@ A job describes a whole scene (the set, the light, the cast, every line and ever
 to film with one camera. Acting is a pure function of the frame, so shots of one scene always agree with each other,
 any shot can be re-filmed alone, and a shot that stopped half way resumes at the first missing frame.
 
-Job keys: rig, out, width, height, samples, device (GPU|CPU), fps, step (2 = on twos), frames [first, last),
+Job keys: rig, out, width, height, samples, device (GPU|CPU), fps, frames [the scene frames to film],
 set {name, palette, org, seed, time}, lighting {name, key_k, fill, rim, exposure, softness, practicals},
 cast [{id, mark | pos, face, seat, style, feeling}], lines [{who, start, end, cues, to, manual}],
 keys [{who, frame, g, f, look, seat, walk, speed, ...}], door [[open, close], ...],
@@ -54,6 +54,11 @@ s.cycles.transmission_bounces = 4
 s.cycles.transparent_max_bounces = 6
 s.cycles.caustics_reflective = s.cycles.caustics_refractive = False
 s.render.use_persistent_data = True          # the set is built once; only what moves is sent to the renderer again
+s.cycles.debug_bvh_type = 'DYNAMIC_BVH'       # puppets change shape every frame: refit their structures, don't rebuild them
+try:
+    s.cycles.denoising_use_gpu = True
+except (AttributeError, TypeError):
+    pass
 if JOB.get('device', 'GPU') == 'GPU':
     prefs = bpy.context.preferences.addons['cycles'].preferences
     for kind in ('OPTIX', 'CUDA', 'HIP', 'METAL', 'ONEAPI'):
@@ -139,13 +144,32 @@ def where(c):
     return (spots.pop(0) if spots else (0, 0)), c.get('face', None), None
 
 
+def offscreen(pos):
+    """Out of sight, on the nearer side: where someone walks in from, or out to, when the set has no door."""
+    return ((-13.5 if pos[0] < 0 else 13.5), pos[1] + .6)
+
+
+TAKEN = {c.get('mark') for c in JOB.get('cast') or []}
+
+
+def free_seat(a, f):
+    """The nearest seat nobody is using."""
+    here = a.locate(f)[0]
+    seats = [(n, m) for n, m in MARKS.items() if m.get('seat') and n not in TAKEN]
+    if not seats:
+        return None
+    n, m = min(seats, key=lambda q: (q[1]['pos'][0] - here[0]) ** 2 + (q[1]['pos'][1] - here[1]) ** 2)
+    TAKEN.add(n)
+    return m
+
+
 for c in JOB.get('cast') or []:
     pos, face, seat = where(c)
     init = dict(f=c.get('feeling', 'neutral'), face=face)
     if seat:
         init['seat'] = seat
     start = c.get('enter_from')
-    p0 = MARKS[start]['pos'] if start in MARKS else pos
+    p0 = MARKS[start]['pos'] if start in MARKS else (offscreen(pos) if start else pos)
     a = PERF.add(A.Actor(c['id'], Puppet(c.get('rig') or c['id']), p0, c.get('style'), **init))
     a.home = pos
     if 'on' in c:
@@ -163,8 +187,14 @@ for k in JOB.get('keys') or []:
     f = int(k.pop('frame', 0))
     if 'walk' in k:
         to = k.pop('walk')
-        m = MARKS.get(to) if isinstance(to, str) else None
-        end = a.walk(f, m['pos'] if m else (a.home if to == 'home' else tuple(to)), speed=k.pop('speed', None))
+        leave = k.pop('leave', False)
+        m = free_seat(a, f) if to == 'seat' else (MARKS.get(to) if isinstance(to, str) else None)
+        if to == 'seat' and m is None:
+            continue
+        dest = m['pos'] if m else (a.home if to == 'home' else offscreen(a.home) if isinstance(to, str) else tuple(to))
+        end = a.walk(f, dest, speed=k.pop('speed', None))
+        if leave:
+            a.key(end + 6, dict(on=False))
         if m and m.get('seat') and k.pop('sit', True):
             a.key(end - 8, dict(seat=m['seat'], face=m.get('face', 0)))
         elif m:
@@ -189,10 +219,10 @@ cam_data.lens = float(CAM.get('lens') or 40)
 cam_data.dof.use_dof = MODE == 'film' and CAM.get('shot') not in ('establishing',)
 cam_data.dof.aperture_fstop = float(CAM.get('fstop') or 4.0) * .55      # a miniature: shallower than life
 # how tall the frame is at the subject, and where it is centred from the eye line
-FRAME_H = dict(wide=5.3, medium=2.9, two_shot=3.2, over_shoulder=2.2, close_up=1.55, extreme_close_up=.8, reaction=1.55, insert=1.0, portrait=4.6)
-AIM_DZ = dict(wide=-1.45, medium=-.62, two_shot=-.55, over_shoulder=-.08, close_up=-.1, extreme_close_up=-.06, reaction=-.1, portrait=-1.3)
-F0, F1 = (int(x) for x in JOB.get('frames') or (0, 1))
-STEP = max(1, int(JOB.get('step', 2)))
+FRAME_H = dict(wide=5.9, medium=2.9, two_shot=3.2, over_shoulder=2.2, close_up=1.55, extreme_close_up=.8, reaction=1.55, insert=1.0, portrait=4.6)
+AIM_DZ = dict(wide=-1.5, medium=-.62, two_shot=-.55, over_shoulder=-.08, close_up=-.1, extreme_close_up=-.06, reaction=-.1, portrait=-1.3)
+FRAMES = sorted(int(x) for x in JOB.get('frames') or [0])      # the scene frames this shot films
+F0, F1 = FRAMES[0], FRAMES[-1] + 1
 
 
 def vfov():
@@ -259,6 +289,27 @@ POS0, AIM0, FOCUS = frame_shot()
 HEAD0 = eyes(FOCUS) if FOCUS else None
 
 
+def out_of_frame(a):
+    """True when no part of this actor can be seen from the camera as it stands at the start of the shot."""
+    c = cam.matrix_world.inverted() @ (a.P.root.matrix_world.translation + V((0, 0, 1.9)))
+    depth, r = -c.z, 2.4
+    if depth < -r:
+        return True
+    d = max(depth, .5)
+    return abs(c.x) > d * math.tan(hfov() / 2) + r or abs(c.y) > d * math.tan(vfov() / 2) + r
+
+
+if MODE == 'film' and CAM.get('move', 'static') in ('static', 'push_in'):
+    look_through(POS0, AIM0)
+    bpy.context.view_layer.update()
+    for a in PERF.actors.values():
+        # someone the camera cannot see is not drawn at all for this shot (others still look at where they stand)
+        a.cull = not any(w[0] <= F1 + 40 and w[1] >= F0 - 40 and w[1] > w[0] for w in a.walks) and out_of_frame(a)
+    culled = [n for n, a in PERF.actors.items() if a.cull]
+    if culled:
+        print('FILM off camera', ', '.join(culled), flush=True)
+
+
 def camera_at(f):
     t = sm(clamp((f - F0) / max(1, F1 - F0 - 1)))
     pos, aim = POS0.copy(), AIM0.copy()
@@ -310,20 +361,25 @@ if MODE in ('portrait', 'sheet'):
 # ------------------------------------------------------------------ film it
 out = JOB['out']
 os.makedirs(out, exist_ok=True)
-frames = [f for f in range(F0, F1, STEP) if not os.path.exists(os.path.join(out, f'{f:06d}.png'))]
-print(f'FILM frames {len(frames)} of {len(range(F0, F1, STEP))} to do', flush=True)
+frames = [f for f in FRAMES if not os.path.exists(os.path.join(out, f'{f:06d}.png'))]
+print(f'FILM frames {len(frames)} of {len(FRAMES)} to do', flush=True)
 t0 = time.time()
 steps = sorted({f for a in PERF.actors.values() for f in a.steps()})
 json.dump(dict(steps=steps), open(os.path.join(out, 'events.json'), 'w'))
+t_pose = t_draw = 0.0
 for n, f in enumerate(frames):
+    t1 = time.time()
     PERF.pose(f)
     door_at(f)
     bpy.context.view_layer.update()
     camera_at(f)
-    s.frame_set(f)
+    t2 = time.time()
     path = os.path.join(out, f'{f:06d}.png')
     s.render.filepath = path + '.part.png'
     bpy.ops.render.render(write_still=True)
     os.replace(path + '.part.png', path)
+    t_pose += t2 - t1
+    t_draw += time.time() - t2
     print(f'FILM frame {n + 1}/{len(frames)} f{f} {time.time() - t0:.1f}s', flush=True)
+print(f'FILM timing pose {t_pose:.1f}s draw {t_draw:.1f}s', flush=True)
 print('FILM done', len(frames), 'frames', round(time.time() - t0, 1), 's', flush=True)

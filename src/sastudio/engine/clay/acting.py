@@ -176,13 +176,13 @@ GEST = dict(
     index=dict(L=(-.54, -.03, -1.02), R=(.56, -.46, .10), pR='point', bend=.012),
     palmsDown=dict(L=(-.48, -.54, -.5), R=(.48, -.54, -.5), pL='open', pR='open'),
     weigh=dict(L=(-.62, -.46, -.34), R=(.62, -.46, -.52), pL='open', pR='open'),
-    namaste=dict(L=(-.05, -.46, -.34), R=(.05, -.46, -.34), pL='open', pR='open', bend=.05),
+    namaste=dict(L=(-.085, -.46, -.34), R=(.085, -.46, -.34), pL='open', pR='open', bend=.05),
 )
 # what a speaker's hands do when nobody directed them: changed on the thought, not on a timer
 TALK = ['talk', 'talkR', 'chest', 'talkWide', 'weigh', 'talkL', 'palmsDown', 'presentR']
 # how a person carries themselves: how big and loose the acting is, posture, how they stand and walk
 STYLE = dict(amp=1.0, loose=1.0, bend=0.0, stance=.24, speed=.075, step=.9, bob=.045, contra=.8)
-KEYS = ('g', 'f', 'look', 'face', 'on', 'lean', 'seat', 'nod', 'ly', 'hL', 'hR', 'pL', 'pR', 'bkL', 'bkR')
+KEYS = ('g', 'f', 'look', 'face', 'on', 'lean', 'seat', 'nod', 'turn', 'tilt', 'ly', 'hL', 'hR', 'pL', 'pR', 'bkL', 'bkR')
 SEAT_H = .82      # an ordinary chair: where the top of the seat is
 
 
@@ -210,8 +210,9 @@ class Actor:
         a.last_yaw = None
 
     def key(a, f, d):
-        """From frame f on: any of g (gesture), f (feeling), look, face, on, lean, seat, nod, ly, hL/hR (a hand sent to a
-        place in the world), pL/pR (finger shape), bkL/bkR. Keys may be given in any order; a later call wins a tie."""
+        """From frame f on: any of g (gesture), f (feeling), look, face, on, lean, seat, nod / turn / tilt (the head, added
+        to where it already looks), ly, hL/hR (a hand sent to a place in the world), pL/pR (finger shape), bkL/bkR.
+        Keys may be given in any order; a later call wins a tie."""
         a.raw.append((int(f), {k: v for k, v in d.items() if k in KEYS}))
 
     def walk(a, f, to, snap=False, speed=None):
@@ -466,7 +467,7 @@ def pose_actor(S_, a, f):
             v = lerp(v, val(m_), ease(clamp((f - K_[m_][0] - delay) / max(d_, 1e-3))))
         return v
     P = a.P
-    on = cur[1].get('on', True)
+    on = cur[1].get('on', True) and not getattr(a, 'cull', False)
     P.show(bool(on))
     if not on:
         return
@@ -740,8 +741,8 @@ def pose_actor(S_, a, f):
         nod += .02 * math.sin(2 * math.pi * feet[4]) * walk_amt
     nod += fold(lambda m_: CARRY.get(K_[m_][1]['f'], 0), 14)
     head = (clamp(hpi * .5, -.3, .3) + .07 * str_ * st_['amp'] * S + .02 * math.sin(f / 23 + seed) + nod,
-            .025 * S * noise(f / 17, seed + 6) * st_['amp'] + .012 * noise(f / 50, seed + 8) - .9 * sides,
-            clamp(hy * .55, -.4, .4) + .10 * S * noise(f / 21, seed + 4) * st_['amp'] - .85 * wtw_)
+            .025 * S * noise(f / 17, seed + 6) * st_['amp'] + .012 * noise(f / 50, seed + 8) - .9 * sides + fold(lambda m_: K_[m_][1].get('tilt', 0), 9),
+            clamp(hy * .55, -.4, .4) + .10 * S * noise(f / 21, seed + 4) * st_['amp'] - .85 * wtw_ + fold(lambda m_: K_[m_][1].get('turn', 0), 5))
     # eye target remaining after the head moved: clamp stays in a friendly range
     lx = clamp((ey_y - head[2]) * 1.4 + sacc * .10, -.6, .6)
     ly = clamp((ey_p - head[0]) * 1.2 + sacz * .08 + fold(lambda m_: K_[m_][1].get('ly', 0), 5), -.6, .6)

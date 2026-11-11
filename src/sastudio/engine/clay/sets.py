@@ -359,8 +359,8 @@ def classroom(C):
 def studio(C):
     """A plain sweep of paper, for portraits and tests."""
     bg = _c(C, 'background', '#d9cbb5')
-    K.boxy('floor', (0, 0, -.1), (40, 40, .1), K.mix(bg, '#6b5138', .55), bevel=0, lumps=.01, print_=1.2)
-    K.boxy('backdrop', (0, 7, 10), (40, .1, 10), bg, bevel=0, lumps=.01, print_=1.2)
+    K.boxy('floor', (0, 0, -.1), (40, 40, .1), K.mix(bg, '#6b5138', .55), bevel=0, lumps=0, print_=.6)
+    K.boxy('backdrop', (0, 7, 10), (40, .1, 10), bg, bevel=0, lumps=0, print_=.6)
     return stage(dict(centre=mark(0, 0)), [(0, 0), (-1.6, .3), (1.6, .3), (-3.2, .8), (3.2, .8)], back=7)
 
 

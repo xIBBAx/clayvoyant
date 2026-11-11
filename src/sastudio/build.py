@@ -326,14 +326,21 @@ def build(project: Project, *, language: str | None = None, scene_ids=None, pres
     sequence = [t for t in [intro, *tls, outro] if t is not None]
     vis, sig = visuals(project, burn, fallback_lines)
     if renderer == "clay":
-        from .render import clay as clayr
+        from . import direction, stopmotion
 
-        clayr.build_rigs(project, log=log)
+        plans = {p.scene: p for p in direction.plan(project)}
+        scenes = {sc.id: sc for sc in project.scenes}
+        log("Filming in clay (one shot at a time; unchanged shots are reused)")
         for tl in tls:
-            for b in tl.beats:
-                if b.kind == "line":
-                    vis.clay[b.line_id] = clayr.render_line_shot(project, tl, b, preset=preset, log=log)
-        sig["clay"] = {k: str(v.parent.name) for k, v in vis.clay.items()}
+            spans = stopmotion.spans_from_timeline(scenes[tl.id], tl)
+            vis.clay.update(stopmotion.film_scene(project, scenes[tl.id], plans[tl.id], spans, preset, lang, log=log))
+            seen: set[str] = set()
+            for b in tl.beats:       # a name tag the first time each person speaks in a scene
+                if b.kind == "line" and b.speaker not in seen:
+                    seen.add(b.speaker)
+                    vis.clay_names.add(b.line_id)
+        vis.clay_step = stopmotion.STEP
+        sig["clay"] = {k: v.name for k, v in vis.clay.items()}
 
     # Scene videos: re-render only when the scene's content, the look or the tool changed.
     result = BuildResult(lang, None, None, None, None, out / "manifest.json")

@@ -42,6 +42,7 @@ class Visuals:
     backdrop_images: dict[str, Image.Image] = field(default_factory=dict)  # scene id -> image
     clay: dict[str, Path] = field(default_factory=dict)  # line id -> folder of rendered clay frames
     clay_step: int = 2
+    clay_names: set[str] = field(default_factory=set)  # lines that open with the speaker's name tag
     figures: dict[str, dict[str, Image.Image]] = field(default_factory=dict)  # drawn styles: variant -> image
 
 
@@ -219,8 +220,10 @@ class SceneRenderer:
         clay = self.clay_frame(beat, f)
         if clay is not None:
             im = clay.copy()
-            self.top_bar_shaded(im)
-            self.name_pill(im, beat.speaker_name or beat.speaker, self.S(220), self.H - self.S(250), ease(f / 6.0))
+            if beat.line_id in self.vis.clay_names and f < 66:
+                # a film frame is left alone: only a name tag, the first time someone speaks, and it leaves again
+                self.name_pill(im, beat.speaker_name or beat.speaker, self.S(220), self.H - self.S(250),
+                               min(ease(f / 6.0), ease((66 - f) / 8.0)))
             return self._overlays(im, beat, f)
         im = self.line_base(beat, beat.speaker).copy()
         slot = next((s for s in self.cast_layout(self.tl.cast) if s[0] == beat.speaker), None)
@@ -423,7 +426,8 @@ class SceneRenderer:
                     t = f / self.tl.fps
                     cue = next((c[2] for c in beat.cues if c[0] <= t < c[1]), None) if self.vis.burn_subtitles else None
                     clay_idx = f - f % self.vis.clay_step if beat.line_id in self.vis.clay else None
-                    key = ("line", round(env * 6), min(f, 6), cue, clay_idx, self.speaker_variant(beat, f))
+                    tag = min(f, 66) if clay_idx is not None and beat.line_id in self.vis.clay_names and (f < 8 or 56 < f < 68) else 0
+                    key = ("line", round(env * 6), min(f, 6), cue, clay_idx, self.speaker_variant(beat, f), tag)
                     if key != last_key or last is None:
                         last = seen.get(key)
                         if last is None:
