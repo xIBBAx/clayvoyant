@@ -161,8 +161,10 @@ def cmd_motion(a) -> int:
     preset = a.preset or "draft"
     if preset not in stopmotion.PRESETS:
         raise StudioError(f"Unknown preset '{preset}'.", f"Use one of {', '.join(stopmotion.PRESETS)}.")
-    out = Path(a.out) if a.out else p.root / "build" / "motion" / (
-        f"{a.scene}_shot{a.shot}_{preset}.mp4" if a.shot else f"{a.scene}_{preset}.mp4")
+    name = f"{a.scene}_shot{a.shot}_{preset}.mp4" if a.shot else f"{a.scene}_{preset}.mp4"
+    out = Path(a.out) if a.out else p.root / "build" / "motion" / name
+    if a.out and out.suffix.lower() != ".mp4":
+        out = out / name     # --out names a folder: the clip goes inside it under its usual name
     print("A silent preview, timed from the words. For the finished film with voices: sastudio film <project>")
     if a.shot:
         stopmotion.render_shot(p, a.scene, a.shot - 1, preset, out)
@@ -497,7 +499,7 @@ def parser() -> argparse.ArgumentParser:
     s.add_argument("--scene", required=True)
     s.add_argument("--shot", type=int, help="film only this shot (numbers as in `sastudio direct`)")
     s.add_argument("--preset", choices=["draft", "preview", "final"], help="960x540 (default), 1280x720 or 1920x1080")
-    s.add_argument("--out", help="where to write the clip (default: build/motion/ in the project)")
+    s.add_argument("--out", help="an .mp4 file, or a folder to put the clip in (default: build/motion/ in the project)")
     s.set_defaults(fn=cmd_motion)
 
     s = sub.add_parser("script", help="print the resolved script (what is shown and what is spoken)")
