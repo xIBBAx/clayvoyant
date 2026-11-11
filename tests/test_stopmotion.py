@@ -216,3 +216,24 @@ def test_a_prop_insert_is_filmed_and_a_card_is_left_to_the_compositor(monkeypatc
     assert set(out) == {"l2", "l3"}
     assert SM.is_card(card) and not SM.is_card(prop) and not SM.is_card(talk)
 
+
+def test_clean_shots_is_a_dry_run_until_yes_and_keeps_the_newest_of_each_shot(project_dir, capsys):
+    import os
+    import time
+
+    cache = Path(project_dir) / ".studio" / "cache" / "clay"
+    old, new, other = cache / "s_s01_draft.aaaa", cache / "s_s01_draft.bbbb", cache / "s_s02_draft.cccc"
+    for i, d in enumerate((old, new, other)):
+        d.mkdir(parents=True)
+        (d / "000000.png").write_bytes(b"x" * 1000)
+        (d / ".done").write_text("k")
+        t = time.time() - 1000 + i * 100
+        os.utime(d / ".done", (t, t))
+    assert main(["clean", str(project_dir), "--shots"]) == 0
+    out = capsys.readouterr().out
+    assert "s_s01_draft.aaaa" in out and "superseded by s_s01_draft.bbbb" in out and "Nothing was deleted" in out
+    assert old.exists() and new.exists() and other.exists()
+    assert main(["clean", str(project_dir), "--shots", "--yes"]) == 0
+    assert not old.exists() and new.exists() and other.exists()
+    assert main(["clean", str(project_dir), "--shots", "--all"]) == 0
+    assert "Would free" in capsys.readouterr().out and new.exists()

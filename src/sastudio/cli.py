@@ -424,9 +424,29 @@ def cmd_clean(a) -> int:
     from .build import clean
 
     p = _load(a.project)
+    if a.shots or a.all:
+        import shutil
+
+        from . import stopmotion
+
+        stale = stopmotion.stale_shots(p, everything=a.all)
+        total = sum(n for _, n, _ in stale)
+        for d, n, why in stale:
+            print(f"  {d.name:52} {n / 1e6:9.1f} MB  {why}")
+        if not stale:
+            print("No cached shots to remove.")
+            return 0
+        if not a.yes:
+            print(f"Would free {total / 1e9:.2f} GB in {len(stale)} shot folder(s). Nothing was deleted: "
+                  "run again with --yes to delete them.")
+            return 0
+        for d, _, _ in stale:
+            shutil.rmtree(d)
+        print(f"Freed {total / 1e9:.2f} GB: removed {len(stale)} cached shot(s).")
+        return 0
     clean(p)
-    print("Removed scene videos and work files (.studio/work). Kept: finished films in the output folder "
-          "and the voice cache.")
+    print("Removed scene videos and work files (.studio/work). Kept: finished films in the output folder, "
+          "the voice cache and the filmed clay shots (see --shots).")
     return 0
 
 
@@ -555,6 +575,10 @@ def parser() -> argparse.ArgumentParser:
 
     s = sub.add_parser("clean", help="delete scene videos and work files (keeps finished films and the voice cache)")
     s.add_argument("project")
+    s.add_argument("--shots", action="store_true",
+                   help="instead: list filmed clay shots that a newer filming replaced (a dry run unless --yes)")
+    s.add_argument("--all", action="store_true", help="with --shots: every filmed clay shot")
+    s.add_argument("--yes", action="store_true", help="with --shots: really delete them")
     s.set_defaults(fn=cmd_clean)
     return ap
 

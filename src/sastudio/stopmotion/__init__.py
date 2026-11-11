@@ -651,3 +651,38 @@ def render_scene(project, scene_id: str, preset: str, out: Path, log=print) -> P
     log(f"Wrote {out} ({len(all_frames)} drawings, {len(all_frames) * STEP / FPS:.1f} s, silent)")
     return out
 
+
+# ----------------------------------------------------------------------------------------------- the shot cache
+def cache_dir(project) -> Path:
+    return project.root / ".studio" / "cache" / "clay"
+
+
+def _size(folder: Path) -> int:
+    return sum(p.stat().st_size for p in folder.rglob("*") if p.is_file())
+
+
+def stale_shots(project, *, everything: bool = False) -> list[tuple[Path, int, str]]:
+    """Cached shots that can go: (folder, bytes, why). A shot is stored as `<label>.<hash>`; when a line, a look or
+    the engine changes, the shot is filmed again under a new hash and the old folder is never read again. The newest
+    folder of each label is kept (finished or not, so an interrupted shot can still resume); `everything` lists all."""
+    root = cache_dir(project)
+    if not root.is_dir():
+        return []
+    by_label: dict[str, list[Path]] = {}
+    for d in root.iterdir():
+        if d.is_dir() and "." in d.name:
+            by_label.setdefault(d.name.rsplit(".", 1)[0], []).append(d)
+
+    def age(d: Path) -> float:
+        done = d / ".done"
+        return (done if done.exists() else d).stat().st_mtime
+
+    out = []
+    for _label, dirs in sorted(by_label.items()):
+        dirs.sort(key=age, reverse=True)
+        for i, d in enumerate(dirs):
+            if everything:
+                out.append((d, _size(d), "all shots"))
+            elif i > 0:
+                out.append((d, _size(d), f"superseded by {dirs[0].name}"))
+    return out
