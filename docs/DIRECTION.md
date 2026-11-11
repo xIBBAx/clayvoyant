@@ -64,6 +64,7 @@ direction:
   lighting: suspense                # how it is lit
   open_with: close_up               # how the scene begins
   end_with: { camera: wide, move: pull_out, why: "he is alone with it now" }   # how it ends, and why
+  clock: "17:45"                    # what the wall clock reads (home_desk, classroom); default: the time of day
   transition_in: cut                # how we arrive from the previous scene
   object: phone                     # for follow_object: the thing the scene opens on
   extras: [nadia]                   # in the scene without a line

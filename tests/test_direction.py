@@ -250,3 +250,22 @@ def test_a_scene_can_say_how_it_ends_and_why(tmp_path):
     assert (last.camera, last.move, last.reason) == ("wide", "pull_out", "leave him alone with it")
     bad = _scene(write_project(tmp_path / "q"), "    direction:\n      end_with: { camera: wiide }\n")
     assert any("Unknown camera 'wiide'" in p.message for p in _errors(bad))
+
+
+def test_a_wall_clock_tells_the_scene_s_time(tmp_path):
+    from sastudio import stopmotion as SM
+    from sastudio.errors import ConfigError
+
+    def set_of(proj):
+        scene, plan = proj.scenes[0], D.plan(proj)[0]
+        return SM.scene_job(proj, scene, plan, SM.spans_estimated(proj, scene))["set"]
+
+    night = _scene(write_project(tmp_path / "a"), "    setting: { time_of_day: night }\n    direction:\n      set: classroom\n")
+    assert set_of(night)["clock"] == "22:50"
+    told = _scene(write_project(tmp_path / "b"), "    direction:\n      set: home_desk\n      clock: '07:05'\n")
+    assert set_of(told)["clock"] == "07:05"
+    office = _scene(write_project(tmp_path / "c"), "    direction:\n      set: office\n      clock: '07:05'\n")
+    assert "clock" not in set_of(office), "no clock on the wall: the job (and the cache) is unchanged"
+    assert any(p.level == "warning" and "no wall clock" in p.message for p in D.validate(office))
+    with pytest.raises(ConfigError, match="clock"):
+        _scene(write_project(tmp_path / "d"), "    direction:\n      set: classroom\n      clock: '25:00'\n")

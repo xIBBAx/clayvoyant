@@ -177,6 +177,15 @@ def meeting_room(C):
                  dict(laptop=lap, phone=(.5, 2.6, 1.6), mug=(1.4, 2.0, 1.65), screen=scr, poster=(-9.3, 1.0, 3.6)), leaf, back=back)
 
 
+
+def _clock(C):
+    """The hands of a wall clock: the scene's time (the job's `clock`, "HH:MM"), ten past ten when it gives none."""
+    try:
+        hh, mm = (int(x) for x in str(C.get('clock') or '10:10').split(':'))
+    except ValueError:
+        hh, mm = 10, 10
+    return dict(hour=hh, minute=mm)
+
 def home_desk(C):
     """Working from home: a desk by a garden window, a sofa, a lamp, books, a rug."""
     acc = _c(C, 'accent', '#E07A3F')
@@ -200,7 +209,7 @@ def home_desk(C):
     K.plant(.3, 5.2, .8, seed=9)
     for i, (x, z) in enumerate(((1.0, 4.6), (2.3, 4.2), (1.2, 3.1))):
         K.frame(x, z, back - .06, .45 + .1 * (i % 2), .55, seed=i + C.get('seed', 1))
-    K.clock(6.0, 5.6, back - .06)
+    K.clock(6.0, 5.6, back - .06, **_clock(C))
     router = K.group('router', (8.1, 5.3, 4.5))
     K.boxy('rb', (0, 0, 0), (.32, .2, .05), '#f3f0ea', router, bevel=.03, lumps=0)
     for i in range(3):
@@ -330,7 +339,7 @@ def classroom(C):
     K.label('bt', 'Passwords:', .34, '#f3ecdd', board, (-1.6, -.05, .75), ext=.004)
     K.label('bt2', 'long  +  unique  +  secret', .27, '#f6e58a', board, (-.3, -.05, .1), ext=.004)
     K.tube('underline', [(-2.9, -.05, .48), (-1.6, -.055, .44), (-.4, -.05, .5)], .018, '#f3ecdd', board)
-    K.clock(3.4, 5.7, back - .06)
+    K.clock(3.4, 5.7, back - .06, **_clock(C))
     mp = K.frame(4.4, 3.6, back - .06, .95, .7, art=('#7fb0c8', '#9fc76a', '#e9d9a0'), seed=C.get('seed', 1) + 20)
     K.desk(-4.6, 3.6, 1.5, .7, top='#b98a5e')
     K.books(-5.3, 3.5, 1.53, seed=5)

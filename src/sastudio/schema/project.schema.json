@@ -616,6 +616,11 @@
               "type": "string",
               "maxLength": 40
             },
+            "clock": {
+              "type": "string",
+              "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$",
+              "description": "What the set's wall clock reads, HH:MM (default: the scene's time of day)."
+            },
             "end_with": {
               "type": "object",
               "additionalProperties": false,

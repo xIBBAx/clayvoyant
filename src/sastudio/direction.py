@@ -121,7 +121,7 @@ SETS: dict[str, dict] = {
                      "seats": ["head_of_table", "left_seat", "right_seat"],
                      "props": ["laptop", "phone", "mug", "screen", "poster"], "door": True},
     "home_desk": {"marks": ["desk", "sofa", "window"], "seats": ["desk", "sofa"],
-                  "props": ["laptop", "phone", "mug", "plant", "router"], "door": False},
+                  "props": ["laptop", "phone", "mug", "plant", "router"], "door": False, "clock": True},
     "cafe": {"marks": ["table_left", "table_right", "table_left_2", "table_right_2", "counter", "door"],
              "seats": ["table_left", "table_right", "table_left_2", "table_right_2"],
              "props": ["laptop", "phone", "mug", "wifi_sign"], "door": True},
@@ -131,9 +131,22 @@ SETS: dict[str, dict] = {
                "seats": ["bench"], "props": ["phone", "car", "bus_stop"], "door": False},
     "classroom": {"marks": ["teacher", "board", "teacher_desk", "front_desk_left", "front_desk_right", "standing_left",
                             "standing_right", "door"], "seats": ["teacher_desk", "front_desk_left", "front_desk_right"],
-                  "props": ["board", "laptop", "map", "phone"], "door": True},
+                  "props": ["board", "laptop", "map", "phone"], "door": True, "clock": True},
     "studio": {"marks": ["centre"], "seats": [], "props": [], "door": False},
 }
+# What a wall clock reads when the scene does not say (`direction.clock: "17:45"`): the scene's time of day.
+CLOCK_AT = {"morning": "08:40", "day": "13:15", "evening": "18:25", "night": "22:50"}
+
+
+def clock_time(scene) -> str | None:
+    """HH:MM for the wall clock of the scene's set, or None when the set hangs no clock."""
+    d = scene.direction or {}
+    set_name = d.get("set") or _default_set(scene)
+    if not SETS.get(set_name, {}).get("clock"):
+        return None
+    return d.get("clock") or CLOCK_AT.get((scene.setting or {}).get("time_of_day", "day"), "13:15")
+
+
 # Transitions: a clean cut unless a story event motivates something else. No wipes or spins.
 TRANSITIONS: dict[str, str] = {
     "cut": "a clean cut (the default)",
@@ -257,6 +270,9 @@ def validate(project) -> list[Problem]:
             out.append(Problem("error", f"{where}.end_with.camera", f"Unknown camera '{end['camera']}'.", _suggest(end["camera"], SHOTS)))
         if end.get("move") and end["move"] not in MOVES:
             out.append(Problem("error", f"{where}.end_with.move", f"Unknown camera move '{end['move']}'.", _suggest(end["move"], MOVES)))
+        if d.get("clock") and not SETS.get(set_name, {}).get("clock"):
+            out.append(Problem("warning", f"{where}.clock", f"The {set_name} set has no wall clock; `clock` does nothing here.",
+                               "Clocks hang in: " + ", ".join(k for k, v in SETS.items() if v.get("clock")) + "."))
         if d.get("open_with") and d["open_with"] not in SHOTS:
             out.append(Problem("error", f"{where}.open_with", f"Unknown camera '{d['open_with']}'.",
                                _suggest(d["open_with"], SHOTS)))

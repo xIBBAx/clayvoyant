@@ -93,7 +93,7 @@ s.render.image_settings.compression = 30
 # ------------------------------------------------------------------ the place
 SET = JOB.get('set') or {}
 TIME = SET.get('time', 'day')
-C = dict(palette=SET.get('palette') or {}, org=SET.get('org'), seed=int(SET.get('seed', 1)), time=TIME)
+C = dict(palette=SET.get('palette') or {}, org=SET.get('org'), seed=int(SET.get('seed', 1)), time=TIME, clock=SET.get('clock'))
 SKIES = dict(day=('#5e9bd6', '#dfeaf4', '#b9a98f', 1.0), morning=('#7fb0dc', '#f6e3c8', '#b9a98f', .9),
              evening=('#39507f', '#f2a66a', '#6f5a4a', .55), night=('#070b18', '#1a2440', '#0b0d14', .06))
 top, hor, gnd, sky_st = SKIES.get(TIME, SKIES['day'])
