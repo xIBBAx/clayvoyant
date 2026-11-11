@@ -164,11 +164,50 @@ def cmd_motion(a) -> int:
     out = Path(a.out) if a.out else p.root / "build" / "motion" / (
         f"{a.scene}_shot{a.shot}_{preset}.mp4" if a.shot else f"{a.scene}_{preset}.mp4")
     print("Experimental: the clay stop-motion renderer films one scene at a time (docs/CLAY_MOTION.md).")
+    if a.blend and not a.shot:
+        raise StudioError("--blend saves one shot: add --shot <n>.", "See the shots with `sastudio direct`.")
     if a.shot:
-        stopmotion.render_shot(p, a.scene, a.shot - 1, preset, out)
+        stopmotion.render_shot(p, a.scene, a.shot - 1, preset, out, blend=Path(a.blend) if a.blend else None)
+        if a.blend:
+            print(f"Saved the shot as {a.blend}: open it in Blender to refine the animation or lighting.")
     else:
         stopmotion.render_scene(p, a.scene, preset, out)
     return 0
+
+
+def cmd_model(a) -> int:
+    """Bring a 3D model in (inspect, import) or take one of the cast out (export)."""
+    from . import models
+
+    if a.action == "inspect":
+        print(models.describe(models.inspect(a.target)))
+        return 0
+    if a.action == "import":
+        if not a.file or not a.character:
+            raise StudioError("Usage: sastudio model import <project> <file> --as <character id> --license \"...\"")
+        p = _load(a.target)
+        dest, info = models.import_model(p.root, a.file, a.character, a.license or "", a.yaw)
+        print(models.describe(info))
+        print(f"Copied to {dest.relative_to(p.root)} and set as {a.character}'s model in studio.yaml.")
+        if not a.no_portrait:
+            from . import stopmotion
+
+            try:
+                png = stopmotion.render_portrait(_load(a.target), a.character)
+                print(f"Portrait for the cards styles: {png.relative_to(p.root)}")
+            except StudioError as e:
+                print(f"No portrait made ({e.message}). The model is still used by `sastudio motion`.")
+        print(f"Film it: sastudio motion {a.target} --scene <scene id>")
+        return 0
+    if a.action == "export":
+        if not a.character or not a.out:
+            raise StudioError("Usage: sastudio model export <project> --as <character id> --out <file.glb|.fbx|.obj|.blend>")
+        from . import stopmotion
+
+        out = stopmotion.export_character(_load(a.target), a.character, Path(a.out))
+        print(f"Wrote {out}")
+        return 0
+    raise StudioError(f"Unknown action '{a.action}'.", "Use inspect, import or export.")
 
 
 def cmd_doctor(a) -> int:
@@ -404,12 +443,24 @@ def parser() -> argparse.ArgumentParser:
     s.add_argument("--json", action="store_true", help="the plan as JSON, for tools")
     s.set_defaults(fn=cmd_direct)
 
+    s = sub.add_parser("model", help="3D models: inspect a file, import it as a character, or export one")
+    s.add_argument("action", choices=["inspect", "import", "export"])
+    s.add_argument("target", help="a model file (inspect) or a project folder (import, export)")
+    s.add_argument("file", nargs="?", help="the model to import (.glb, .gltf, .fbx, .obj)")
+    s.add_argument("--as", dest="character", help="the character id it becomes or comes from")
+    s.add_argument("--license", help="the licence you have for the model (required to import)")
+    s.add_argument("--yaw", type=float, help="turn the model by this many degrees if it faces the wrong way")
+    s.add_argument("--no-portrait", action="store_true", help="don't render a portrait for the cards styles")
+    s.add_argument("--out", help="where to write the export (.glb, .fbx, .obj or .blend)")
+    s.set_defaults(fn=cmd_model)
+
     s = sub.add_parser("motion", help="experimental: film a scene in clay stop motion with Blender")
     s.add_argument("project")
     s.add_argument("--scene", required=True)
     s.add_argument("--shot", type=int, help="film only this shot (numbers as in `sastudio direct`)")
     s.add_argument("--preset", choices=["draft", "preview", "final"], help="960x540, 1280x720 (default) or 1920x1080")
     s.add_argument("--out", help="where to write the clip (default: build/motion/ in the project)")
+    s.add_argument("--blend", help="with --shot: also save the shot as a .blend file to open in Blender")
     s.set_defaults(fn=cmd_motion)
 
     s = sub.add_parser("script", help="print the resolved script (what is shown and what is spoken)")

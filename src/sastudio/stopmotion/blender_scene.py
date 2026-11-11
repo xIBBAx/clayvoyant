@@ -290,6 +290,73 @@ def build_character(c):
             "mouths": mouths, "head": head}
 
 
+# --------------------------------------------------------------------------- imported models
+def _norm(name):
+    import re
+    name = re.split(r"[:|]", name)[-1]
+    return re.sub(r"[^a-z0-9]", "", name.lower())
+
+
+def _match(names, table):
+    by = {}
+    for n in names:
+        by.setdefault(_norm(n), n)
+    return {part: next((by[a] for a in aliases if a in by), None) for part, aliases in table.items()}
+
+
+def import_file(path):
+    before = set(bpy.data.objects)
+    ext = os.path.splitext(path)[1].lower()
+    if ext in (".glb", ".gltf"):
+        bpy.ops.import_scene.gltf(filepath=path)
+    elif ext == ".fbx":
+        bpy.ops.import_scene.fbx(filepath=path)
+    elif ext == ".obj":
+        bpy.ops.wm.obj_import(filepath=path)
+    else:
+        raise SystemExit(f"STOPMOTION cannot import {ext}")
+    return [o for o in bpy.data.objects if o not in before]
+
+
+def build_model_character(c):
+    """Someone's own model, scaled to the cast, standing on its mark; rig and face found by name."""
+    new = import_file(c["model"])
+    bpy.context.view_layer.update()
+    lo, hi = Vector((1e9, 1e9, 1e9)), Vector((-1e9, -1e9, -1e9))
+    for o in new:
+        if o.type == "MESH":
+            for corner in o.bound_box:
+                w = o.matrix_world @ Vector(corner)
+                lo, hi = Vector(map(min, lo, w)), Vector(map(max, hi, w))
+    height = max(1e-6, hi.z - lo.z)
+    root = empty(f"{c['id']}_root", c["pos"])
+    root.rotation_euler[2] = c["yaw"]
+    turn = empty(f"{c['id']}_turn", (0, 0, 0), root)
+    turn.rotation_euler[2] = math.radians(c.get("model_yaw") or 0.0)
+    holder = empty(f"{c['id']}_fit", (0, 0, 0))
+    sc = FIG / height
+    for o in new:
+        if o.parent not in new:
+            o.parent = holder
+    holder.scale = (sc, sc, sc)
+    holder.location = (-(lo.x + hi.x) / 2 * sc, -(lo.y + hi.y) / 2 * sc, -lo.z * sc)
+    holder.parent = turn
+    head = empty(f"{c['id']}_headpoint", (0, 0, FIG * 0.90), root)
+    arm = next((o for o in new if o.type == "ARMATURE"), None)
+    rig = _match([b.name for b in arm.data.bones], JOB["aliases"]["bones"]) if arm else {}
+    keys = {}
+    for o in new:
+        if o.type == "MESH" and o.data.shape_keys:
+            found = _match([k.name for k in o.data.shape_keys.key_blocks], JOB["aliases"]["shapes"])
+            for part, name in found.items():
+                if name:
+                    keys.setdefault(part, []).append(o.data.shape_keys.key_blocks[name])
+    print("STOPMOTION model", c["id"], "height", round(height, 3), "rig", {k: v for k, v in rig.items() if v},
+          "face", {k: [b.name for b in v] for k, v in keys.items()})
+    return {"root": root, "head": head, "model": True, "armature": arm, "rig": {k: v for k, v in rig.items() if v},
+            "keys": keys, "objects": new + [root, turn, holder, head]}
+
+
 # --------------------------------------------------------------------------- set
 def build_set(job):
     pal = job["palette"]
@@ -407,9 +474,78 @@ def build_camera(cam_job, chars):
 
 
 # --------------------------------------------------------------------------- acting
+def _rot(e):
+    from mathutils import Euler
+    return Euler(e, "XYZ").to_matrix()
+
+
+def act_model(ch, tr):
+    """Drive a model's bones and face keys from the same acting track as the clay figures.
+
+    Each bone's wanted orientation is worked out in the character's own space and turned into the
+    bone's local rotation, whatever its axes and roll; arms modelled in a T-pose are first brought
+    down to the sides.
+    """
+    arm, rig = ch["armature"], ch["rig"]
+    vals = {0: 0.0, 1: 0.45, 2: 1.0}
+    if arm:
+        A = (ch["root"].matrix_world.inverted() @ arm.matrix_world).to_3x3().normalized()
+        Ai = A.inverted()
+        rest = {part: arm.data.bones[name].matrix_local.to_3x3() for part, name in rig.items()}
+        down = {}
+        for part in ("left_upper_arm", "right_upper_arm", "left_forearm", "right_forearm"):
+            if part in rig:
+                b = arm.data.bones[rig[part]]
+                d = (b.tail_local - b.head_local).normalized()
+                side = 1.0 if (A @ d).x >= 0 else -1.0
+                want = (Ai @ Vector((side * 0.18, 0.0, -0.98))).normalized()
+                down[part] = d.rotation_difference(want).to_matrix()
+        for name in rig.values():
+            arm.pose.bones[name].rotation_mode = "QUATERNION"
+    for f, st in tr.items():
+        f = int(f)
+        for part, blocks in ch["keys"].items():
+            v = vals[st["mouth"]] if part == "mouth_open" else (1.0 if st["blink"] else 0.0)
+            for kb in blocks:
+                kb.value = v
+                kb.keyframe_insert("value", frame=f)
+        if not arm:
+            continue
+        pitch, yaw, roll = st["head"]
+        for part in ("head", "neck"):
+            if part in rig:
+                share = 1.0 if part == "head" and "neck" not in rig else 0.6 if part == "head" else 0.4
+                R = Ai @ _rot((pitch * share, roll * share, yaw * share)) @ A
+                q = (rest[part].inverted() @ R @ rest[part]).to_quaternion()
+                pb = arm.pose.bones[rig[part]]
+                pb.rotation_quaternion = q
+                pb.keyframe_insert("rotation_quaternion", frame=f)
+        # character's own left is screen right: our "right" arm track drives it
+        for side, upper, fore in (("right", "left_upper_arm", "left_forearm"), ("left", "right_upper_arm", "right_forearm")):
+            if upper not in rig:
+                continue
+            Rs = Ai @ _rot(st["arms"][side]["shoulder"]) @ A
+            Re = Ai @ _rot(st["arms"][side]["elbow"]) @ A
+            want_u = Rs @ down[upper] @ rest[upper]
+            q_u = (rest[upper].inverted() @ want_u).to_quaternion()
+            pb = arm.pose.bones[rig[upper]]
+            pb.rotation_quaternion = q_u
+            pb.keyframe_insert("rotation_quaternion", frame=f)
+            if fore in rig:
+                want_f = Rs @ Re @ down[fore] @ rest[fore]
+                rel_rest = rest[upper].inverted() @ rest[fore]
+                q_f = (rel_rest.inverted() @ want_u.inverted() @ want_f).to_quaternion()
+                pf = arm.pose.bones[rig[fore]]
+                pf.rotation_quaternion = q_f
+                pf.keyframe_insert("rotation_quaternion", frame=f)
+
+
 def act(chars, tracks, step):
     for cid, tr in tracks.items():
         ch = chars[cid]
+        if ch.get("model"):
+            act_model(ch, tr)
+            continue
         for f, st in tr.items():
             f = int(f)
             for i, m in enumerate(ch["mouths"]):
@@ -435,13 +571,54 @@ def act(chars, tracks, step):
 
 
 # --------------------------------------------------------------------------- run
+def make(c):
+    return build_model_character(c) if c.get("model") else build_character(c)
+
+
+def export_mode(sc):
+    chars = [make(c) for c in JOB["characters"]]
+    out = JOB["export"]
+    ext = os.path.splitext(out)[1].lower()
+    for ch in chars:
+        for m in ch.get("mouths", [])[1:]:  # the open replacement mouths: kept, hidden, in a .blend; left out elsewhere
+            if ext == ".blend":
+                m.hide_render = m.hide_viewport = True
+            else:
+                bpy.data.objects.remove(m, do_unlink=True)
+    bpy.ops.object.select_all(action="DESELECT")
+    for o in list(sc.objects):
+        if o.type == "CURVE":  # tubes become meshes so every format can carry them
+            bpy.context.view_layer.objects.active = o
+            o.select_set(True)
+            bpy.ops.object.convert(target="MESH")
+            o.select_set(False)
+    for o in sc.objects:
+        o.select_set(True)
+    if ext == ".glb":
+        bpy.ops.export_scene.gltf(filepath=out, export_format="GLB", use_selection=True, export_apply=True)
+    elif ext == ".fbx":
+        bpy.ops.export_scene.fbx(filepath=out, use_selection=True, use_mesh_modifiers=True)
+    elif ext == ".obj":
+        bpy.ops.wm.obj_export(filepath=out, export_selected_objects=True, apply_modifiers=True)
+    elif ext == ".blend":
+        bpy.ops.wm.save_as_mainfile(filepath=out)
+    print("STOPMOTION exported", out, len(chars))
+
+
 def main():
     sc = bpy.context.scene
     for o in list(sc.objects):
         bpy.data.objects.remove(o, do_unlink=True)
-    build_set(JOB)
+    mode = JOB.get("mode", "shot")
+    if mode == "export":
+        export_mode(sc)
+        return
+    if mode == "portrait":
+        sc.render.film_transparent = True
+    else:
+        build_set(JOB)
     build_light(JOB["lighting"])
-    chars = {c["id"]: build_character(c) for c in JOB["characters"]}
+    chars = {c["id"]: make(c) for c in JOB["characters"]}
     build_camera(JOB["camera"], chars)
     act(chars, JOB["tracks"], JOB["step"])
     if os.environ.get("SASTUDIO_SM_DUMP"):  # diagnostics: every object's evaluated size, no render
@@ -468,6 +645,8 @@ def main():
     sc.frame_start, sc.frame_end, sc.frame_step = JOB["frame_start"], JOB["frame_end"], JOB["step"]
     sc.render.image_settings.file_format = "PNG"
     sc.render.filepath = JOB["out"] + "/"
+    if JOB.get("save_blend"):  # hand the shot to an animator: open it in Blender and refine
+        bpy.ops.wm.save_as_mainfile(filepath=JOB["save_blend"], copy=True)
     bpy.ops.render.render(animation=True)
     print("STOPMOTION done", JOB["frame_start"], JOB["frame_end"])
 

@@ -212,10 +212,7 @@ def build_job(project, plan: D.ScenePlan, shot_index: int, preset: str, out_dir:
     w, h, samples = PRESETS[preset]
     step = 2
     trk, frames = tracks(project, scene, shot, pos, step)
-    chars = []
-    for cid, (p, yaw) in pos.items():
-        look = project.characters[cid].look or {}
-        chars.append({"id": cid, "pos": p, "yaw": yaw, "design": figures.normalize(look.get("design"), look.get("preset"))})
+    chars = [_char_job(project, cid, p, yaw) for cid, (p, yaw) in pos.items()]
     st = D.SETS.get(plan.set, D.SETS["office"])
     logo = project.org.get("logo")
     return {"palette": project.org.get("palette") or {}, "lighting": D.LIGHTING[plan.lighting],
@@ -223,11 +220,123 @@ def build_job(project, plan: D.ScenePlan, shot_index: int, preset: str, out_dir:
             "logo": str(project.path(logo, "organization.logo")) if logo else None,
             "characters": chars, "camera": camera_keys(shot, pos, frames), "tracks": trk,
             "frame_start": 1, "frame_end": frames, "step": step, "width": w, "height": h, "samples": samples,
-            "out": str(out_dir)}
+            "aliases": _aliases(), "out": str(out_dir)}
 
 
-def render_shot(project, scene_id: str, shot_index: int, preset: str, out: Path, log=print) -> Path:
-    """Film one planned shot and encode it (on twos) into `out` (an .mp4)."""
+def _aliases() -> dict:
+    from .. import models
+
+    return {"bones": models.BONES, "shapes": models.SHAPES}
+
+
+def _char_job(project, cid: str, pos=(0.0, 0.0, 0.0), yaw: float = 0.0) -> dict:
+    """One character for the Blender job: its clay design, or the model it was given."""
+    if cid not in project.characters:
+        raise ConfigError(f"No character '{cid}'.", "List them with `sastudio characters`.")
+    look = project.characters[cid].look or {}
+    c = {"id": cid, "pos": list(pos), "yaw": yaw, "design": figures.normalize(look.get("design"), look.get("preset"))}
+    if look.get("model"):
+        path = project.path(look["model"], f"characters.{cid}.look.model")
+        if not path.is_file():
+            raise ConfigError(f"{cid}'s model {look['model']} is missing.", "Import it again with `sastudio model import`.")
+        c["model"] = str(path)
+        c["model_yaw"] = float(look.get("model_yaw") or 0.0)
+        c["model_sha"] = hashlib.sha256(path.read_bytes()).hexdigest()[:16]  # a changed file re-films the shot
+    return c
+
+
+def _rest_track() -> dict:
+    return {1: {"mouth": 0, "blink": False, "head": [0.0, 0.0, 0.0], "breath": 1.0,
+                "arms": json.loads(json.dumps(REST))}}
+
+
+def _run_blender(job: dict, work: Path, log=print, marker: str = "STOPMOTION done") -> str:
+    """Run the Blender scene builder on a job; paths are converted for a Windows Blender under WSL."""
+    exe, wsl_win = find_blender()
+    conv = _winpath if wsl_win else str
+    for key in ("out", "logo", "export", "save_blend"):
+        if job.get(key):
+            job[key] = conv(Path(job[key]))
+    for c in job["characters"]:
+        if c.get("model"):
+            c["model"] = conv(Path(c["model"]))
+    work.mkdir(parents=True, exist_ok=True)
+    (work / "job.json").write_text(json.dumps(job), "utf-8")
+    with resources.as_file(resources.files("sastudio.stopmotion").joinpath("blender_scene.py")) as script:
+        cmd = [exe, "-b", "--factory-startup", "-P", conv(Path(script)), "--", conv(work / "job.json")]
+        res = subprocess.run(cmd, capture_output=True, text=True, check=False)
+    if marker not in res.stdout:
+        raise RenderError("Blender did not finish:\n" + (res.stdout + res.stderr).strip()[-1500:])
+    return res.stdout
+
+
+def render_portrait(project, cid: str, *, samples: int = 32, log=print) -> Path:
+    """A still of one character (clay or imported model) for the cards styles; sets `look.portrait`.
+
+    Saved as assets/characters/<id>_3d.png (never over a portrait someone made), cropped to the figure
+    on a transparent background, like the bundled clay portraits.
+    """
+    from PIL import Image
+
+    from .. import models
+
+    c = _char_job(project, cid, (0.0, 0.0, 0.0), 0.30)
+    aim, lens = (0.0, 0.0, 0.215), 50.0
+    dist = (0.36 / 2) / math.tan(_vfov(lens) / 2)
+    cam = (math.sin(0.30) * dist * 0.4, -dist, 0.24)
+    job = {"mode": "portrait", "palette": project.org.get("palette") or {}, "lighting": D.LIGHTING["soft_studio"],
+           "props": [], "furniture": [], "logo": None, "characters": [c],
+           "camera": {"lens": lens, "fstop": 8.0, "focus": cid, "keys": {1: [cam, aim]}},
+           "tracks": {cid: _rest_track()}, "frame_start": 1, "frame_end": 1, "step": 1,
+           "width": 900, "height": 1200, "samples": samples, "aliases": _aliases()}
+    work = project.root / ".studio" / "work" / "portraits" / cid
+    shutil.rmtree(work, ignore_errors=True)
+    job["out"] = str(work / "frames")
+    (work / "frames").mkdir(parents=True)
+    log(f"Rendering a portrait of {cid}...")
+    _run_blender(job, work, log)
+    shots = sorted((work / "frames").glob("*.png"))
+    if not shots:
+        raise RenderError("Blender wrote no portrait.")
+    im = Image.open(shots[0]).convert("RGBA")
+    bb = im.getchannel("A").point(lambda a: 255 if a > 8 else 0).getbbox()
+    if not bb:
+        raise RenderError(f"The portrait of {cid} is empty: the model may be too small, hidden or facing away.",
+                          "Check it with `sastudio model inspect`, or set `--yaw` when importing.")
+    im = im.crop((max(0, bb[0] - 24), max(0, bb[1] - 24), min(im.width, bb[2] + 24), min(im.height, bb[3] + 24)))
+    im = im.resize((max(1, int(im.width * 820 / im.height)), 820), Image.LANCZOS)
+    rel = f"assets/characters/{cid}_3d.png"
+    target = project.root / rel
+    target.parent.mkdir(parents=True, exist_ok=True)
+    im.save(target, optimize=True)
+    yml = project.root / "studio.yaml"
+    yml.write_text(models._set_look(yml.read_text("utf-8"), cid, {"portrait": rel}), "utf-8")
+    return target
+
+
+EXPORT_FORMATS = (".glb", ".fbx", ".obj", ".blend")
+
+
+def export_character(project, cid: str, out: Path, log=print) -> Path:
+    """Write one character (its clay figure, or its model as fitted to the cast) to GLB, FBX, OBJ or .blend."""
+    out = Path(out).resolve()
+    if out.suffix.lower() not in EXPORT_FORMATS:
+        raise ConfigError(f"Cannot export to {out.suffix or 'a file without an extension'}.",
+                          "Use .glb (most tools and the web), .fbx (game engines), .obj (any 3D tool) or .blend.")
+    job = {"mode": "export", "characters": [_char_job(project, cid)], "export": str(out), "aliases": _aliases()}
+    out.parent.mkdir(parents=True, exist_ok=True)
+    work = project.root / ".studio" / "work" / "export" / cid
+    shutil.rmtree(work, ignore_errors=True)
+    log(f"Exporting {cid} to {out.name}...")
+    _run_blender(job, work, log, marker="STOPMOTION exported")
+    if not out.is_file() or out.stat().st_size == 0:
+        raise RenderError(f"Blender did not write {out}.")
+    return out
+
+
+def render_shot(project, scene_id: str, shot_index: int, preset: str, out: Path, log=print,
+                blend: Path | None = None) -> Path:
+    """Film one planned shot and encode it (on twos) into `out` (an .mp4); `blend` also saves it as a .blend."""
     plans = {p.scene: p for p in D.plan(project)}
     if scene_id not in plans:
         raise ConfigError(f"No enabled scene '{scene_id}'.", "List scenes with `sastudio scenes`.")
@@ -240,28 +349,21 @@ def render_shot(project, scene_id: str, shot_index: int, preset: str, out: Path,
     digest = hashlib.sha256(json.dumps({k: v for k, v in job.items() if k != "out"}, sort_keys=True,
                                        default=str).encode() + SCENE_VERSION.encode()).hexdigest()[:16]
     cached = project.root / ".studio" / "cache" / "stopmotion" / f"{digest}.mp4"
-    if cached.is_file() and cached.stat().st_size > 0:  # nothing that affects this shot changed
+    if cached.is_file() and cached.stat().st_size > 0 and not blend:  # nothing that affects this shot changed
         out.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(cached, out)
         log(f"Reused {scene_id} shot {shot_index + 1} (unchanged)")
         return out
-    exe, wsl_win = find_blender()
     work = project.root / ".studio" / "work" / "stopmotion" / f"{scene_id}_{shot_index + 1:02d}_{preset}"
     if work.exists():
         shutil.rmtree(work)
     (work / "frames").mkdir(parents=True)
     job["out"] = str(work / "frames")
-    conv = _winpath if wsl_win else str
-    job["out"] = conv(work / "frames")
-    if job["logo"]:
-        job["logo"] = conv(Path(job["logo"]))
-    (work / "job.json").write_text(json.dumps(job), "utf-8")
-    with resources.as_file(resources.files("sastudio.stopmotion").joinpath("blender_scene.py")) as script:
-        cmd = [exe, "-b", "--factory-startup", "-P", conv(Path(script)), "--", conv(work / "job.json")]
-        log(f"Filming {scene_id} shot {shot_index + 1} ({plan.shots[shot_index].camera}, {job['frame_end']} frames on twos)...")
-        res = subprocess.run(cmd, capture_output=True, text=True, check=False)
-    if "STOPMOTION done" not in res.stdout:
-        raise RenderError("Blender did not finish the shot:\n" + (res.stdout + res.stderr).strip()[-1500:])
+    if blend:
+        job["save_blend"] = str(Path(blend).resolve())
+        Path(blend).resolve().parent.mkdir(parents=True, exist_ok=True)
+    log(f"Filming {scene_id} shot {shot_index + 1} ({plan.shots[shot_index].camera}, {job['frame_end']} frames on twos)...")
+    _run_blender(job, work, log)
     drawings = sorted((work / "frames").glob("*.png"))
     if not drawings:
         raise RenderError("Blender wrote no frames.")

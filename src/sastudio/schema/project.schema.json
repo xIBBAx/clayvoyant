@@ -896,6 +896,19 @@
               },
               "design": {
                 "$ref": "#/$defs/design"
+              },
+              "model": {
+                "$ref": "#/$defs/relpath"
+              },
+              "model_license": {
+                "type": "string",
+                "minLength": 3,
+                "maxLength": 200
+              },
+              "model_yaw": {
+                "type": "number",
+                "minimum": -180,
+                "maximum": 180
               }
             }
           }

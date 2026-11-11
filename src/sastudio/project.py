@@ -26,6 +26,7 @@ from .text.speech import DEFAULT_LEXICON, SpeechRules, speak_email, speak_url
 PROJECT_FILE = "studio.yaml"
 MAX_FILE_BYTES = 1_000_000
 SCHEMA_VERSION = 1
+MODEL_EXTS = {".glb", ".gltf", ".fbx", ".obj"}
 IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp"}
 AUDIO_EXTS = {".wav", ".mp3", ".flac", ".ogg", ".m4a"}
 
@@ -490,6 +491,12 @@ def validate(project: Project, *, only: Iterable[str] | None = None) -> list[Iss
     for cid, ch in project.characters.items():
         if ch.look.get("portrait"):
             _check_file(project, ch.look["portrait"], f"characters.{cid}.look.portrait", IMAGE_EXTS, issues)
+        if ch.look.get("model"):
+            _check_file(project, ch.look["model"], f"characters.{cid}.look.model", MODEL_EXTS, issues, 300_000_000)
+            if not str(ch.look.get("model_license") or "").strip():
+                issues.append(Issue("error", f"characters.{cid}.look.model_license",
+                                    "A 3D model needs its licence recorded.",
+                                    'Add `model_license: "..."` (for example "CC BY 4.0, author, link" or "made by me").'))
     if project.render_cfg.get("music"):
         _check_file(project, project.render_cfg["music"], "render.music", AUDIO_EXTS, issues)
     for s in project.scenes:
@@ -578,7 +585,8 @@ def _check_tokens(text: str, ctx: tpl.TextContext, lang: str, where: str, issues
         issues.append(Issue("error", where, e.message, e.hint))
 
 
-def _check_file(project: Project, raw: str, where: str, exts: set[str], issues: list[Issue]) -> None:
+def _check_file(project: Project, raw: str, where: str, exts: set[str], issues: list[Issue],
+                max_bytes: int = 50_000_000) -> None:
     try:
         p = resolve_inside(project.root, raw, what=where, must_exist=True)
     except UnsafePathError as e:
@@ -586,8 +594,8 @@ def _check_file(project: Project, raw: str, where: str, exts: set[str], issues: 
         return
     if p.suffix.lower() not in exts:
         issues.append(Issue("error", where, f"'{raw}' must be one of: {', '.join(sorted(exts))}."))
-    elif p.stat().st_size > 50_000_000:
-        issues.append(Issue("error", where, f"'{raw}' is larger than 50 MB."))
+    elif p.stat().st_size > max_bytes:
+        issues.append(Issue("error", where, f"'{raw}' is larger than {max_bytes // 1_000_000} MB."))
     elif exts is IMAGE_EXTS:
         from .render.style import load_image  # decode it now, so a broken image fails here, not mid-render
 
