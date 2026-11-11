@@ -320,6 +320,9 @@ def _schema_errors(data: Any, where: str) -> list[Issue]:
     v = Draft202012Validator(schema())
     issues = []
     for err in sorted(v.iter_errors(data), key=lambda e: list(e.absolute_path)):
+        if err.validator in ("anyOf", "oneOf") and err.context and "lines" not in _fmt_path(err.absolute_path):
+            # "is not valid under any of the given schemas" says nothing: report the deepest real mistake instead
+            err = max(err.context, key=lambda e: len(e.absolute_path))
         loc = _fmt_path(err.absolute_path)
         msg = err.message
         if err.validator == "oneOf" and "lines" in loc:
