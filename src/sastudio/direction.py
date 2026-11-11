@@ -483,6 +483,8 @@ def _reaction(d, ln, cam, present, shots, last_id, seed):
     drawing where the speaker's mouth is at rest. `direction.reactions: false` turns this off for a scene."""
     if d.get("reactions", True) is False or ln.id == last_id or not shots or cam not in ("close_up", "medium"):
         return None
+    if ln.camera:
+        return None     # the writer chose this line's camera: it holds for the whole line
     listener = ln.to if ln.to in present and ln.to != ln.who else next((c for c in present if c != ln.who), None)
     if not listener or _estimate(ln) < REACT_MIN_SECONDS:
         return None
