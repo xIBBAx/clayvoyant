@@ -178,7 +178,7 @@ def cmd_film(a) -> int:
     p = _load(a.project)
     res = build(p, language=a.lang, scene_ids=_scenes(a.scenes), preset=a.preset, fallback=a.voice_fallback,
                 burn=True if a.burn_subtitles else None, jobs=a.jobs, renderer="clay",
-                allow_placeholder_contacts=a.allow_placeholder_contacts)
+                allow_placeholder_contacts=a.allow_placeholder_contacts, voices=a.voices)
     for w in res.warnings:
         print(f"warning: {w}")
     print(json.dumps({"video": str(res.video), "srt": str(res.srt), "vtt": str(res.vtt),
@@ -205,10 +205,13 @@ def cmd_model(a) -> int:
 
             try:
                 png = stopmotion.render_portrait(_load(a.target), a.character)
-                print(f"Portrait for the cards styles: {png.relative_to(p.root)}")
+                rel = png.relative_to(p.root).as_posix()
+                yml = p.root / "studio.yaml"
+                yml.write_text(models._set_look(yml.read_text("utf-8"), a.character, {"portrait": rel}), "utf-8")
+                print(f"Portrait for the cards styles: {rel}")
             except StudioError as e:
-                print(f"No portrait made ({e.message}). The model is still used by `sastudio motion`.")
-        print(f"Film it: sastudio motion {a.target} --scene <scene id>")
+                print(f"No portrait made ({e.message}). The model is still used by `sastudio film`.")
+        print(f"Film it: sastudio film {a.target}")
         return 0
     if a.action == "export":
         if not a.character or not a.out:
@@ -344,6 +347,15 @@ def _print_plan(p, plan) -> None:
 def cmd_voices(a) -> int:
     from .voices.engine import build_plan, generate
 
+    if a.action == "install":
+        if a.project != "kokoro":
+            raise StudioError(f"Nothing to install for '{a.project}'.", "Use: sastudio voices install kokoro")
+        from .voices import kokoro
+
+        print("Kokoro-82M: a free neural voice that runs on this computer (model weights: Apache-2.0).")
+        d = kokoro.install()
+        print(f"Ready in {d}. Give a character  voice: {{ provider: kokoro }}  or render with --voice-fallback kokoro.")
+        return 0
     p = _load(a.project)
     langs = [a.lang] if a.lang else p.languages
     plan = build_plan(p, langs, _scenes(a.scenes))
@@ -386,7 +398,7 @@ def cmd_render(a) -> int:
     p = _load(a.project)
     res = build(p, language=a.lang, scene_ids=_scenes(a.scenes), preset=a.preset, fallback=a.voice_fallback,
                 burn=True if a.burn_subtitles else None, jobs=a.jobs, renderer=a.renderer,
-                allow_placeholder_contacts=a.allow_placeholder_contacts)
+                allow_placeholder_contacts=a.allow_placeholder_contacts, voices=a.voices)
     for w in res.warnings:
         print(f"warning: {w}")
     print(json.dumps({"video": str(res.video), "srt": str(res.srt), "vtt": str(res.vtt),
@@ -470,7 +482,10 @@ def parser() -> argparse.ArgumentParser:
     s.add_argument("--scenes", help="comma-separated scene ids")
     s.add_argument("--lang")
     s.add_argument("--preset", choices=["draft", "preview", "final"], help="960x540, 1280x720 or 1920x1080")
-    s.add_argument("--voice-fallback", choices=["offline"], help="use free placeholder voices for lines not generated yet")
+    s.add_argument("--voice-fallback", choices=["offline", "kokoro"],
+                   help="for lines with no generated audio yet: kokoro (free neural voice) or offline (placeholder)")
+    s.add_argument("--voices", choices=["kokoro", "recorded", "offline"],
+                   help="one free voice provider for the whole cast in this render, whatever the project says")
     s.add_argument("--burn-subtitles", action="store_true")
     s.add_argument("--allow-placeholder-contacts", action="store_true",
                    help="render a final film that still shows placeholder reporting contacts")
@@ -492,7 +507,7 @@ def parser() -> argparse.ArgumentParser:
     s.set_defaults(fn=cmd_script)
 
     s = sub.add_parser("voices", help="plan or generate dialogue audio")
-    s.add_argument("action", choices=["plan", "generate", "lexicon"])
+    s.add_argument("action", choices=["plan", "generate", "lexicon", "install"])
     s.add_argument("project")
     s.add_argument("--lang")
     s.add_argument("--scenes")
@@ -512,7 +527,10 @@ def parser() -> argparse.ArgumentParser:
     s.add_argument("--scenes", help="comma-separated scene ids")
     s.add_argument("--lang")
     s.add_argument("--preset", choices=["draft", "preview", "final"])
-    s.add_argument("--voice-fallback", choices=["offline"], help="use free placeholder voices for lines not generated yet")
+    s.add_argument("--voice-fallback", choices=["offline", "kokoro"],
+                   help="for lines with no generated audio yet: kokoro (free neural voice) or offline (placeholder)")
+    s.add_argument("--voices", choices=["kokoro", "recorded", "offline"],
+                   help="one free voice provider for the whole cast in this render, whatever the project says")
     s.add_argument("--burn-subtitles", action="store_true")
     s.add_argument("--allow-placeholder-contacts", action="store_true",
                    help="allow a final film whose reporting address is an example placeholder (demos only)")
@@ -548,6 +566,11 @@ def _utf8_output() -> None:
             try:
                 stream.reconfigure(encoding="utf-8", errors="replace")
             except (ValueError, OSError):  # pragma: no cover - stream already written to in an odd state
+                pass
+        if hasattr(stream, "reconfigure"):
+            try:
+                stream.reconfigure(line_buffering=True)  # progress of a long render shows up in a log as it happens
+            except (ValueError, OSError):  # pragma: no cover
                 pass
 
 

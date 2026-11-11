@@ -67,6 +67,9 @@ GESTURES: dict[str, dict] = {
     "arms_folded": {"parts": {"left_arm", "right_arm"}, "seconds": 0.0, "kind": "hold"},
     "phone_to_ear": {"parts": {"left_arm"}, "seconds": 0.0, "kind": "hold", "prop": "phone"},
     "typing": {"parts": {"left_arm", "right_arm"}, "seconds": 0.0, "kind": "loop", "prop": "laptop"},
+    "hold_mug": {"parts": {"right_arm"}, "seconds": 0.0, "kind": "hold", "prop": "mug"},
+    "sip": {"parts": {"right_arm"}, "seconds": 1.6, "kind": "once", "prop": "mug"},
+    "check_phone": {"parts": {"right_arm", "head"}, "seconds": 0.0, "kind": "hold", "prop": "phone"},
     "lean_in": {"parts": {"torso"}, "seconds": 0.8, "kind": "once"},
     "turn_to": {"parts": {"head", "torso"}, "seconds": 0.6, "kind": "once"},
     "sit_down": {"parts": {"torso", "legs"}, "seconds": 1.2, "kind": "once", "mark": "seat"},
@@ -192,6 +195,13 @@ def validate(project) -> list[Problem]:
             if set_info["marks"] and mark not in set_info["marks"]:
                 out.append(Problem("error", f"{where}.blocking.{cid}", f"The {set_name} set has no mark '{mark}'.",
                                    _suggest(mark, set_info["marks"])))
+        for cid, g in (d.get("business") or {}).items():
+            if cid not in present:
+                out.append(Problem("error", f"{where}.business.{cid}", f"'{cid}' is not in this scene.", "Add them to `extras`."))
+            holds = sorted(k for k, v in GESTURES.items() if v["kind"] in ("hold", "loop"))
+            if g not in holds:
+                out.append(Problem("error", f"{where}.business.{cid}", f"'{g}' is not something to be doing as a scene opens.",
+                                   _suggest(g, holds)))
         tr = d.get("transition_in", "cut")
         if tr not in TRANSITIONS:
             out.append(Problem("error", f"{where}.transition_in", f"Unknown transition '{tr}'.", _suggest(tr, TRANSITIONS)))
@@ -255,6 +265,8 @@ def validate(project) -> list[Problem]:
             if ln.emotion and ln.emotion not in EMOTIONS:
                 out.append(Problem("warning", f"{w}.emotion", f"'{ln.emotion}' is not an expression the clay renderer "
                                    "knows; it will look neutral.", _suggest(ln.emotion, EMOTIONS)))
+            if ln.go and set_info["marks"] and ln.go not in set_info["marks"]:
+                out.append(Problem("error", f"{w}.go", f"The {set_name} set has no mark '{ln.go}'.", _suggest(ln.go, set_info["marks"])))
             if ln.to and ln.to not in present:
                 out.append(Problem("error", f"{w}.to", f"'{ln.to}' is not in this scene.", "Add them to `extras`."))
     return out
@@ -359,7 +371,8 @@ def _choose(s, d, ln, i, shots, present, prev_set, set_name, last_id, seed):
         if d.get("open_with"):
             opener, why = d["open_with"], "the scene asks to open this way"
         elif set_name != prev_set:
-            opener, why = "establishing", "the scene opens in a new place"
+            # the opening shot (the scene's title) has shown the place: the first line shows the people in it
+            opener, why = "wide", "a new place: everyone in it, full figure"
         else:  # the same place at a new moment: vary how we come back in
             words = len((ln.say or "").split())
             options = [("wide", "the same place, a new moment"), ("establishing", "time has moved on"),

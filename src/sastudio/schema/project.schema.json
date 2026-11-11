@@ -271,7 +271,9 @@
       "enum": [
         "sarvam",
         "elevenlabs",
-        "offline"
+        "offline",
+        "kokoro",
+        "recorded"
       ]
     },
     "voice": {
@@ -418,6 +420,11 @@
           },
           "maxProperties": 8,
           "description": "How listeners take the line: character id -> emotion (docs/DIRECTION.md)."
+        },
+        "go": {
+          "type": "string",
+          "maxLength": 40,
+          "description": "A mark of the set the speaker walks to as the line begins (docs/DIRECTION.md)."
         }
       },
       "oneOf": [
@@ -675,6 +682,18 @@
                   }
                 }
               }
+            },
+            "business": {
+              "type": "object",
+              "propertyNames": {
+                "$ref": "#/$defs/id"
+              },
+              "additionalProperties": {
+                "type": "string",
+                "maxLength": 40
+              },
+              "maxProperties": 8,
+              "description": "What people are doing when the scene opens: character id -> a gesture that holds (typing, hold_mug, check_phone, arms_folded ...)."
             }
           }
         }
@@ -1133,6 +1152,25 @@
             },
             "offline": {
               "type": "object"
+            },
+            "kokoro": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "model_dir": {
+                  "type": "string",
+                  "maxLength": 300
+                }
+              }
+            },
+            "recorded": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "folder": {
+                  "$ref": "#/$defs/relpath"
+                }
+              }
             }
           }
         },

@@ -1,8 +1,9 @@
-"""Clay stop-motion renderer: the parts that run without Blender (jobs, cameras, acting, safety)."""
+"""Clay stop motion: everything that runs without Blender (jobs, timing, acting keys, caching, safety),
+and the contracts between the Python side and the engine scripts that Blender runs."""
 
 import json
-import math
 import py_compile
+import re
 from pathlib import Path
 
 import pytest
@@ -10,10 +11,11 @@ import pytest
 from sastudio import direction as D
 from sastudio import stopmotion as SM
 from sastudio.cli import main
-from sastudio.errors import ConfigError, ToolMissing
+from sastudio.errors import ToolMissing
 from sastudio.project import load_project
+from sastudio.render import clay
 
-HAIR_TOP = 0.365  # the top of the tallest bundled hair, in metres (figures are 0.30 m)
+ENGINE = Path(clay.__file__).resolve().parents[1] / "engine"
 
 
 @pytest.fixture(scope="module")
@@ -23,62 +25,134 @@ def film(tmp_path_factory):
     return load_project(root)
 
 
-def _plan(project, scene):
-    return next(p for p in D.plan(project) if p.scene == scene)
+def _scene(project, scene_id):
+    plan = next(p for p in D.plan(project) if p.scene == scene_id)
+    scene = next(s for s in project.scenes if s.id == scene_id)
+    return scene, plan, SM.spans_estimated(project, scene)
 
 
-def test_job_is_complete_and_deterministic(film, tmp_path):
-    plan = _plan(film, "helpful_caller")
-    a = SM.build_job(film, plan, 0, "draft", tmp_path)
-    b = SM.build_job(film, plan, 0, "draft", tmp_path)
-    assert json.dumps(a, sort_keys=True, default=str) == json.dumps(b, sort_keys=True, default=str)
-    assert {c["id"] for c in a["characters"]} == set(plan.sides)
-    assert (a["width"], a["height"], a["step"]) == (960, 540, 2)
-    assert a["frame_end"] >= int(plan.shots[0].seconds * SM.FPS)
-    drawings = sorted(next(iter(a["tracks"].values())))
-    assert drawings[0] == 1 and all(y - x == 2 for x, y in zip(drawings, drawings[1:], strict=False))  # on twos
-    assert a["logo"] and Path(a["logo"]).name == "logo.png"
-    assert a["lighting"] == D.LIGHTING[plan.lighting]
+def _edit(root: Path, name: str, old: str, new: str):
+    f = root / "scenes" / name
+    text = f.read_text(encoding="utf-8")
+    assert old in text
+    f.write_text(text.replace(old, new, 1), encoding="utf-8")
+    return f, text
 
 
-def test_only_the_speaker_talks(film, tmp_path):
-    plan = _plan(film, "helpful_caller")
-    shot = plan.shots[0]
-    job = SM.build_job(film, plan, 0, "draft", tmp_path)
-    speaker = next(ln.who for ln in film.scenes[[s.id for s in film.scenes].index("helpful_caller")].lines
-                   if ln.id == shot.lines[0])
-    assert any(st["mouth"] > 0 for st in job["tracks"][speaker].values())
-    for cid, tr in job["tracks"].items():
-        if cid != speaker:
-            assert all(st["mouth"] == 0 for st in tr.values()), cid
-    assert any(st["blink"] for tr in job["tracks"].values() for st in tr.values())
+def test_scene_job_is_complete_and_deterministic(film):
+    scene, plan, spans = _scene(film, "helpful_caller")
+    a = SM.scene_job(film, scene, plan, spans)
+    b = SM.scene_job(film, scene, plan, spans)
+    assert json.dumps(a, sort_keys=True) == json.dumps(b, sort_keys=True)
+    assert [c["id"] for c in a["cast"]] == list(plan.sides)
+    assert [ln["id"] for ln in a["lines"]] == [ln.id for ln in scene.lines if not ln.is_card]
+    assert a["set"]["name"] == plan.set and a["set"]["org"].startswith("Acme")
+    assert a["lighting"]["key_k"] == D.LIGHTING[plan.lighting]["key_k"]
+    for ln in a["lines"]:
+        assert ln["end"] > ln["start"] and ln["cues"], ln["id"]
+        assert all(0 <= t <= (ln["end"] - ln["start"]) / SM.FPS + 0.1 for t, _ in ln["cues"])
+        assert {s for _, s in ln["cues"]} <= set("ABCDEFGHX")
 
 
-@pytest.mark.parametrize("camera", ["medium", "two_shot", "close_up", "over_shoulder"])
-def test_framing_leaves_headroom(camera):
-    assert SM.AIM_Z[camera] + SM.FRAME_H[camera] / 2 > HAIR_TOP
+def test_shots_cover_every_line_once_on_twos(film):
+    scene, plan, spans = _scene(film, "too_good_email")
+    seen: list[int] = []
+    for shot in plan.shots:
+        frames = SM.shot_frames(shot, spans)
+        if shot.camera == "insert":
+            continue
+        assert frames == sorted(frames)
+        seen += frames
+    assert len(seen) == len(set(seen))  # no frame is filmed by two shots
+    want = {sp.beat + f for sp in spans for f in range(0, sp.frames, SM.STEP)}
+    assert set(seen) == want            # and every drawing of every line is filmed
 
 
-def test_push_in_moves_closer():
-    shot = D.Shot(lines=["x"], camera="close_up", who=["a"], focus="a", move="push_in", lens=65, fstop=2.8)
-    pos = {"a": ((0.0, 0.18, 0.0), 0.0)}
-    keys = SM.camera_keys(shot, pos, 48)["keys"]
-    (start, aim), (end, _) = keys[1], keys[48]
-    assert math.dist(end, aim) < math.dist(start, aim)
-
-
-def test_unfilmable_gestures_are_refused_not_faked(film, tmp_path):
+def test_a_later_line_does_not_refilm_an_earlier_shot(film):
+    """Shots are cached by what can affect them: changing the last line leaves the first shot's job alone."""
     root = Path(film.root)
-    scene = root / "scenes" / "04_helpful_caller.yaml"
-    text = scene.read_text(encoding="utf-8")
+    scene, plan, spans = _scene(film, "helpful_caller")
+    first = plan.shots[0]
+    before = SM.shot_job(SM.scene_job(film, scene, plan, spans), first, SM.shot_frames(first, spans), "draft")
+    last = [ln for ln in scene.lines if not ln.is_card][-1]
+    f, text = _edit(root, "04_helpful_caller.yaml", last.say[:24], "Hm. " + last.say[:24])
     try:
-        scene.write_text(text.replace('  - { id: hc_01, who: rook, say:', '  - { id: hc_01, who: rook, act: [walk_in], say:', 1),
-                         encoding="utf-8")
         proj = load_project(root)
-        with pytest.raises(ConfigError, match="cannot film 'walk_in' yet"):
-            SM.build_job(proj, _plan(proj, "helpful_caller"), 0, "draft", tmp_path)
+        scene2, plan2, spans2 = _scene(proj, "helpful_caller")
+        first2 = plan2.shots[0]
+        after = SM.shot_job(SM.scene_job(proj, scene2, plan2, spans2), first2, SM.shot_frames(first2, spans2), "draft")
+        last_shot = plan2.shots[-1]
+        end_before = SM.shot_job(SM.scene_job(film, scene, plan, spans), plan.shots[-1], SM.shot_frames(plan.shots[-1], spans), "draft")
+        end_after = SM.shot_job(SM.scene_job(proj, scene2, plan2, spans2), last_shot, SM.shot_frames(last_shot, spans2), "draft")
     finally:
-        scene.write_text(text, encoding="utf-8")
+        f.write_text(text, encoding="utf-8")
+    assert SM._digest(before, {}) == SM._digest(after, {})
+    assert SM._digest(end_before, {}) != SM._digest(end_after, {})
+
+
+def test_presets_match_the_compositor():
+    from sastudio.render import cards
+
+    assert set(SM.PRESETS) == set(cards.PRESETS)
+    for name, (w, h, samples) in SM.PRESETS.items():
+        assert (w, h) == cards.PRESETS[name]["size"] and samples > 0
+
+
+def test_walking_in_is_filmed_not_refused(film):
+    root = Path(film.root)
+    f, text = _edit(root, "04_helpful_caller.yaml", "  - { id: hc_01, who: rook, say:", "  - { id: hc_01, who: rook, act: [walk_in, wave], say:")
+    try:
+        proj = load_project(root)
+        scene, plan, spans = _scene(proj, "helpful_caller")
+        job = SM.scene_job(proj, scene, plan, spans)
+    finally:
+        f.write_text(text, encoding="utf-8")
+    walk = [k for k in job["keys"] if k.get("walk")]
+    assert walk and walk[0]["who"] == "rook" and walk[0]["walk"] == "home" and walk[0]["enter"]
+    assert next(c for c in job["cast"] if c["id"] == "rook")["enter_from"] in ("door", "offscreen")
+    assert "rook" in next(ln for ln in job["lines"] if ln["id"] == "hc_01")["manual"]  # the wave is theirs, not the default
+
+
+def test_things_in_hands_and_business(film):
+    root = Path(film.root)
+    f, text = _edit(root, "04_helpful_caller.yaml", "  - { id: hc_01, who: rook, say:", "  - { id: hc_01, who: rook, act: [check_phone], say:")
+    try:
+        proj = load_project(root)
+        scene, plan, spans = _scene(proj, "helpful_caller")
+        scene.direction = dict(scene.direction or {}, business={plan.shots[0].who[0]: "hold_mug"})
+        job = SM.scene_job(proj, scene, plan, spans)
+    finally:
+        f.write_text(text, encoding="utf-8")
+    props = {(c["who"], c["prop"]) for c in job["carry"]}
+    assert ("rook", "phone") in props and (plan.shots[0].who[0], "mug") in props
+    assert any(k.get("look") == "hand" for k in job["keys"] if k["who"] == "rook")
+
+
+def test_every_gesture_and_feeling_has_an_engine_counterpart():
+    acting = (ENGINE / "clay" / "acting.py").read_text(encoding="utf-8")
+    gest = set(re.findall(r"^    (\w+)=dict\(", acting[acting.index("GEST = dict("):acting.index("TALK = [")], re.M))
+    moods = set(re.findall(r"(\w+)=M_\(", acting))
+    joints = (ENGINE / "clay" / "handrig.py").read_text(encoding="utf-8")
+    gj = set(re.findall(r"(\w+)=dict\(", joints[joints.index("GJ = dict("):joints.index("FACE = dict(")]))
+    assert set(SM.HANDS.values()) <= gest, set(SM.HANDS.values()) - gest
+    assert set(SM.HANDS.values()) <= gj | {"rest"}, set(SM.HANDS.values()) - gj
+    assert set(SM.MOODS.values()) | set(SM.ENGINE_MOODS) <= moods
+    assert set(SM.HANDS) | {"nod", "shake_head", "tilt_head", "lean_in", "turn_to", "sit_down", "stand_up", "walk_in", "walk_out"} == set(D.GESTURES)
+    assert set(D.EMOTIONS) == set(SM.MOODS) | set(SM.ENGINE_MOODS)
+    assert set(SM.OPENINGS) == set(D.TRANSITIONS)
+
+
+def test_sets_the_engine_builds_are_the_sets_direction_knows():
+    src = (ENGINE / "clay" / "sets.py").read_text(encoding="utf-8")
+    built = set(re.findall(r"(\w+)=\1[,)]", src[src.index("SETS = dict("):]))
+    assert built == set(D.SETS)
+    for name, info in D.SETS.items():
+        body = src[src.index(f"def {name}(C):"):]
+        body = body[:body.index("\ndef ", 10)] if "\ndef " in body[10:] else body
+        marks = set(re.findall(r"(\w+)=mark\(", body))
+        assert set(info["marks"]) <= marks, (name, set(info["marks"]) - marks)
+        assert set(info["seats"]) <= marks, name
+        assert bool(re.search(r"\bdoor=mark\(", body)) == info["door"], name
 
 
 def test_missing_blender_says_how_to_fix_it(monkeypatch):
@@ -89,27 +163,33 @@ def test_missing_blender_says_how_to_fix_it(monkeypatch):
     assert "SASTUDIO_BLENDER" in e.value.hint and "blender.org" in e.value.hint
 
 
-def test_blender_scene_script_compiles(tmp_path):
-    script = Path(SM.__file__).with_name("blender_scene.py")
-    py_compile.compile(str(script), cfile=str(tmp_path / "x.pyc"), doraise=True)
+def test_engine_scripts_compile_and_are_all_listed(tmp_path):
+    files = sorted(p.relative_to(ENGINE).as_posix() for p in ENGINE.rglob("*.py") if p.name != "__init__.py")
+    assert set(files) == set(clay.ENGINE_FILES)
+    for rel in files:
+        py_compile.compile(str(ENGINE / rel), cfile=str(tmp_path / "x.pyc"), doraise=True)
 
 
-def test_motion_command_is_listed(capsys):
-    with pytest.raises(SystemExit):
-        main(["motion", "--help"])
-    assert "--scene" in capsys.readouterr().out
+def test_engine_reads_no_code_and_no_private_paths_from_a_job():
+    """The scripts Blender runs take numbers, names and paths from the job: never eval/exec, never an absolute path of ours."""
+    for rel in clay.ENGINE_FILES:
+        src = (ENGINE / rel).read_text(encoding="utf-8")
+        assert not re.search(r"\b(eval|exec|__import__|pickle|subprocess|os\.system)\s*\(", src), rel
+        assert not re.search(r"/mnt/|/home/|[A-Z]:\\\\", src), rel
 
 
-def test_close_up_camera_sits_on_the_eyeline_side():
-    """A character on the left looks right: their close-up camera is to the right of them, and vice versa."""
-    for side_x, yaw in ((-0.13, 0.42), (0.13, -0.42)):
-        shot = D.Shot(lines=["x"], camera="close_up", who=["a"], focus="a", lens=65, fstop=2.8)
-        cam, aim = SM.camera_keys(shot, {"a": ((side_x, 0.18, 0.0), yaw)}, 24)["keys"][1]
-        assert (cam[0] - side_x) * yaw > 0
+def test_film_and_motion_commands_are_listed(capsys):
+    for cmd, flag in (("film", "--voices"), ("motion", "--scene")):
+        with pytest.raises(SystemExit):
+            main([cmd, "--help"])
+        assert flag in capsys.readouterr().out
 
 
-def test_mouth_stays_above_the_subtitles():
-    for camera in ("close_up", "medium", "two_shot", "over_shoulder"):
-        bottom = SM.AIM_Z[camera] - SM.FRAME_H[camera] / 2
-        mouth = 0.282
-        assert (mouth - bottom) / SM.FRAME_H[camera] > 0.30, camera  # subtitles use the bottom ~20 %
+def test_phoneme_marks_drive_the_mouth_when_a_voice_reports_them(film):
+    scene, plan, spans = _scene(film, "helpful_caller")
+    lid = spans[0].line.id
+    marks = [["m", 0.20, 0.26], ["ɑ", 0.26, 0.40], [" ", 0.40, 0.44], ["f", 0.44, 0.52], ["u", 0.52, 0.70]]
+    job = SM.scene_job(film, scene, plan, spans, phonemes={lid: marks})
+    cues = next(ln for ln in job["lines"] if ln["id"] == lid)["cues"]
+    assert [s for _, s in cues][:4] == ["A", "D", "G", "F"]
+    assert cues[0][0] == pytest.approx(0.03, abs=0.01)   # the provider's leading silence is trimmed off, as in the audio

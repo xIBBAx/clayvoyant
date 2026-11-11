@@ -331,6 +331,7 @@ GJ = dict(
     # palm on the phone's back, fingers up and back across it (the phone runs from the ear down toward the mouth)
     phone=dict(R=dict(f=(-.05, .5, .86), b=(1, -.1, -.1))),
     hold=dict(R=(4, 0, 0)), hold2=dict(B=(4, 0, 0)),
+    carry=dict(R=(4, 0, 0)), sip=dict(R=(8, 6, 0)), read=dict(R=(-66, 12, 0)),
     thumb=dict(R=(-4, 0, 14)),
     offer=dict(R=(-78, 8, 0)),
     stop=dict(R=dict(f=(.02, -.14, 1), b=(0, 1, 0))),
@@ -352,7 +353,8 @@ FACE = dict(chin=dict(R=(.134, -.515, -.098)), oops=dict(R=(.103, -.577, -.005))
 # gestures whose elbow has somewhere particular to be: (out, back, down), blended over the natural swing
 ELBOW = dict(hips=(1, .22, -.42), proud=(1, .22, -.42), head=(1, -.28, -.42), cross=(.8, .1, -.6), facepalm=(.3, -.25, -1), oops=(.35, -.1, -1), chin=(.3, -.05, -1),
              phone=(.75, .05, -.7), chest=(.7, .1, -.75), up=(1, .12, -.5), wave=(1, .12, -.5), scared=(.7, .1, -.8), recoil=(.8, .1, -.7), stop=(.5, .1, -.9),
-             index=(.6, .1, -.85), namaste=(.7, .15, -.8), clasp=(.45, .25, -.9), hold=(.4, .2, -1), hold2=(.45, .2, -1))
+             index=(.6, .1, -.85), namaste=(.7, .15, -.8), clasp=(.45, .25, -.9), hold=(.4, .2, -1), hold2=(.45, .2, -1),
+             carry=(.4, .2, -1), sip=(.6, .1, -.8), read=(.35, .15, -1))
 
 def elbow(name, side):
     if name not in ELBOW:

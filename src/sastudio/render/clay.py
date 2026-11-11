@@ -28,7 +28,7 @@ from ..errors import ConfigError, RenderError, ToolMissing
 
 ENGINE = resources.files("sastudio").joinpath("engine")
 CLAY_VERSION = "2"  # bump when the sculpt code changes what a character looks like: every rig is sculpted again
-ENGINE_FILES = ("clay/film.py", "clay/acting.py", "clay/sets.py", "clay/setkit.py", "clay/puppet.py", "clay/faceops.py",
+ENGINE_FILES = ("clay/film.py", "clay/acting.py", "clay/guest.py", "clay/sets.py", "clay/setkit.py", "clay/puppet.py", "clay/faceops.py",
                 "clay/claymat.py", "clay/handrig.py", "sculpt/build.py", "sculpt/heads.py", "sculpt/bodies.py", "sculpt/hair.py",
                 "sculpt/sdfkit.py")
 DEVICES = ("GPU", "CPU")
@@ -95,6 +95,8 @@ def build_rigs(project, ids: list[str] | None = None, jobs: int = 2, log=print) 
     todo = []
     with tempfile.TemporaryDirectory(prefix="sas-cast-") as tmp:
         for cid in ids or list(project.characters):
+            if (project.characters[cid].look or {}).get("model"):
+                continue        # a character brought in as a model is not sculpted
             params = preset_params(project, cid)
             stamp = root / cid / ".params"
             h = _hash({"p": params, "v": CLAY_VERSION})

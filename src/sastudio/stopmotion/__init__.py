@@ -31,9 +31,13 @@ STEP = 2
 ENGINE_VERSION = "3"  # bump when the engine changes what it draws: every cached shot is filmed again
 PRESETS = {"draft": (960, 540, 6), "preview": (1280, 720, 12), "final": (1920, 1080, 24)}
 LEAD = 3              # frames of breath before a line when there is no recorded audio to time it
+TITLE_KEY = "title:"  # the opening shot of a scene, in the dict film_scene returns
 # Gestures of the direction vocabulary and the engine's gesture each one plays.
 HANDS = {"shrug": "shrug", "point": "point", "wave": "wave", "open_palms": "present", "thumbs_up": "thumb",
-         "hand_on_chin": "chin", "arms_folded": "cross", "phone_to_ear": "phone", "typing": "typing"}
+         "hand_on_chin": "chin", "arms_folded": "cross", "phone_to_ear": "phone", "typing": "typing", "hold_mug": "carry",
+         "sip": "sip", "check_phone": "read"}
+CARRIED = {"hold_mug": "mug", "sip": "mug", "check_phone": "phone", "phone_to_ear": "phone"}   # what the hand holds
+OPENINGS = {"cut": "establish", "fade_from_black": "establish", "door_reveal": "door", "follow_object": "object", "match_cut": "match"}
 MOODS = {"neutral": "neutral", "happy": "happy", "worried": "worry", "surprised": "surprise", "suspicious": "brow",
          "confident": "proud", "embarrassed": "oops", "relieved": "relief"}
 ENGINE_MOODS = ("grin", "shock", "sad", "smug", "deadpan", "think", "annoyed", "recognise", "concern", "hesitate", "warm",
@@ -125,17 +129,40 @@ def _gesture_keys(who: str, g: str, f0: int, f1: int, to: str | None, set_info: 
     if g == "stand_up":
         return [k(f0, seat=False), k(f0 + 14, walk="home")], False
     if g == "walk_in":
-        return [k(-900, on=False), k(f0 - 44, on=True), k(f0 - 44, walk="home")], False
+        return [k(f0 + 10, walk="home", enter=True, speed=.095)], False
     if g == "walk_out":
         return [k(f1 - 6, walk="door" if set_info.get("door") else "offscreen", leave=True)], False
     hand = HANDS[g]
+    if g == "sip":
+        return [k(f0 - 6, g="carry", cR=1), k(f1 + 8, g="sip"), k(f1 + 8 + 30, g="carry"), k(f1 + 70, g="rest", cR=0)], True
+    if g == "check_phone":
+        return [k(f0 - 6, g=hand, look="hand", cR=1), k(f1 + 6, g="rest", look=to, cR=0)], True
     if info["kind"] == "once":
         hold = int(info["seconds"] * FPS) + 14
         return [k(f0 + 2, g=hand), k(min(f0 + 2 + hold, f1 + 4), g="talk" if f1 - (f0 + hold) > 20 else "rest")], True
-    return [k(f0 - 4, g=hand), k(f1 + 6, g="rest")], True
+    return [k(f0 - 4, g=hand, cR=1 if g in CARRIED else 0), k(f1 + 6, g="rest", cR=0)], True
 
 
-def scene_job(project, scene, plan: D.ScenePlan, spans: list[Span], lang: str | None = None) -> dict:
+def _cast_entry(project, cid: str) -> dict:
+    """One character for a job: sculpted here, or a model somebody brought (look.model)."""
+    look = project.characters[cid].look or {}
+    c = {"id": cid, "style": claydesign.acting_style(project, cid)}
+    if look.get("model"):
+        path = project.path(look["model"], f"characters.{cid}.look.model")
+        if not path.is_file():
+            raise ConfigError(f"{cid}'s model {look['model']} is missing.", "Import it again with `sastudio model import`.")
+        c.update(model=str(path), model_yaw=float(look.get("model_yaw") or 0.0),
+                 model_sha=hashlib.sha256(path.read_bytes()).hexdigest()[:16])   # a changed file re-films its shots
+    return c
+
+
+def _aliases() -> dict:
+    from .. import models
+
+    return {"bones": models.BONES, "shapes": models.SHAPES}
+
+
+def scene_job(project, scene, plan: D.ScenePlan, spans: list[Span], lang: str | None = None, phonemes: dict | None = None) -> dict:
     """Everything about a scene that every one of its shots shares: place, light, people, words, acting."""
     lang = lang or project.language
     set_info = D.SETS.get(plan.set, D.SETS["office"])
@@ -145,12 +172,22 @@ def scene_job(project, scene, plan: D.ScenePlan, spans: list[Span], lang: str | 
     for cid in plan.sides:
         if cid not in project.characters:
             raise ConfigError(f"No character '{cid}'.", "List them with `sastudio characters`.")
-        c = {"id": cid, "style": claydesign.acting_style(project, cid)}
+        c = _cast_entry(project, cid)
         if blocking.get(cid):
             c["mark"] = blocking[cid]
         cast.append(c)
-    lines, keys, doors = [], [], []
+    lines, keys, doors, carry = [], [], [], []
     last_mood: dict[str, str] = {}
+    first_line = {}
+    for sp in spans:
+        first_line.setdefault(sp.line.who, sp.start)
+    for cid, g in (d.get("business") or {}).items():
+        # what someone is busy with as the scene opens, until they first speak or are told otherwise
+        if cid in plan.sides and g in HANDS:
+            keys.append(dict(who=cid, frame=-500, g=HANDS[g], cR=1 if g in CARRIED else 0, **({"look": "hand"} if g == "check_phone" else {})))
+            if g in CARRIED:
+                carry.append({"who": cid, "prop": CARRIED[g], "start": -10 ** 6, "end": first_line.get(cid, 10 ** 6) - 6,
+                              "color": (project.org.get("palette") or {}).get("accent")})
     for sp in spans:
         ln = sp.line
         manual = set()
@@ -159,13 +196,14 @@ def scene_job(project, scene, plan: D.ScenePlan, spans: list[Span], lang: str | 
             keys += ks
             if hands:
                 manual.add(ln.who)
+            if g in CARRIED:
+                carry.append({"who": ln.who, "prop": CARRIED[g], "start": sp.start - 8, "end": sp.end + (72 if g == "sip" else 8),
+                              "color": (project.org.get("palette") or {}).get("accent")})
             if g == "walk_in":
                 c = next(x for x in cast if x["id"] == ln.who)
                 c["enter_from"] = "door" if set_info.get("door") else "offscreen"
-                if set_info.get("door"):
-                    doors.append([sp.start - 50, sp.start + 6])
-            if g == "walk_out" and set_info.get("door"):
-                doors.append([sp.end + 20, sp.end + 90])
+        if ln.go:
+            keys.append(dict(who=ln.who, frame=sp.start - 8, walk=ln.go))
         mood = _mood(ln.emotion)
         if mood and last_mood.get(ln.who) != mood:
             keys.append(dict(who=ln.who, frame=sp.start - 6, f=mood))
@@ -175,7 +213,13 @@ def scene_job(project, scene, plan: D.ScenePlan, spans: list[Span], lang: str | 
             if m and cid in plan.sides:
                 keys.append(dict(who=cid, frame=sp.start + min(18, sp.speech // 3), f=m))
                 last_mood[cid] = m
-        cues = lipsync.cues_from_text(sp.text or project.display(ln.say or "", lang), sp.env, FPS) if sp.speech else []
+        marks = (phonemes or {}).get(ln.id)
+        if marks:
+            # the provider's own clock starts before the voice does; the prepared audio has that silence trimmed off
+            t0 = next((m[1] for m in marks if m[0].strip()), 0.0) - 0.03
+            cues = lipsync.cues_from_phonemes([(m[0], max(0.0, m[1] - t0), max(0.0, m[2] - t0)) for m in marks])
+        else:
+            cues = lipsync.cues_from_text(sp.text or project.display(ln.say or "", lang), sp.env, FPS) if sp.speech else []
         lines.append({"id": ln.id, "who": ln.who, "start": sp.start, "end": sp.end, "cues": cues, "to": ln.to,
                       "manual": sorted(manual)})
     org = project.org
@@ -183,7 +227,8 @@ def scene_job(project, scene, plan: D.ScenePlan, spans: list[Span], lang: str | 
                     "seed": int(hashlib.sha256(scene.id.encode()).hexdigest()[:6], 16) % 997 + 1,
                     "time": (scene.setting or {}).get("time_of_day", "day")},
             "lighting": dict(D.LIGHTING[plan.lighting], name=plan.lighting),
-            "cast": cast, "lines": lines, "keys": sorted(keys, key=lambda x: x["frame"]), "door": doors, "fps": FPS}
+            "cast": cast, "lines": lines, "keys": sorted(keys, key=lambda x: x["frame"]), "door": doors, "carry": carry, "fps": FPS,
+            **({"aliases": _aliases()} if any(c.get("model") for c in cast) else {})}
 
 
 def shot_frames(shot: D.Shot, spans: list[Span]) -> list[int]:
@@ -203,9 +248,30 @@ def shot_job(scene_part: dict, shot: D.Shot, frames: list[int], preset: str) -> 
     job["lines"] = [ln for ln in scene_part["lines"] if ln["start"] <= last]
     job["keys"] = [k for k in scene_part["keys"] if k["frame"] <= last]
     job["door"] = [dr for dr in scene_part["door"] if dr[0] <= last]
+    job["carry"] = [c for c in scene_part["carry"] if c["start"] <= last]
     job.update(mode="film", frames=frames, width=w, height=h, samples=samples,
                camera={"shot": shot.camera, "who": list(shot.who), "focus": shot.focus, "lens": shot.lens or D.SHOTS[shot.camera]["lens"],
                        "fstop": shot.fstop, "move": shot.move, "height": shot.height})
+    return job
+
+
+def opening_job(scene_part: dict, plan: D.ScenePlan, scene, frames: list[int], preset: str) -> dict:
+    """The shot a scene opens on, in place of a title card: the place itself, entered the way the scene asks."""
+    w, h, samples = PRESETS[preset]
+    last = frames[-1] + 40
+    d = scene.direction or {}
+    job = dict(scene_part)
+    job["lines"] = [ln for ln in scene_part["lines"] if ln["start"] <= last]
+    job["keys"] = [k for k in scene_part["keys"] if k["frame"] <= last]
+    job["door"] = [dr for dr in scene_part["door"] if dr[0] <= last]
+    job["carry"] = [c for c in scene_part["carry"] if c["start"] <= last]
+    style = OPENINGS.get(plan.transition_in, "establish")
+    if style == "door":
+        job["door"] = job["door"] + [[frames[0] + 6, frames[-1] + 30]]
+    first = next((ln["who"] for ln in scene_part["lines"]), None)
+    job.update(mode="film", frames=frames, width=w, height=h, samples=samples,
+               camera={"shot": "opening", "style": style, "thing": d.get("object"), "who": [first] if first else [],
+                       "lens": 28 if style in ("establish", "door") else 50, "fstop": 4.0})
     return job
 
 
@@ -227,9 +293,10 @@ def run_blender(job: dict, work: Path, log=print, timeout: float = 48 * 3600) ->
     exe, wsl_win = find_blender()
     conv = _winpath if wsl_win else str
     job = dict(job)
-    for key in ("rig", "out", "font"):
+    for key in ("rig", "out", "font", "export"):
         if job.get(key):
             job[key] = conv(Path(job[key]))
+    job["cast"] = [dict(c, model=conv(Path(c["model"]))) if c.get("model") else c for c in job.get("cast") or []]
     job["device"] = clay.clay_device()
     work.mkdir(parents=True, exist_ok=True)
     (work / "job.json").write_text(json.dumps(job), "utf-8")
@@ -250,6 +317,9 @@ def run_blender(job: dict, work: Path, log=print, timeout: float = 48 * 3600) ->
                 if int(done) % 12 == 0 or done == total:
                     log(f"    drawing {done} of {total} ({line.split()[-1]})")
         code = proc.wait(timeout=timeout)
+    for t in tail:
+        if t.startswith("FILM guest"):
+            log("    " + t[5:])
     if code != 0 or not any(t.startswith("FILM done") for t in tail):
         raise RenderError("Blender did not finish the shot:\n    " + "\n    ".join(tail[-14:]))
 
@@ -259,18 +329,17 @@ def rig_stamps(project, cast: list[str]) -> dict:
     return {cid: (rig / cid / ".params").read_text() if (rig / cid / ".params").exists() else "" for cid in cast}
 
 
-def film_shot(project, scene_part: dict, shot: D.Shot, frames: list[int], preset: str, label: str, log=print) -> Path:
-    """Film one shot (or reuse it): returns the folder holding its frames, named by scene frame number."""
-    job = shot_job(scene_part, shot, frames, preset)
+def _film(project, job: dict, frames: list[int], label: str, what: str, log=print) -> Path:
+    """Film a job (or reuse it): returns the folder holding its frames, named by scene frame number."""
     cast = [c["id"] for c in job["cast"]]
     key = _digest(job, rig_stamps(project, cast))
     out = project.root / ".studio" / "cache" / "clay" / f"{label}.{key}"
     if (out / ".done").exists() and all((out / f"{f:06d}.png").exists() for f in frames):
         log(f"  {label}: unchanged, reused")
         return out
-    job.update(rig=str(clay.rig_dir(project)), out=str(out), font=str(_font()))
+    job = dict(job, rig=str(clay.rig_dir(project)), out=str(out), font=str(_font()))
     left = sum(1 for f in frames if not (out / f"{f:06d}.png").exists())
-    log(f"  {label}: {shot.camera}, {len(frames)} drawings" + (f" ({len(frames) - left} already done)" if left != len(frames) else ""))
+    log(f"  {label}: {what}, {len(frames)} drawings" + (f" ({len(frames) - left} already done)" if left != len(frames) else ""))
     run_blender(job, project.root / ".studio" / "work" / "clay" / label, log)
     missing = [f for f in frames if not (out / f"{f:06d}.png").exists()]
     if missing:
@@ -279,15 +348,28 @@ def film_shot(project, scene_part: dict, shot: D.Shot, frames: list[int], preset
     return out
 
 
-def film_scene(project, scene, plan: D.ScenePlan, spans: list[Span], preset: str, lang: str | None = None, log=print) -> dict[str, Path]:
-    """Film every shot of a scene. Returns {line id: folder of that line's frames, numbered 00001.png on twos}."""
+def film_shot(project, scene_part: dict, shot: D.Shot, frames: list[int], preset: str, label: str, log=print) -> Path:
+    """Film one planned shot (or reuse it)."""
+    return _film(project, shot_job(scene_part, shot, frames, preset), frames, label, shot.camera, log)
+
+
+def film_scene(project, scene, plan: D.ScenePlan, spans: list[Span], preset: str, lang: str | None = None, log=print,
+               phonemes: dict | None = None, title_frames: int = 0) -> dict[str, Path]:
+    """Film every shot of a scene. Returns {line id: folder of that line's frames, numbered 00001.png on twos};
+    with `title_frames`, also the opening shot that carries the scene's title, under TITLE_KEY + scene id."""
     if preset not in PRESETS:
         raise ConfigError(f"Unknown preset '{preset}'.", f"Use one of {', '.join(PRESETS)}.")
     clay.build_rigs(project, ids=list(plan.sides), log=log)
-    part = scene_job(project, scene, plan, spans, lang)
+    part = scene_job(project, scene, plan, spans, lang, phonemes)
     by_line = {sp.line.id: sp for sp in spans}
     out: dict[str, Path] = {}
     n = 0
+    if title_frames:
+        # the scene's title is laid over a real shot of the place: no card between scenes
+        frames = list(range(0, title_frames, STEP))
+        job = opening_job(part, plan, scene, frames, preset)
+        folder = _film(project, job, frames, f"{scene.id}_open_{preset}", f"opening ({job['camera']['style']})", log)
+        out[TITLE_KEY + scene.id] = _line_folder(project, folder, f"{scene.id}.title.{preset}", 0, title_frames)
     for i, shot in enumerate(plan.shots):
         ids = [lid for lid in shot.lines if lid in by_line]
         if shot.camera == "insert" or not ids:
@@ -297,19 +379,24 @@ def film_scene(project, scene, plan: D.ScenePlan, spans: list[Span], preset: str
         folder = film_shot(project, part, shot, frames, preset, f"{scene.id}_s{i + 1:02d}_{preset}", log)
         for lid in ids:
             sp = by_line[lid]
-            dest = project.root / ".studio" / "work" / "clay" / "lines" / f"{scene.id}.{lid}.{preset}.{folder.name[-20:]}"
-            if not (dest / ".done").exists():
-                shutil.rmtree(dest, ignore_errors=True)
-                dest.mkdir(parents=True)
-                for f in range(0, sp.frames, STEP):
-                    src = folder / f"{sp.beat + f:06d}.png"
-                    try:
-                        os.link(src, dest / f"{f + 1:05d}.png")
-                    except OSError:
-                        shutil.copyfile(src, dest / f"{f + 1:05d}.png")
-                (dest / ".done").write_text("ok")
-            out[lid] = dest
+            out[lid] = _line_folder(project, folder, f"{scene.id}.{lid}.{preset}", sp.beat, sp.frames)
     return out
+
+
+def _line_folder(project, folder: Path, name: str, beat: int, frames: int) -> Path:
+    """A beat's own view of a shot: its drawings numbered 00001.png on twos, as the compositor reads them."""
+    dest = project.root / ".studio" / "work" / "clay" / "lines" / f"{name}.{folder.name[-20:]}"
+    if not (dest / ".done").exists():
+        shutil.rmtree(dest, ignore_errors=True)
+        dest.mkdir(parents=True)
+        for f in range(0, frames, STEP):
+            src = folder / f"{beat + f:06d}.png"
+            try:
+                os.link(src, dest / f"{f + 1:05d}.png")
+            except OSError:
+                shutil.copyfile(src, dest / f"{f + 1:05d}.png")
+        (dest / ".done").write_text("ok")
+    return dest
 
 
 # ----------------------------------------------------------------------------------------------- stills
@@ -324,12 +411,13 @@ def render_portrait(project, cid: str, *, samples: int = 48, log=print, force: b
     if target.exists() and not force:
         return target
     clay.build_rigs(project, ids=[cid], log=log)
+    entry = dict(_cast_entry(project, cid), pos=[0, 0], face=0.14, feeling=feeling)
     work = project.root / ".studio" / "work" / "portraits" / cid
     shutil.rmtree(work, ignore_errors=True)
     job = {"mode": "portrait", "rig": str(clay.rig_dir(project)), "out": str(work / "frames"), "font": str(_font()),
            "width": 1200, "height": 1600, "samples": samples, "fps": FPS, "frames": [0], "transparent": True,
            "set": {"name": "studio", "palette": project.org.get("palette") or {}}, "lighting": dict(D.LIGHTING["soft_studio"], name="soft_studio"),
-           "cast": [{"id": cid, "pos": [0, 0], "face": 0.14, "feeling": feeling}], "lines": [], "keys": [], "door": [],
+           "cast": [entry], "lines": [], "keys": [], "door": [], "aliases": _aliases(),
            "camera": {"shot": "portrait", "who": [cid], "lens": 50, "fstop": 8}}
     log(f"Rendering a portrait of {cid}...")
     run_blender(job, work, log)
@@ -345,6 +433,29 @@ def render_portrait(project, cid: str, *, samples: int = 48, log=print, force: b
     target.parent.mkdir(parents=True, exist_ok=True)
     im.save(target, optimize=True)
     return target
+
+
+EXPORT_FORMATS = (".glb", ".fbx", ".obj", ".blend")
+
+
+def export_character(project, cid: str, out: Path, log=print) -> Path:
+    """Write one character (sculpted, or a model as fitted to the cast) to GLB, FBX, OBJ or .blend."""
+    out = Path(out).resolve()
+    if out.suffix.lower() not in EXPORT_FORMATS:
+        raise ConfigError(f"Cannot export to {out.suffix or 'a file without an extension'}.",
+                          "Use .glb (most tools and the web), .fbx (game engines), .obj (any 3D tool) or .blend.")
+    if cid not in project.characters:
+        raise ConfigError(f"No character '{cid}'.", "List them with `sastudio characters`.")
+    clay.build_rigs(project, ids=[cid], log=log)
+    job = {"mode": "export", "rig": str(clay.rig_dir(project)), "out": str(out.parent), "export": str(out), "width": 64, "height": 64,
+           "frames": [0], "set": {"name": "studio"}, "lighting": dict(D.LIGHTING["soft_studio"], name="soft_studio"),
+           "cast": [dict(_cast_entry(project, cid), pos=[0, 0], face=0.0)], "lines": [], "keys": [], "door": [], "aliases": _aliases()}
+    out.parent.mkdir(parents=True, exist_ok=True)
+    log(f"Exporting {cid} to {out.name}...")
+    run_blender(job, project.root / ".studio" / "work" / "export" / cid, log)
+    if not out.is_file() or out.stat().st_size == 0:
+        raise RenderError(f"Blender did not write {out}.")
+    return out
 
 
 # ----------------------------------------------------------------------------------------------- previews

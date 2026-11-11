@@ -4,13 +4,17 @@ from __future__ import annotations
 
 from .base import Provider
 from .elevenlabs import ElevenLabsProvider
+from .kokoro import KokoroProvider
 from .offline import OfflineProvider
+from .recorded import RecordedProvider
 from .sarvam import SarvamProvider
 
 PROVIDERS: dict[str, type[Provider]] = {
     "sarvam": SarvamProvider,
     "elevenlabs": ElevenLabsProvider,
     "offline": OfflineProvider,
+    "kokoro": KokoroProvider,
+    "recorded": RecordedProvider,
 }
 
 

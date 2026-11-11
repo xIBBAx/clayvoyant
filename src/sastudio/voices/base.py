@@ -60,6 +60,7 @@ def urllib_transport(method: str, url: str, headers: dict[str, str], body: bytes
 class Audio:
     data: bytes  # always a WAV file
     request_id: str | None = None
+    marks: list | None = None  # [[phoneme, start, end], ...] in seconds, when the provider reports them
 
     def duration(self) -> float:
         with wave.open(io.BytesIO(self.data)) as w:

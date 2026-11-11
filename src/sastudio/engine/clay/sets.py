@@ -105,9 +105,9 @@ def office(C):
         K.ceiling_panel(x, .5, 7.5, e=160)
     K.pendant(-4.3, 2.3, 6.9, shade=acc, e=55, drop=1.9)
     K.pendant(4.0, 2.6, 6.9, shade=pri, e=55, drop=1.9)
-    marks = dict(desk=mark(-4.3, 3.55, 0, .82), desk_2=mark(4.0, 3.85, 0, .82),
+    marks = dict(desk=mark(-4.3, 3.55, 0, .82, table=1.525), desk_2=mark(4.0, 3.85, 0, .82, table=1.525),
                  standing_left=mark(-1.35, .5), standing_right=mark(1.35, .5), window=mark(-.2, 4.6, .3), door=mark(6.45, 4.7))
-    return stage(marks, [(-1.3, .5), (1.3, .5), (-3.0, 1.1), (3.0, 1.1), (0, 1.6)],
+    return stage(marks, [(-1.4, .5), (1.4, .5), (-3.5, 1.3), (3.5, 1.3), (0, 1.9)],
                  dict(laptop=lap1, laptop_2=lap2, printer=pr, phone=(-3.5, 2.2, 1.55), mug=(-3.55, 2.1, 1.6), badge=(0, .4, 2.3),
                       plant=(-8.3, 4.6, 2.2), poster=(9.3, 3.4, 3.7)), leaf, windows=True, back=back)
 
@@ -129,7 +129,7 @@ def reception(C):
     mon, _ = K.monitor(-2.4, 3.5, 2.0, rot=math.pi)
     K.phone(-.3, 3.2, 2.02)
     K.books(.9, 3.35, 2.0, n=1, seed=8)      # the visitor book
-    K.sofa(-6.6, 1.2, 1.5, rz=-math.pi / 2, hex_=acc)
+    K.sofa(-6.6, 1.2, 1.5, rz=math.pi / 2, hex_=acc)
     K.table_round(-5.0, -.6, .7, .9, top='#e9dcc3')
     K.plant(8.4, 4.4, 1.3, seed=3)
     K.plant(-8.6, 4.6, 1.1, pot='#e9dcc3', seed=7)
@@ -155,8 +155,8 @@ def meeting_room(C):
     for x in (-2.6, 2.6):
         K.boxy('tableleg', (x, 2.4, .68), (.12, .8, .68), '#3a2a22', bevel=.04, lumps=.006)
     K.task_chair(0, 4.0, 0, hex_=pri)
-    K.task_chair(-4.3, 2.4, -math.pi / 2, hex_=acc)
-    K.task_chair(4.3, 2.4, math.pi / 2, hex_=acc)
+    K.task_chair(-4.3, 2.4, math.pi / 2, hex_=acc)
+    K.task_chair(4.3, 2.4, -math.pi / 2, hex_=acc)
     scr_g = K.group('screen', (-2.6, back - .12, 4.1))
     K.slab('scrb', (0, 0, 0), (2.1, .05, 1.2), K.paint('#17191c', .35), scr_g, bevel=.03)
     scr = K.slab('display', (0, -.055, 0), (2.0, .004, 1.1), K.glowmat(K.srgb(K.mix(pri, '#ffffff', .55))[:3], 1.2), scr_g, bevel=0)
@@ -170,7 +170,8 @@ def meeting_room(C):
     for x in (-3.5, 3.5):
         K.ceiling_panel(x, 1.6, 7.5, e=170)
     K.pendant(0, 2.4, 6.9, shade=pri, e=70, drop=2.6)
-    marks = dict(head_of_table=mark(0, 4.0, 0, .82), left_seat=mark(-4.3, 2.4, .9, .82), right_seat=mark(4.3, 2.4, -.9, .82),
+    marks = dict(head_of_table=mark(0, 4.0, 0, .82, table=1.53), left_seat=mark(-4.3, 2.4, 1.1, .82, table=1.53),
+                 right_seat=mark(4.3, 2.4, -1.1, .82, table=1.53),
                  screen=mark(-2.6, 4.9, .25), door=mark(7.15, 4.7))
     return stage(marks, [(-1.5, .3), (1.5, .3), (-3.4, .9), (3.4, .9)],
                  dict(laptop=lap, phone=(.5, 2.6, 1.6), mug=(1.4, 2.0, 1.65), screen=scr, poster=(-9.3, 1.0, 3.6)), leaf, back=back)
@@ -205,7 +206,7 @@ def home_desk(C):
     for i in range(3):
         K.glow('rled', (-.18 + i * .09, -.2, 0), (.012, .006, .012), (.3, 1, .45), 5, router)
     K.pendant(1.5, 1.5, 6.9, shade='#e9d9b6', e=90, drop=1.5)
-    marks = dict(desk=mark(-3.9, 2.75, math.pi, .82), sofa=mark(3.4, 3.75, 0, .82), window=mark(-1.0, 4.3, -.4))
+    marks = dict(desk=mark(-3.9, 2.75, math.pi, .82, table=1.525), sofa=mark(3.4, 3.75, 0, .82), window=mark(-1.0, 4.3, -.4))
     return stage(marks, [(-1.2, .7), (1.5, .7), (-2.9, 1.4), (3.2, 1.3)],
                  dict(laptop=lap, phone=(3.2, 3.7, 1.0), mug=(3.7, 1.6, .95), plant=(-8.3, 4.5, 2.2), router=router), None, windows=True, back=back)
 
@@ -233,8 +234,8 @@ def cafe(C):
     wifi = K.poster(-.9, 3.7, back - .06, ['FREE WIFI', 'ask at', 'the counter'], w=.6, h=.8, accent=acc)
     for x, y in ((-3.4, 1.9), (2.7, 1.5)):
         K.table_round(x, y, .85, 1.45)
-        K.chair(x - 1.35, y + .2, -math.pi / 2, hex_='#c1553f')
-        K.chair(x + 1.35, y + .2, math.pi / 2, hex_='#dfa42f')
+        K.chair(x - 1.35, y + .2, math.pi / 2, hex_='#c1553f')
+        K.chair(x + 1.35, y + .2, -math.pi / 2, hex_='#dfa42f')
     lap = K.laptop(-3.5, 1.9, 1.52, rot=-math.pi / 2, sc=.3)
     K.mug(-3.2, 2.3, 1.52, hex_='#f3ecdd')
     K.mug(2.5, 1.7, 1.52, hex_=acc)
@@ -242,8 +243,9 @@ def cafe(C):
     K.plant(-8.6, .6, 1.2, seed=11)
     for x, y in ((-3.4, 1.9), (2.7, 1.5), (3.0, 4.2)):
         K.pendant(x, y, 6.9, shade=['#c1553f', '#dfa42f', '#3f6f6a'][int(abs(x)) % 3], e=75, drop=2.5)
-    marks = dict(table_left=mark(-4.75, 2.1, -1.1, .82), table_right=mark(4.05, 1.7, 1.1, .82), counter=mark(3.0, 5.65, 0), door=mark(7.35, 5.0),
-                 table_left_2=mark(-2.05, 2.1, 1.1, .82), table_right_2=mark(1.35, 1.7, -1.1, .82))
+    marks = dict(table_left=mark(-4.75, 2.1, 1.1, .82, table=1.48), table_right=mark(4.05, 1.7, -1.1, .82, table=1.48), counter=mark(3.0, 5.65, 0),
+                 door=mark(7.35, 5.0), table_left_2=mark(-2.05, 2.1, -1.1, .82, table=1.48), table_right_2=mark(1.35, 1.7, 1.1, .82, table=1.48),
+                 standing_left=mark(-1.0, .2), standing_right=mark(.9, .2))
     return stage(marks, [(-.9, .1), (.9, .1), (-2.2, -.6), (4.6, .2)],
                  dict(laptop=lap, phone=(3.0, 1.3, 1.56), mug=(2.5, 1.7, 1.62), wifi_sign=wifi), leaf, windows=True, back=back)
 
@@ -349,8 +351,8 @@ def classroom(C):
     K.plant(8.6, 4.8, 1.1, seed=21)
     for x in (-4.5, 0, 4.5):
         K.ceiling_panel(x, -.5, 7.5, e=170)
-    marks = dict(teacher=mark(-1.2, 4.2, 0), board=mark(1.0, 4.9, -.3), teacher_desk=mark(-4.6, 4.75, 0, .82),
-                 front_desk_left=mark(-1.6, -3.25, math.pi, .74), front_desk_right=mark(1.6, -3.25, math.pi, .74), door=mark(7.45, 4.8),
+    marks = dict(teacher=mark(-1.2, 4.2, 0), board=mark(1.0, 4.9, -.3), teacher_desk=mark(-4.6, 4.75, 0, .82, table=1.525),
+                 front_desk_left=mark(-1.6, -3.25, math.pi, .74, table=1.375), front_desk_right=mark(1.6, -3.25, math.pi, .74, table=1.375), door=mark(7.45, 4.8),
                  standing_left=mark(-1.35, 1.2), standing_right=mark(1.6, 1.2))
     return stage(marks, [(-1.3, 1.6), (1.5, 1.6), (-3.0, 2.2), (3.4, 2.2)],
                  dict(board=board, laptop=lap, map=mp, phone=(0, 1.2, 2.2)), leaf, back=back)
@@ -359,8 +361,8 @@ def classroom(C):
 def studio(C):
     """A plain sweep of paper, for portraits and tests."""
     bg = _c(C, 'background', '#d9cbb5')
-    K.boxy('floor', (0, 0, -.1), (40, 40, .1), K.mix(bg, '#6b5138', .55), bevel=0, lumps=0, print_=.6)
-    K.boxy('backdrop', (0, 7, 10), (40, .1, 10), bg, bevel=0, lumps=0, print_=.6)
+    K.slab('floor', (0, 0, -.1), (40, 40, .1), K.paint(K.mix(bg, '#6b5138', .55), .8), bevel=0)
+    K.slab('backdrop', (0, 7, 10), (40, .1, 10), K.paint(bg, .85), bevel=0)
     return stage(dict(centre=mark(0, 0)), [(0, 0), (-1.6, .3), (1.6, .3), (-3.2, .8), (3.2, .8)], back=7)
 
 

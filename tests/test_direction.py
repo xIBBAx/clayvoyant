@@ -43,7 +43,8 @@ def test_film_grammar_of_the_automatic_plan(starter):
             assert not (x.camera == y.camera and x.who == y.who), f"jump cut in {p.scene}"
         assert all(s.seconds <= D.MAX_HOLD + 0.01 or s.move == "push_in" or len(s.lines) == 1 for s in p.shots)
         assert set(p.sides.values()) <= {"left", "right"}
-    assert plans[0].shots[0].camera == "establishing"  # the film opens by showing the place
+    # the place itself is shown by the opening shot that carries the scene's title; the first line shows the people in it
+    assert plans[0].shots[0].camera == "wide" and set(plans[0].shots[0].who) == set(plans[0].sides)
 
 
 def _scene(root, direction_yaml: str = "", line_extra: str = ""):

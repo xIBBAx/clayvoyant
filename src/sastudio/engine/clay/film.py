@@ -12,8 +12,10 @@ any shot can be re-filmed alone, and a shot that stopped half way resumes at the
 Job keys: rig, out, width, height, samples, device (GPU|CPU), fps, frames [the scene frames to film],
 set {name, palette, org, seed, time}, lighting {name, key_k, fill, rim, exposure, softness, practicals},
 cast [{id, mark | pos, face, seat, style, feeling}], lines [{who, start, end, cues, to, manual}],
-keys [{who, frame, g, f, look, seat, walk, speed, ...}], door [[open, close], ...],
-camera {shot, who, focus, lens, fstop, move, height}, font, transparent, mode (film | portrait | sheet).
+keys [{who, frame, g, f, look, seat, walk, speed, ...}], door [[open, close], ...], carry [{who, prop, start, end}],
+camera {shot, who, focus, lens, fstop, move, height} or {shot: opening, style, thing, who}, font, transparent,
+mode (film | portrait | export), export (file),
+aliases {bones, shapes} (names a guest model's rig and face keys may go by).
 """
 import json
 import math
@@ -95,7 +97,8 @@ C = dict(palette=SET.get('palette') or {}, org=SET.get('org'), seed=int(SET.get(
 SKIES = dict(day=('#5e9bd6', '#dfeaf4', '#b9a98f', 1.0), morning=('#7fb0dc', '#f6e3c8', '#b9a98f', .9),
              evening=('#39507f', '#f2a66a', '#6f5a4a', .55), night=('#070b18', '#1a2440', '#0b0d14', .06))
 top, hor, gnd, sky_st = SKIES.get(TIME, SKIES['day'])
-STG = SETS.build(SET.get('name', 'studio'), C)
+# a still on a transparent ground needs no place at all
+STG = SETS.stage(dict(centre=SETS.mark(0, 0)), [(0, 0)], back=7) if JOB.get('transparent') else SETS.build(SET.get('name', 'studio'), C)
 K.sky(sky_st if STG['outdoor'] else sky_st * .55, top, hor, gnd)
 PRACTICALS = [o for o in bpy.data.objects if o.type == 'LIGHT']
 
@@ -117,6 +120,8 @@ def light_stage(L):
         e *= 1 - .45 * clamp((4500 - L.get('key_k', 4500)) / 2000)
         if L.get('name') in ('dramatic', 'suspense', 'night_practical'):
             e *= .45
+        if not STG['outdoor'] and TIME == 'evening':
+            e *= .45        # indoors at dusk the lamps do the work; the last sun only draws a warm bar across the wall
         _, src = K.sun(-38 if STG['outdoor'] else -47, el, col, e * (1.0 if STG['outdoor'] else .9), soft=.02 + .05 * soft)
         if not STG['outdoor']:
             # the sun reaches the room through a window nobody sees: its frame draws the light across the floor and the far wall
@@ -150,6 +155,7 @@ def offscreen(pos):
 
 
 TAKEN = {c.get('mark') for c in JOB.get('cast') or []}
+DOORS = [list(d) for d in JOB.get('door') or []]     # [open, close] frames
 
 
 def free_seat(a, f):
@@ -170,14 +176,34 @@ for c in JOB.get('cast') or []:
         init['seat'] = seat
     start = c.get('enter_from')
     p0 = MARKS[start]['pos'] if start in MARKS else (offscreen(pos) if start else pos)
-    a = PERF.add(A.Actor(c['id'], Puppet(c.get('rig') or c['id']), p0, c.get('style'), **init))
+    if c.get('model'):
+        import guest
+        body = guest.Guest(c['id'], c['model'], JOB.get('aliases') or {}, c.get('model_yaw') or 0.0)
+        init.pop('seat', None)          # a guest stands: sitting needs the sculpted legs
+    else:
+        body = Puppet(c.get('rig') or c['id'])
+    a = PERF.add(A.Actor(c['id'], body, p0, c.get('style'), **init))
     a.home = pos
+    a.mark = MARKS.get(c.get('mark') or '')
     if 'on' in c:
         a.init['on'] = bool(c['on'])
 for ln in JOB.get('lines') or []:
     PERF.say(ln['who'], ln['start'], ln['end'], ln.get('cues') or [], ln.get('to'), ln.get('manual') or ())
 for nm, t in STG['things'].items():
     PERF.things[nm] = t
+
+
+def desk_hands(a):
+    """Where the hands rest on the table this actor sits at: world positions for the left and the right."""
+    m = a.mark
+    if not m or not m.get('table') or not m.get('seat'):
+        return None
+    (x, y), yaw = m['pos'], m.get('face', 0.0)
+    fwd, rgt = (math.sin(yaw), -math.cos(yaw)), (math.cos(yaw), math.sin(yaw))
+    z = m['table'] + .07 + STG.get('floor', 0)
+    return [(x + fwd[0] * .64 + sg * rgt[0] * .27, y + fwd[1] * .64 + sg * rgt[1] * .27, z) for sg in (-1, 1)]
+
+
 PERF.direct()
 for k in JOB.get('keys') or []:
     a = PERF.actors.get(k.get('who'))
@@ -185,6 +211,7 @@ for k in JOB.get('keys') or []:
         continue
     k = dict(k)
     f = int(k.pop('frame', 0))
+    to_mark = None
     if 'walk' in k:
         to = k.pop('walk')
         leave = k.pop('leave', False)
@@ -192,19 +219,72 @@ for k in JOB.get('keys') or []:
         if to == 'seat' and m is None:
             continue
         dest = m['pos'] if m else (a.home if to == 'home' else offscreen(a.home) if isinstance(to, str) else tuple(to))
-        end = a.walk(f, dest, speed=k.pop('speed', None))
+        speed = k.pop('speed', None)
+        if k.pop('enter', False):
+            # f is when they should have arrived: leave early enough, and stay unseen until then
+            here = a.locate(f)[0]
+            f = f - int(math.hypot(dest[0] - here[0], dest[1] - here[1]) / (speed or a.st['speed'])) - 8
+            a.key(-900, dict(on=False))
+            a.key(f, dict(on=True))
+            if 'door' in MARKS and math.hypot(here[0] - MARKS['door']['pos'][0], here[1] - MARKS['door']['pos'][1]) < .5:
+                DOORS.append([f - 8, f + 46])
+        end = a.walk(f, dest, speed=speed)
+        if to == 'door':
+            DOORS.append([end - 34, end + 12])
+        to_mark = m if m else dict(pos=dest)
         if leave:
             a.key(end + 6, dict(on=False))
-        if m and m.get('seat') and k.pop('sit', True):
+        if m and m.get('seat') and k.pop('sit', True) and not getattr(a.P, 'guest', False):
             a.key(end - 8, dict(seat=m['seat'], face=m.get('face', 0)))
         elif m:
             a.key(end - 10, dict(face=m.get('face', 0)))
+    if to_mark is not None:
+        a.mark = to_mark
+    if k.get('g') in ('typing', 'desk'):
+        h = desk_hands(a)
+        if h:
+            k.update(hL=h[0], hR=h[1])
+            a.at_desk = True
+    elif 'g' in k and getattr(a, 'at_desk', False):
+        k.update(hL=None, hR=None)
+        a.at_desk = False
     if isinstance(k.get('seat'), str):
         k['seat'] = (MARKS.get(k['seat']) or {}).get('seat') or A.SEAT_H
     if isinstance(k.get('look'), list):
         k['look'] = tuple(k['look'])
     a.key(f, k)
 PERF.finish()
+
+# things carried in a hand: made once, shown while they are held
+HELD = []
+for c in JOB.get('carry') or []:
+    a = PERF.actors.get(c.get('who'))
+    if a is None or not hasattr(a.P, 'palm'):
+        continue
+    palm = a.P.palm['R']
+    hs = a.P.m.get('hs', 1.0)
+    if c.get('prop') == 'mug':
+        o = K.mug(.085 * hs, -.105 * hs, -.1 * hs, palm, hex_=c.get('color') or '#c1553f')
+        o.scale = (.78 * hs,) * 3
+    elif c.get('prop') == 'phone':
+        o = K.phone(.09 * hs, -.05 * hs, 0, palm)
+        o.rotation_euler = (math.pi / 2, 0, math.pi / 2)
+        o.scale = (1.15 * hs,) * 3
+    else:
+        continue
+    HELD.append((o, int(c.get('start', -10 ** 6)), int(c.get('end', 10 ** 6))))
+
+
+def show_tree(o, on):
+    o.hide_render = o.hide_viewport = not on
+    for ch in o.children:
+        show_tree(ch, on)
+
+
+def held_at(f):
+    for o, f0, f1 in HELD:
+        show_tree(o, f0 <= f < f1)
+
 
 # ------------------------------------------------------------------ the camera
 CAM = JOB.get('camera') or {}
@@ -273,7 +353,8 @@ def frame_shot():
     # stand on the side the subject is turned towards, for a three-quarter view of the face
     yaw = sum((PERF.actors[w].last_yaw or 0) for w in who) / len(who)
     ang = clamp(yaw * (.8 if len(who) == 1 else .3), -.6, .6)
-    pos = V((aim.x + math.sin(ang) * dist, aim.y - math.cos(ang) * dist, aim.z + .12))
+    # a wide shot is seen from standing height, even when the people in it are sitting down
+    pos = V((aim.x + math.sin(ang) * dist, aim.y - math.cos(ang) * dist, max(aim.z + .12, dict(wide=2.7, two_shot=2.0).get(shot, 0))))
     pos.z += dict(low=-.75, high=1.0).get(CAM.get('height', 'eye'), 0) * (dist / 6) ** .5
     return pos, aim, (CAM.get('focus') if CAM.get('focus') in PERF.actors else who[0])
 
@@ -299,7 +380,7 @@ def out_of_frame(a):
     return abs(c.x) > d * math.tan(hfov() / 2) + r or abs(c.y) > d * math.tan(vfov() / 2) + r
 
 
-if MODE == 'film' and CAM.get('move', 'static') in ('static', 'push_in'):
+if MODE == 'film' and CAM.get('shot') != 'opening' and CAM.get('move', 'static') in ('static', 'push_in'):
     look_through(POS0, AIM0)
     bpy.context.view_layer.update()
     for a in PERF.actors.values():
@@ -310,8 +391,42 @@ if MODE == 'film' and CAM.get('move', 'static') in ('static', 'push_in'):
         print('FILM off camera', ', '.join(culled), flush=True)
 
 
+def opening(style):
+    """How a scene begins: the camera's first and last position and aim for the shot that opens it.
+
+    establish  the whole place, drifting in             door    the door of the set, as it opens
+    object     close on a thing, then back to the room  match   close on a face, easing away
+    """
+    back = STG['back']
+    wide = (V((.5, -10.4, 3.5)), V((0, 2.2, 2.45)))
+    if style == 'door' and 'door' in MARKS:
+        dx, dy = MARKS['door']['pos']
+        return (V((dx * .45, dy - 8.2, 2.9)), V((dx, back, 2.3))), (V((dx * .55, dy - 6.4, 2.8)), V((dx, back, 2.3)))
+    if style == 'object':
+        tp = thing_pos(CAM.get('thing') or '') or V((0, 2, 1.6))
+        return (tp + V((.45, -1.5, .7)), tp), (V((tp.x * .5 + .4, -8.6, 3.3)), V((tp.x * .45, 2.4, 2.2)))
+    who = [w for w in CAM.get('who') or [] if w in PERF.actors]
+    if style == 'match' and who:
+        h = eyes(who[0])
+        d = (FRAME_H['close_up'] / 2) / math.tan(vfov() / 2)
+        return (V((h.x + .25, h.y - d, h.z)), V((h.x, h.y, h.z - .1))), (V((h.x + .5, h.y - d * 1.9, h.z + .1)), V((h.x, h.y, h.z - .4)))
+    return (V((1.3, -12.4, 3.9)), V((0, 2.2, 2.5))), wide
+
+
+OPENING = opening(CAM.get('style', 'establish')) if CAM.get('shot') == 'opening' else None
+if OPENING and CAM.get('style') != 'object':
+    cam_data.dof.use_dof = False
+
+
 def camera_at(f):
     t = sm(clamp((f - F0) / max(1, F1 - F0 - 1)))
+    if CAM.get('shot') == 'opening':
+        (p0, a0), (p1, a1) = OPENING
+        pos, aim = p0.lerp(p1, t), a0.lerp(a1, t)
+        look_through(pos, aim)
+        if cam_data.dof.use_dof:
+            cam_data.dof.focus_distance = max(.3, (aim - pos).length)
+        return
     pos, aim = POS0.copy(), AIM0.copy()
     mv = CAM.get('move', 'static')
     if FOCUS and mv in ('pan', 'track', 'tilt'):
@@ -340,22 +455,56 @@ def door_at(f):
     if leaf is None:
         return
     a = 0.0
-    for o, c_ in JOB.get('door') or []:
+    for o, c_ in DOORS:
         a = max(a, sm(clamp((f - o) / 12)) * (1 - sm(clamp((f - c_) / 14))))
     leaf.rotation_euler = (0, 0, -1.45 * a * (1 if leaf.location.x < 0 else -1))
 
 
 # ------------------------------------------------------------------ portraits and sheets (one still, no scene)
 if MODE in ('portrait', 'sheet'):
-    PERF.pose(0)
-    PERF.pose(0)
+    PERF.pose(FRAMES[0])
+    PERF.pose(FRAMES[0])
+    held_at(FRAMES[0])
+    door_at(FRAMES[0])
     bpy.context.view_layer.update()
-    P0, A0, _ = frame_shot()
-    look_through(P0, A0)
+    if OPENING:
+        camera_at(FRAMES[0])
+    else:
+        P0, A0, _ = frame_shot()
+        look_through(P0, A0)
     os.makedirs(JOB['out'], exist_ok=True)
     s.render.filepath = os.path.join(JOB['out'], '000001.png')
     bpy.ops.render.render(write_still=True)
     print('FILM done 1 frames', flush=True)
+    sys.exit(0)
+
+# ------------------------------------------------------------------ export (one character, to a file other tools open)
+if MODE == 'export':
+    PERF.pose(0)
+    PERF.pose(0)
+    bpy.context.view_layer.update()
+    who = next(iter(PERF.actors.values()))
+    keep = set(who.P.parts)
+    for o in list(bpy.data.objects):
+        if o not in keep:
+            bpy.data.objects.remove(o, do_unlink=True)
+    bpy.ops.object.select_all(action='DESELECT')
+    for o in keep:
+        o.hide_viewport = o.hide_render = False
+        o.select_set(True)
+    dst = JOB['export']
+    ext = os.path.splitext(dst)[1].lower()
+    if ext == '.blend':
+        bpy.ops.wm.save_as_mainfile(filepath=dst)
+    elif ext == '.glb':
+        bpy.ops.export_scene.gltf(filepath=dst, export_format='GLB', use_selection=True, export_apply=True)
+    elif ext == '.fbx':
+        bpy.ops.export_scene.fbx(filepath=dst, use_selection=True, use_mesh_modifiers=True)
+    elif ext == '.obj':
+        bpy.ops.wm.obj_export(filepath=dst, export_selected_objects=True, apply_modifiers=True)
+    else:
+        raise SystemExit(f'FILM cannot export {ext}')
+    print('FILM done export', flush=True)
     sys.exit(0)
 
 # ------------------------------------------------------------------ film it
@@ -371,6 +520,7 @@ for n, f in enumerate(frames):
     t1 = time.time()
     PERF.pose(f)
     door_at(f)
+    held_at(f)
     bpy.context.view_layer.update()
     camera_at(f)
     t2 = time.time()

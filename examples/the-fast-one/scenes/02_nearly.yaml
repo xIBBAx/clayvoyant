@@ -1,0 +1,58 @@
+id: nearly
+title: Nearly
+topic: reporting
+summary: The next morning, Tara tells the one person who collects near-misses.
+headline: Say it before it matters
+setting: { backdrop: office, time_of_day: morning }
+takeaway: "Nearly counts. Tell {org.it_team} about the trap you did not fall into, so the next person does not either."
+direction:
+  set: office
+  lighting: daylight
+  transition_in: follow_object
+  object: laptop
+  blocking: { bashir: desk, tara: standing_left }
+  business: { bashir: typing }
+lines:
+  - id: ne_01
+    who: tara
+    to: bashir
+    emotion: happy
+    act: [walk_in, wave]
+    say: "Morning, {bashir}. I nearly gave my password to a coffee shop."
+  - id: ne_02
+    who: bashir
+    to: tara
+    emotion: suspicious
+    act: [tilt_head]
+    say: "Nearly is my favourite word. What stopped you?"
+  - id: ne_03
+    who: tara
+    to: bashir
+    emotion: confident
+    act: [open_palms]
+    say: "It asked for my work login. Wi-Fi does not need to know where I work."
+  - id: ne_04
+    who: bashir
+    to: tara
+    emotion: confident
+    act: [stand_up, nod]
+    camera: medium
+    say: "Exactly. A network that asks who you are is a person, asking."
+  - id: ne_05
+    who: bashir
+    to: tara
+    act: [point]
+    say: "Report it, so I can warn everyone else."
+  - id: ne_06
+    who: tara
+    to: bashir
+    emotion: smug
+    act: [check_phone]
+    say: "Already did. From my phone. On the slow Wi-Fi."
+  - id: ne_07
+    who: bashir
+    to: tara
+    emotion: grin
+    act: [thumbs_up]
+    reactions: { tara: happy }
+    say: "Then the coffee is on me."

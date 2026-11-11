@@ -35,13 +35,13 @@ def test_clay_commands_explain_the_missing_engine(project_dir, no_engine, capsys
     for action in ("build", "portraits"):
         assert main(["clay", action, str(project_dir)]) == ToolMissing.exit_code
         err = capsys.readouterr().err
-        assert "not included in this release" in err and "cards renderer" in err
+        assert "engine files are missing" in err and "cards renderer" in err
     assert not (project_dir / ".studio" / "rig").exists()
 
 
 def test_clay_render_fails_before_any_voice_or_output_work(project_dir, no_engine):
     project = load_project(project_dir)
-    with pytest.raises(ToolMissing, match="not included"):
+    with pytest.raises(ToolMissing, match="engine files are missing"):
         build_mod.build(project, renderer="clay", fallback="offline", log=lambda _m: None)
     assert not (project_dir / "build").exists()
     assert not (project_dir / ".studio").exists()

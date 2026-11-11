@@ -168,6 +168,10 @@ GEST = dict(
     proud=dict(L=(-.46, -.02, -.74), R=(.46, -.02, -.74), pL='fist', pR='fist', bend=-.05),
     lean=dict(L=(-.62, -.3, -.7), R=(.62, -.3, -.7), bend=.12),
     recoil=dict(L=(-.5, -.3, -.2), R=(.5, -.3, -.2), pL='open', pR='open', bend=-.09),
+    # things in the hand: a phone or a page being read, a mug being carried
+    read=dict(L=(-.54, -.03, -1.02), R=(.36, -.60, -.36), pR='cradle', bend=.03),
+    carry=dict(L=(-.54, -.03, -1.02), R=(.40, -.56, -.56), pR='grip'),
+    sip=dict(L=(-.54, -.03, -1.02), R=(.16, -.50, .02), pR='grip', bend=-.02),
     # the vocabulary of someone explaining something they care about
     talkR=dict(L=(-.54, -.03, -1.02), R=(.62, -.44, -.42), pR='open', side=.012),
     talkL=dict(L=(-.62, -.44, -.42), R=(.54, -.03, -1.02), pL='open', side=-.012),
@@ -182,7 +186,7 @@ GEST = dict(
 TALK = ['talk', 'talkR', 'chest', 'talkWide', 'weigh', 'talkL', 'palmsDown', 'presentR']
 # how a person carries themselves: how big and loose the acting is, posture, how they stand and walk
 STYLE = dict(amp=1.0, loose=1.0, bend=0.0, stance=.24, speed=.075, step=.9, bob=.045, contra=.8)
-KEYS = ('g', 'f', 'look', 'face', 'on', 'lean', 'seat', 'nod', 'turn', 'tilt', 'ly', 'hL', 'hR', 'pL', 'pR', 'bkL', 'bkR')
+KEYS = ('g', 'f', 'look', 'face', 'on', 'lean', 'seat', 'nod', 'turn', 'tilt', 'ly', 'hL', 'hR', 'pL', 'pR', 'bkL', 'bkR', 'cL', 'cR')
 SEAT_H = .82      # an ordinary chair: where the top of the seat is
 
 
@@ -421,10 +425,13 @@ class Performance:
                 return float(l.st[min(f - l.s, len(l.st) - 1)])
         return 0
 
-    def target_pos(s, t):
+    def target_pos(s, t, me=None):
         if t is None:
             return None
         if isinstance(t, str):
+            if t == 'hand':
+                h = getattr(me, 'last_hand', None)
+                return h['R'].copy() if h else None
             if t == 'cam':
                 return s.cam.matrix_world.translation.copy() if s.cam is not None else None
             if t in s.actors:
@@ -440,8 +447,15 @@ class Performance:
         if not getattr(s, '_primed', False):
             s._primed = True
             for a in s.actors.values():
-                pose_actor(s, a, f)
+                s.pose_one(a, f)
         for a in s.actors.values():
+            s.pose_one(a, f)
+
+    def pose_one(s, a, f):
+        if getattr(a.P, 'guest', False):
+            import guest
+            guest.pose(s, a, f)        # a model somebody brought: its own, simpler, way of acting
+        else:
             pose_actor(s, a, f)
 
 
@@ -631,7 +645,7 @@ def pose_actor(S_, a, f):
             # arm swing while walking: forward swings bend the elbow more than back swings
             fr = feet[4]
             sw = math.sin(math.pi * (fr * 1.0 + (0 if feet[2] > 0 else 1)) - math.pi / 2) * .38 * sg * (.65 + .35 * st_['loose'])
-            A_ = walk_amt * (1 - held)
+            A_ = walk_amt * (1 - held) * (1 - fold(lambda m_: 1. if K_[m_][1].get('c' + side) else 0., 8))
             q = q.lerp(V((sg * .56, sw, -.97 + .16 * max(0, -sw))), A_)
             # from a raised gesture the straight line to the walking arm runs through the shoulder: go round it
             q += V((sg * .2, -.08, 0)) * math.sin(math.pi * A_)
@@ -671,8 +685,9 @@ def pose_actor(S_, a, f):
         j[2] += 2 * noise(f / 47, seed + 41 + sg_)
         if wave_ and side == 'R':
             j[2] += 16 * math.sin(f / 3.2)
-        if walk_amt > 0:
-            j = [lerp(p_, q_, walk_amt) for p_, q_ in zip(j, WALKJ)]
+        wk_ = walk_amt * (1 - fold(lambda m_, side=side: 1. if K_[m_][1].get('c' + side) else 0., 8))
+        if wk_ > 0:
+            j = [lerp(p_, q_, wk_) for p_, q_ in zip(j, WALKJ)]
 
         def fs(m_, kp=kp):
             k_ = K_[m_][1]
@@ -707,8 +722,8 @@ def pose_actor(S_, a, f):
             el_ = (tuple(fold(lambda m_: last_of(etab, m_) if last_of(etab, m_) is not None else dflt, dh, delay=late)), w_ * (1 - walk_amt))
         rig[side] = (tuple(j), sh, fw_, el_)
     # head and eyes: eyes lead, head follows, body last
-    Lk = S_.target_pos(cur[1].get('look'))
-    Lk0 = S_.target_pos(prev[1].get('look'))
+    Lk = S_.target_pos(cur[1].get('look'), a)
+    Lk0 = S_.target_pos(prev[1].get('look'), a)
     hp = root + V((0, 0, hip + P.L + .65))
 
     def aim(T):
@@ -723,7 +738,7 @@ def pose_actor(S_, a, f):
     he = sm(clamp((f - cur[0] - 2) / 13))
 
     def lk(m_):
-        T_ = S_.target_pos(K_[m_][1].get('look'))
+        T_ = S_.target_pos(K_[m_][1].get('look'), a)
         return np.array(aim(T_) if T_ is not None else (0., 0.))
     hy, hpi = fold(lk, 13, delay=2)
     # blink on a big head turn: exactly what real eyes do
