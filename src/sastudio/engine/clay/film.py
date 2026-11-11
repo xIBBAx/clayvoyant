@@ -329,6 +329,9 @@ def frame_shot():
     """Where the camera stands at the start of the shot and what it looks at, from the people as they really are."""
     shot = CAM.get('shot', 'medium')
     who = [w for w in CAM.get('who') or [] if w in PERF.actors and PERF.actors[w].P.vis] or [n for n, a in PERF.actors.items() if a.P.vis][:1]
+    if CAM.get('position') and CAM.get('aim'):
+        # the director put the camera exactly here: it is not second-guessed
+        return V(CAM['position']), V(CAM['aim']), (CAM.get('focus') if CAM.get('focus') in PERF.actors else (who[0] if who else None))
     if shot == 'insert':
         tp = thing_pos((CAM.get('who') or ['?'])[0]) or V((0, 2, 1.6))
         return tp + V((.5, -2.4, .9)), tp, None

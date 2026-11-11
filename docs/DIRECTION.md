@@ -75,6 +75,14 @@ direction:
     - { lines: [hc_08], camera: insert, who: phone }
 ```
 
+To put the camera exactly where you want it, give a shot a `position` and an `aim` in set units
+(`[x, y, z]`; x is screen right, y is away from the camera, z is up; a person is about 3.4 tall and
+the acting area is around `[0, 0.5, 0]`):
+
+```yaml
+    - { lines: [hc_06], camera: medium, who: rook, position: [3.5, -4.0, 1.2], aim: [0.2, 0.6, 2.9] }
+```
+
 `who` is the character (or, for an `insert`, the prop) the shot shows; `focus` must be one of
 them; `seconds` must be long enough for the dialogue; `lens_mm` (12-200), `fstop` (1.2-22) and
 `height` (`eye`, `low`, `high`) override the camera's defaults.

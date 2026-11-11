@@ -679,6 +679,28 @@
                         "maxItems": 6
                       }
                     ]
+                  },
+                  "position": {
+                    "type": "array",
+                    "items": {
+                      "type": "number",
+                      "minimum": -60,
+                      "maximum": 60
+                    },
+                    "minItems": 3,
+                    "maxItems": 3,
+                    "description": "Where the camera stands, in set units [x, y, z] (docs/DIRECTION.md)."
+                  },
+                  "aim": {
+                    "type": "array",
+                    "items": {
+                      "type": "number",
+                      "minimum": -60,
+                      "maximum": 60
+                    },
+                    "minItems": 3,
+                    "maxItems": 3,
+                    "description": "The point the camera looks at."
                   }
                 }
               }

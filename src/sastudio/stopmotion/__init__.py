@@ -251,7 +251,8 @@ def shot_job(scene_part: dict, shot: D.Shot, frames: list[int], preset: str) -> 
     job["carry"] = [c for c in scene_part["carry"] if c["start"] <= last]
     job.update(mode="film", frames=frames, width=w, height=h, samples=samples,
                camera={"shot": shot.camera, "who": list(shot.who), "focus": shot.focus, "lens": shot.lens or D.SHOTS[shot.camera]["lens"],
-                       "fstop": shot.fstop, "move": shot.move, "height": shot.height})
+                       "fstop": shot.fstop, "move": shot.move, "height": shot.height,
+                       **({"position": shot.position, "aim": shot.aim} if shot.position and shot.aim else {})})
     return job
 
 
