@@ -9,8 +9,8 @@ description = "Make captioned information-security awareness films from plain-te
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
-authors = [{ name = "Ibrahim Sultan", email = "ibrahimsultan4705@gmail.com" }]
-maintainers = [{ name = "Ibrahim Sultan", email = "ibrahimsultan4705@gmail.com" }]
+authors = [{ name = "Ibrahim Sultan", email = "135457750+xIBBAx@users.noreply.github.com" }]
+maintainers = [{ name = "Ibrahim Sultan", email = "135457750+xIBBAx@users.noreply.github.com" }]
 requires-python = ">=3.11"
 keywords = ["security awareness", "security training", "phishing", "accessibility", "text-to-speech", "subtitles", "video", "sarvam", "elevenlabs"]
 classifiers = [

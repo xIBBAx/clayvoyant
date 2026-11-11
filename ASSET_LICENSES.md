@@ -21,12 +21,16 @@ Made by Ibrahim Sultan for this project, and shared under the same MIT License a
 | What | Where | How it was made |
 |---|---|---|
 | Five clay character designs (Mira, Leo, Aarav, Nadia, Rook) | `src/sastudio/engine/characters/*.json` | Parameter files describing each character |
-| Character portraits | `src/sastudio/templates/starter/assets/characters/*.png`, `docs/media/characters/*.png` (except the cast board), `examples/quillmere/assets/characters/*.png` (copies) | Rendered from those parameter files with the author's Blender clay pipeline. This repository contains the resulting images and the parameter files, not the renderer. |
+| Character portraits | `src/sastudio/templates/starter/assets/characters/*.png`, `docs/media/characters/*.png` (except the cast board), `examples/quillmere/assets/characters/*.png` (copies) | Rendered from those parameter files by the clay engine in `src/sastudio/engine` (`sastudio clay portraits`). |
 | Cast board | `docs/media/characters/cast-1600x900.png` | Composed from the portraits by `tools/make_readme_media.py` |
 | Drawn character styles (v1 sketch, v2 flat, v3 cut-out) | `src/sastudio/render/figures.py` | Code written for this project that draws every figure from a short text description at render time; no image files, no third-party art, nothing downloaded |
 | Styles gallery | `docs/media/characters/styles.png` | The starter cast drawn by `sastudio characters --sheet`, via `tools/make_readme_media.py` |
 | Example organisation logo (a placeholder to replace) | `src/sastudio/templates/starter/assets/logo.png` | Drawn with Pillow |
-| Project logo | `docs/media/brand/` | Drawn with code by `tools/make_brand.py` (SVG and PNG) |
+| Project mark in clay | `docs/media/brand/mark-clay-*.png` | Sculpted and rendered by `tools/make_clay_mark.py` with the clay engine |
+| Project logo (flat) | `docs/media/brand/*.svg`, `logo-for-*.png`, `mark-512.png` | Drawn with code (`tools/make_brand.py`; the SVG marks follow the clay mark) |
+| Clay engine: sculptor, puppet, rigs, acting, sets, props, light | `src/sastudio/engine/` | Code written by the author; every form is generated, nothing is loaded from a model, texture or photograph |
+| Sample film "The Fast One" (project, characters, script) | `examples/the-fast-one/` | Written for this project; all people and places are invented |
+| Frames and loop of the sample film; the eight sets; the character line-up | `docs/media/film/the-fast-one*.{jpg,gif}`, `docs/media/film/sets.jpg`, `docs/media/characters/clay-lineup.jpg` | Rendered by `sastudio film` and the engine from this repository (`tools/make_showcase_media.py`); the voices in the film are Kokoro's |
 | Fictional Quillmere Logistics logo (example only) | `examples/quillmere/assets/logo.png` | Drawn with code by `tools/make_example_assets.py` |
 | Example project | `examples/quillmere/` | Written for this project; its scenes are copies of starter scenes with one line changed |
 | Sample scripts (12 scenes, English, partly Hindi) | `src/sastudio/templates/starter/scenes/` | Written for this project |
@@ -59,6 +63,11 @@ but not sell the font files on their own.
 | FFmpeg | encoding, audio | LGPL 2.1+ or GPL 2+, depending on the build |
 | espeak-ng (optional) | free placeholder voice | GPL 3+ |
 | Python packages: PyYAML, jsonschema, Pillow | reading projects, validation, drawing | MIT, MIT, MIT-CMU |
+| Blender (clay films) | filming the clay scenes with Cycles | GPL 2+; run as a separate program, never linked or bundled |
+| numpy, scipy, scikit-image (`clay` extra) | sculpting | BSD-3-Clause |
+| kokoro-onnx, onnxruntime (`voices` extra) | the free neural voice | MIT |
+| Kokoro-82M model weights (downloaded by `sastudio voices install kokoro`) | the free neural voice | Apache-2.0 |
+| phonemizer, espeak-ng (installed by kokoro-onnx) | turning text into sounds for Kokoro | GPL 3+ |
 
 The terminal captures were drawn with the DejaVu Sans Mono font installed on the maintainer's
 system; the font is not included here, only images of text set in it.
