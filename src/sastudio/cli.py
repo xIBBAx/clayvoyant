@@ -600,9 +600,19 @@ def _utf8_output() -> None:
                 pass
 
 
+def _terminated(signum, frame):
+    raise KeyboardInterrupt  # a polite stop (kill, a service manager) cleans up like Ctrl+C: no Blender is left behind
+
+
 def main(argv: list[str] | None = None) -> int:
     _utf8_output()
     a = parser().parse_args(argv)
+    import signal
+    import threading
+
+    previous = signal.getsignal(signal.SIGTERM) if threading.current_thread() is threading.main_thread() else None
+    if previous is not None:
+        signal.signal(signal.SIGTERM, _terminated)
     try:
         return a.fn(a)
     except StudioError as e:
@@ -621,6 +631,9 @@ def main(argv: list[str] | None = None) -> int:
         else:
             print("  fix: check that the folder exists and that you are allowed to write to it.", file=sys.stderr)
         return 1
+    finally:
+        if previous is not None:
+            signal.signal(signal.SIGTERM, previous)
 
 
 if __name__ == "__main__":  # pragma: no cover

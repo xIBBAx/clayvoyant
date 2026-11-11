@@ -422,6 +422,16 @@ def blank_frames(paths) -> list[Path]:
     return bad
 
 
+def _die_with_parent():  # pragma: no cover - runs in the child between fork and exec
+    """Linux: ask the kernel to kill Blender if this process dies, even by SIGKILL, so no Blender outlives it."""
+    import contextlib
+    import ctypes
+    import signal
+
+    with contextlib.suppress(Exception):    # no libc prctl (musl, a sandbox): the watchdog still stops Blender
+        ctypes.CDLL("libc.so.6", use_errno=True).prctl(1, signal.SIGKILL)   # PR_SET_PDEATHSIG
+
+
 def run_blender(job: dict, work: Path, log=print, timeout: float = 48 * 3600) -> None:
     """Run the engine on a job; paths are converted for a Windows Blender under WSL. Progress goes to `log`.
 
@@ -440,7 +450,9 @@ def run_blender(job: dict, work: Path, log=print, timeout: float = 48 * 3600) ->
     (work / "job.json").write_text(json.dumps(job), "utf-8")
     with resources.as_file(clay.ENGINE.joinpath("clay").joinpath("film.py")) as script:
         cmd = [exe, "-b", "--factory-startup", "-P", conv(Path(script)), "--", conv(work / "job.json")]
-        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8", errors="replace")
+        linux = os.name == "posix" and os.uname().sysname == "Linux"
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8", errors="replace",
+                                **({"preexec_fn": _die_with_parent} if linux else {}))
         tail: list[str] = []
 
         def on_line(line: str) -> None:
@@ -485,11 +497,14 @@ def _film(project, job: dict, frames: list[int], label: str, what: str, log=prin
     if (out / ".done").exists() and all((out / f"{f:06d}.png").exists() for f in frames):
         log(f"  {label}: unchanged, reused")
         return out
-    # the same job filmed under another label (a shot added earlier in the scene renumbers the ones after it)
-    for other in sorted(out.parent.glob(f"*.{key}")) if out.parent.is_dir() else []:
+    # the same job filmed under another label (a shot added earlier in the scene renumbers the ones after it):
+    # reuse it when finished, carry on filming into it when it was interrupted
+    for other in sorted(out.parent.glob(f"*.{key}")) if out.parent.is_dir() and not out.exists() else []:
         if (other / ".done").exists() and all((other / f"{f:06d}.png").exists() for f in frames):
             log(f"  {label}: unchanged, reused (filmed as {other.name.rsplit('.', 1)[0]})")
             return other
+        out = other
+        break
     job = dict(job, rig=str(clay.rig_dir(project)), out=str(out), font=str(_font()))
     left = sum(1 for f in frames if not (out / f"{f:06d}.png").exists())
     log(f"  {label}: {what}, {len(frames)} drawings" + (f" ({len(frames) - left} already done)" if left != len(frames) else ""))
