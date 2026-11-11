@@ -34,7 +34,7 @@ GTX 1660 Ti (6 GB), Blender 5.2.2 under WSL2:
 | The sample film end to end with `sastudio film --preset draft`: 13 Kokoro lines, 3 sculpts, 14 shots, assembly | PASS: 82.25 s, 1,974 frames, -16.0 LUFS, subtitles and manifest written |
 | Every set as an establishing shot; six described characters with every new garment and hair style | rendered and looked at |
 | An imported rigged glTF model as a character: fitted, grounded, portrait rendered | PASS |
-| Blender for Windows from WSL2 (OptiX) on the same job | PASS for an eight-drawing shot |
+| Blender for Windows from WSL2 (OptiX) on the same job | UNVERIFIED: recorded as passing for an eight-drawing shot, but a later operator log contradicts it; re-run before relying on it |
 
 Not run: a clay film on native Windows or macOS; the `final` (1920x1080) preset for a whole film;
 Hindi dialogue in a clay film judged by a native listener.

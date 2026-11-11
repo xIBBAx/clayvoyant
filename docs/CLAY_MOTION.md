@@ -139,5 +139,6 @@ samples cost little, more people in frame cost more. Environment variables:
 
 ## Not built yet
 
-Sound effects, ambience and music beds; props beyond the mug and the phone; crowds; weather;
-rendering on a remote machine; a visual editor. See [ROADMAP.md](ROADMAP.md).
+Sound effects and ambience (a music bed of your own does work: `render.music`, ducked under the
+dialogue); props beyond the mug and the phone; crowds; weather; rendering on a remote machine; a
+visual editor. See [ROADMAP.md](ROADMAP.md).
