@@ -137,6 +137,8 @@ class Shot:
     fstop: float = 4.0
     acts: dict[str, list[str]] = field(default_factory=dict)  # line id -> gestures
     reason: str = ""
+    position: list[float] | None = None  # the camera's exact place in the set, when the scene gives one
+    aim: list[float] | None = None  # and the point it looks at
 
 
 @dataclass
@@ -295,6 +297,8 @@ def _check_shot(shot: dict, w: str, present: list[str], set_info: dict, set_name
         out.append(Problem("error", f"{w}.focus", f"The focus '{focus}' is not in the shot.", "Focus on someone in `who`."))
     if shot.get("move", "static") not in MOVES:
         out.append(Problem("error", f"{w}.move", f"Unknown camera move '{shot['move']}'.", _suggest(shot["move"], MOVES)))
+    if bool(shot.get("position")) != bool(shot.get("aim")):
+        out.append(Problem("error", w, "A camera `position` needs an `aim`, and an `aim` a `position`.", "Give both, as [x, y, z]."))
     if shot.get("height", "eye") not in HEIGHTS:
         out.append(Problem("error", f"{w}.height", f"Unknown camera height '{shot['height']}'.", _suggest(shot["height"], HEIGHTS)))
     return out
@@ -418,7 +422,8 @@ def _shot(s, ids, cam, on, focus, move, spec, reason) -> Shot:
     return Shot(lines=list(ids), camera=cam, who=list(on), focus=focus, move=move, seconds=secs,
                 lens=int(spec.get("lens_mm") or info["lens"]), height=spec.get("height", "eye"),
                 fstop=float(spec.get("fstop") or info["fstop"]),
-                acts={ln.id: list(ln.act) for ln in lines if ln.act}, reason=reason)
+                acts={ln.id: list(ln.act) for ln in lines if ln.act}, reason=reason,
+                position=list(spec["position"]) if spec.get("position") else None, aim=list(spec["aim"]) if spec.get("aim") else None)
 
 
 MAX_HOLD = 12.0  # seconds a held static shot may run before the planner cuts

@@ -35,6 +35,10 @@ Nobody writes those numbers. `sastudio/claydesign.py` turns the `look.design` in
 character id, and lets `look.clay` set any of them outright ([CHARACTERS.md](CHARACTERS.md)).
 Sculpting takes about 25 seconds per character and is cached until the look changes.
 
+<p align="center">
+  <img src="media/characters/clay-proof.jpg" width="100%" alt="Three stills of sculpted characters from the sample film. A full figure: Bashir, bearded and in glasses, arms folded. A face: Tara grinning with her hand at her chin, teeth showing, eyes bright. A hand: Odile's open palm in close-up, four fingers and a thumb, against the knit of her sweater.">
+</p>
+
 ## 2. The puppet
 
 Inside Blender, `engine/clay/puppet.py` puts the sculpt on a rig that is solved with plain

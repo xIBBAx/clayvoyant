@@ -329,6 +329,9 @@ def frame_shot():
     """Where the camera stands at the start of the shot and what it looks at, from the people as they really are."""
     shot = CAM.get('shot', 'medium')
     who = [w for w in CAM.get('who') or [] if w in PERF.actors and PERF.actors[w].P.vis] or [n for n, a in PERF.actors.items() if a.P.vis][:1]
+    if CAM.get('position') and CAM.get('aim'):
+        # the director put the camera exactly here: it is not second-guessed
+        return V(CAM['position']), V(CAM['aim']), (CAM.get('focus') if CAM.get('focus') in PERF.actors else (who[0] if who else None))
     if shot == 'insert':
         tp = thing_pos((CAM.get('who') or ['?'])[0]) or V((0, 2, 1.6))
         return tp + V((.5, -2.4, .9)), tp, None
@@ -347,7 +350,7 @@ def frame_shot():
         n = d.length or 1
         d /= n
         side = V((-d.y, d.x, 0)) * (1 if ls.x > sp.x else -1)
-        pos = ls - d * 2.2 + side * .62 + V((0, 0, .22))
+        pos = ls - d * 2.7 + side * 1.0 + V((0, 0, .34))     # behind and well to the side: the near head frames the shot, it does not fill it
         pos.y = min(pos.y, min(sp.y, ls.y) - 1.2) if abs(d.y) < .5 else pos.y
         return pos, V((sp.x, sp.y, sp.z - .1)), who[0]
     # stand on the side the subject is turned towards, for a three-quarter view of the face
@@ -413,8 +416,12 @@ def opening(style):
     return (V((1.3, -12.4, 3.9)), V((0, 2.2, 2.5))), wide
 
 
-MOVES_IN_SHOT = bool(FOCUS) and any(w[1] > w[0] and w[0] <= F1 and w[1] + 9 >= F0 for w in PERF.actors[FOCUS].walks) \
-    and CAM.get('shot') in ('medium', 'close_up', 'reaction', 'extreme_close_up')
+MOVES_IN_SHOT = False
+if FOCUS and CAM.get('shot') in ('medium', 'close_up', 'reaction', 'extreme_close_up'):
+    # does the subject end the shot somewhere else (a walk, standing up, sitting down)? Then the camera goes with them
+    PERF.pose(F1 - 1)
+    MOVES_IN_SHOT = (eyes(FOCUS) - HEAD0).length > .3 or any(w[1] > w[0] and w[0] <= F1 and w[1] + 9 >= F0 for w in PERF.actors[FOCUS].walks)
+    PERF.pose(F0)
 OPENING = opening(CAM.get('style', 'establish')) if CAM.get('shot') == 'opening' else None
 if OPENING and CAM.get('style') != 'object':
     cam_data.dof.use_dof = False

@@ -23,6 +23,8 @@
 - **Scenes open on a filmed shot** with the title over it: establishing push-in, door reveal,
   follow an object, match cut, fade from black.
 - **Shots are cached by what can affect them** and resume at the first missing drawing.
+- **The camera can be placed by hand**: a shot takes an exact `position` and `aim`; otherwise it is
+  framed from where the people really are and follows a subject who walks, stands or sits.
 - **Guests**: imported glTF, FBX and OBJ characters act in clay scenes; they are grounded by their
   real geometry and stored animation is removed. Characters export to GLB, FBX, OBJ and `.blend`.
 - `examples/the-fast-one`: an original two-scene short made entirely by these commands.
