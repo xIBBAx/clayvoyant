@@ -540,11 +540,11 @@ def parser() -> argparse.ArgumentParser:
     clay_in = engine_included()
     s.add_argument("--renderer", choices=["cards", "clay"],
                    help="cards (any computer) or clay (Blender, GPU recommended)" if clay_in
-                   else "cards (the default). clay is not included in this release")
+                   else "cards (the default). The clay engine files are missing from this installation")
     s.set_defaults(fn=cmd_render)
 
     s = sub.add_parser("clay", help="build clay characters or render their portraits (needs Blender)" if clay_in
-                       else "clay renderer tools (not included in this release)")
+                       else "clay tools (the engine files are missing from this installation)")
     s.add_argument("action", choices=["build", "portraits"])
     s.add_argument("project")
     s.add_argument("--force", action="store_true", help="replace existing portraits")

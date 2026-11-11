@@ -246,7 +246,7 @@ class SceneRenderer:
 
         Drawn characters are animated on twos (12 changes a second), like stop motion. With real
         audio the mouth follows its loudness; with the silent placeholder voice it follows the
-        letters of the subtitle being spoken, so vowels open the mouth. Clay portraits never change.
+        letters of the subtitle being spoken, so vowels open the mouth. A clay still does not change (clay films are filmed, not drawn here).
         """
         if not self.vis.figures.get(beat.speaker or ""):
             return "rest"

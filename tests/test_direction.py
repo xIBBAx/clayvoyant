@@ -84,7 +84,7 @@ def test_explicit_shots_are_honoured(tmp_path):
     ("    direction: { set: home_desk, transition_in: door_reveal }\n", "", "has no door"),
     ("    direction: { transition_in: follow_object, object: rocket }\n", "", "has no 'rocket'"),
     ("    direction: { transition_in: spin }\n", "", "Unknown transition 'spin'"),
-    ("", ", act: [phone_to_ear, typing]", "both need the left arm"),
+    ("", ", act: [phone_to_ear, typing]", "both need the right arm"),
     ("", ", act: [moonwalk]", "Unknown gesture 'moonwalk'"),
     ("    direction: { set: corridor }\n", ", act: [typing]", "needs a laptop"),
     ("    direction: { set: corridor }\n", ", act: [sit_down]", "has no seats"),

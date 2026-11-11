@@ -65,7 +65,7 @@ GESTURES: dict[str, dict] = {
     "thumbs_up": {"parts": {"right_arm"}, "seconds": 0.8, "kind": "once"},
     "hand_on_chin": {"parts": {"right_arm"}, "seconds": 0.0, "kind": "hold"},
     "arms_folded": {"parts": {"left_arm", "right_arm"}, "seconds": 0.0, "kind": "hold"},
-    "phone_to_ear": {"parts": {"left_arm"}, "seconds": 0.0, "kind": "hold", "prop": "phone"},
+    "phone_to_ear": {"parts": {"right_arm"}, "seconds": 0.0, "kind": "hold", "prop": "phone"},
     "typing": {"parts": {"left_arm", "right_arm"}, "seconds": 0.0, "kind": "loop", "prop": "laptop"},
     "hold_mug": {"parts": {"right_arm"}, "seconds": 0.0, "kind": "hold", "prop": "mug"},
     "sip": {"parts": {"right_arm"}, "seconds": 1.6, "kind": "once", "prop": "mug"},

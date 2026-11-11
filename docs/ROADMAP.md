@@ -18,7 +18,7 @@ the first table is promised or scheduled. Each item says how we would know it wo
 | Byte-for-byte reproducible renders on one toolchain | measured: the same project, version and FFmpeg build give the same file hash |
 | Character styles: v1 sketch, v2 flat, v3 cut-out (drawn), v4 clay (portraits) | done in 0.2; characters can be described in text |
 | Character animation | 0.2: in the drawn styles the speaker talks and blinks; no body animation |
-| Clay renderer (animated 3D puppets) | not included in this release |
+| Clay films (sculpted characters, sets, cameras, acting, lip sync) | released: `sastudio film` ([CLAY_MOTION.md](CLAY_MOTION.md)) |
 
 What the 0.1 films are, measured on the reference film: 94 % of the running time is still frames
 (illustrated cards with hard cuts), and the offline placeholder voice is silent.
@@ -120,9 +120,11 @@ on that contract rather than on any particular engine.
    the voice provider's timings. Anyone can draw a character for it; no 3D software needed.
 3. **A renderer plug-in interface (0.4).** A small, versioned contract (timeline in, frames out)
    with contract tests, so independently written 2D or 3D back ends can ship as separate packages.
-4. **Clay motion.** An original, open clay-animation renderer: acting bodies, lip shapes, staged
-   shots, camera moves and transitions, rendered shot by shot with a cache. Design, measured costs
-   and milestones: [CLAY_MOTION.md](CLAY_MOTION.md). Not built yet.
+4. **Clay films: more of everything.** The clay renderer is released ([CLAY_MOTION.md](CLAY_MOTION.md)).
+   Next for it: sound effects, ambience and music beds placed by the direction (footsteps are already
+   timed by the engine); more props to hold and use; more sets and a way to describe your own in
+   YAML; background people; weather; short sleeves, skirts and more garments; fingers on imported
+   models; rendering on a remote machine; a visual editor for blocking and cameras.
 
 ## Not planned
 

@@ -16,7 +16,7 @@ sastudio render my-film --voice-fallback offline         # placeholder voices fo
 | Renderer | Status in 0.1 | What it draws |
 |---|---|---|
 | `cards` (the default) | **Included** | A clean 2D layout: your logo and colours, scene titles and headlines, each character's portrait with a name label, the speaker highlighted, subtitles, key-point cards, an intro card and a closing card with your reporting address. |
-| `clay` | **Not included in this release** | Animated 3D clay puppets rendered in Blender. The `--renderer clay` option, `render.renderer: clay` and the `sastudio clay` commands remain, but stop with a clear message. |
+| `clay` | `sastudio film`, or `--renderer clay` | Sculpted clay characters filmed in Blender on twos: sets, cameras, light, acting, lip sync. Needs Blender and the `clay` extra. See [CLAY_MOTION.md](CLAY_MOTION.md). |
 
 The five character portraits that ship with the starter project are images, so the cards
 renderer uses them on any computer. They were rendered with the clay engine, which is not part
@@ -153,14 +153,24 @@ rendering the 12-scene starter film (14 min 23 s, silent placeholder voices). Ex
 The cards renderer draws with Pillow and encodes with FFmpeg's x264 on the CPU. A GPU does not
 speed it up.
 
-## Clay renderer status
+## Clay films
 
-The clay renderer's orchestration code ships in `src/sastudio/render/clay.py`, but the Blender
-engine it drives does not ship in 0.1. Its absence is detected, not crashed into: `sastudio
-doctor` reports "Clay renderer: not included in this release", `sastudio validate` flags
-`render.renderer: clay`, and `sastudio render --renderer clay` stops before any work starts. If a
-later release includes the engine, `SASTUDIO_CLAY_DEVICE=CPU` will skip the GPU request; by
-default the engine asks for a GPU and falls back to the CPU.
+`sastudio film my-film` (the same as `sastudio render my-film --renderer clay`, or
+`render.renderer: clay` in `studio.yaml`) films the scenes in clay and puts them through the same
+assembly as every other film: subtitles, cards, intro and outro, loudness, the manifest.
+
+| | |
+|---|---|
+| Presets | `draft` 960x540 at 6 samples, `preview` 1280x720 at 12, `final` 1920x1080 at 24 |
+| Cadence | on twos: twelve drawings a second |
+| Reuse | each shot is stored by a hash of what can affect it; an interrupted shot resumes at its first missing drawing |
+| Where | sculpts in `.studio/rig`, shots in `.studio/cache/clay`, voices in `.studio/cache/voices` |
+| Device | `SASTUDIO_CLAY_DEVICE=CPU` skips the GPU request; by default a GPU is asked for and the CPU is the fallback, and the log says which was used |
+| Blender | `SASTUDIO_BLENDER` names the program; on WSL2 a Windows `blender.exe` works and paths are converted |
+
+A scene's title is laid over a filmed opening shot rather than a card; a name tag appears the first
+time each person speaks. `sastudio clean` removes work files and keeps finished films, sculpts and
+voices. How it works and what it costs: [CLAY_MOTION.md](CLAY_MOTION.md).
 
 ## Problems
 

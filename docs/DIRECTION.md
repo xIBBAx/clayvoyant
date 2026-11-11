@@ -1,10 +1,10 @@
 # Direction: cameras, light, acting and transitions
 
-**What works today.** Every scene can be directed in its YAML, and `sastudio direct` plans and
-checks that direction and prints the shot list. The experimental `sastudio motion` command films a
-scene from this plan in clay stop motion with Blender ([CLAY_MOTION.md](CLAY_MOTION.md) lists what
-it can and cannot film yet). The cards films made by `sastudio render` do not use cameras, light or
-gestures. Projects without direction keep working unchanged.
+Every scene can be directed in its YAML. `sastudio direct` plans and checks that direction and
+prints the shot list; `sastudio film` films it in clay ([CLAY_MOTION.md](CLAY_MOTION.md));
+`sastudio motion` films one scene or shot without voices, to look at the direction quickly. The
+cards films made by `sastudio render` do not use cameras, light or gestures. Projects without any
+direction are directed automatically.
 
 ## You don't have to write anything
 
@@ -22,8 +22,9 @@ helpful_caller: office set, office light (4500 K), enters by cut
    8. close_up          65 mm  push_in    6.9 s  on mira       lines hc_09  (the scene's last word: closer)
 ```
 
-The automatic plan follows ordinary film grammar: a new place opens with an establishing shot and
-a return to a known place opens differently each time; someone joining a conversation is seen in
+The automatic plan follows ordinary film grammar: every scene opens on a filmed shot of its place
+with the title over it; the first line in a new place shows everyone in it, and a return to a known
+place opens differently each time; someone joining a conversation is seen in
 context; a question is seen past the listener's shoulder and its answer closer; the last word of a
 scene gets a slow push in; the same framing is never cut to itself (a jump cut); held shots are
 cut after about 12 seconds; and each character keeps their side of the screen.
@@ -38,8 +39,10 @@ On a line:
     say: "Ah. Bad line. Breaking up. Never mind."
     camera: extreme_close_up       # any camera below
     act: [phone_to_ear]             # gestures, up to four
-    emotion: embarrassed            # neutral, happy, worried, surprised, suspicious, confident, embarrassed, relieved
+    emotion: embarrassed            # how the speaker feels (the list is below)
     to: leo                         # who they are talking to: their eyeline
+    go: standing_right              # a mark they walk to as the line begins (they sit if it is a seat)
+    reactions: { leo: surprised }   # how listeners take it
 ```
 
 On a scene:
@@ -51,9 +54,13 @@ direction:
   lighting: suspense                # how it is lit
   open_with: close_up               # how the scene begins
   transition_in: cut                # how we arrive from the previous scene
+  object: phone                     # for follow_object: the thing the scene opens on
   extras: [nadia]                   # in the scene without a line
-  blocking: { leo: desk, aarav: standing_right }   # where people are
+  blocking: { leo: desk, aarav: standing_right }   # where people are (a seat mark: they are sitting)
+  business: { leo: typing }         # what someone is busy with as the scene opens
 ```
+
+Anyone without a place in `blocking` is given a standing spot, and keeps their side of the screen.
 
 ## Full control
 
@@ -121,8 +128,11 @@ from one another.
 | `thumbs_up` | right arm | once |  |
 | `hand_on_chin` | right arm | hold |  |
 | `arms_folded` | left arm, right arm | hold |  |
-| `phone_to_ear` | left arm | hold | phone |
+| `phone_to_ear` | right arm | hold | phone |
 | `typing` | left arm, right arm | loop | laptop |
+| `hold_mug` | right arm | hold | mug |
+| `sip` | right arm | once | mug |
+| `check_phone` | head, right arm | hold | phone |
 | `lean_in` | torso | once |  |
 | `turn_to` | head, torso | once |  |
 | `sit_down` | legs, torso | once | a seat |
@@ -131,27 +141,41 @@ from one another.
 | `walk_out` | legs, torso | once |  |
 
 Two gestures in one line may not use the same body part; a gesture that needs a prop or a seat
-needs a set that has one.
+needs a set that has one. `sit_down` walks to the nearest free seat; `walk_in` enters through the
+set's door (or from the side, where there is none) and arrives as the line begins; `typing` puts
+the hands on the table of whoever is sitting at one; a mug or a phone appears in the hand that
+holds it. A speaker with no gesture of their own talks with their hands, changing on the thought.
 
-| Set | Marks | Props | Door |
+Emotions: `neutral`, `happy`, `worried`, `surprised`, `suspicious`, `confident`, `embarrassed`,
+`relieved`, and the finer shades `grin`, `shock`, `sad`, `smug`, `deadpan`, `think`, `annoyed`,
+`recognise`, `concern`, `hesitate`, `warm`, `wince`, `tender`. An emotion lasts until that
+character is given another.
+
+| Set | Marks (seats in italics) | Props | Door |
 |---|---|---|---|
-| `office` | desk, desk_2, standing_left, standing_right, window, door | laptop, phone, mug, badge, printer, plant, poster | yes |
-| `reception` | counter, visitor, standing_left, standing_right, door | badge, phone, visitor_book, plant, poster | yes |
-| `meeting_room` | head_of_table, left_seat, right_seat, screen, door | laptop, phone, mug, screen, poster | yes |
-| `home_desk` | desk, sofa, window | laptop, phone, mug, plant, router | no |
-| `cafe` | table_left, table_right, counter, door | laptop, phone, mug, wifi_sign | yes |
+| `office` | *desk*, *desk_2*, standing_left, standing_right, window, door | laptop, laptop_2, phone, mug, badge, printer, plant, poster | yes |
+| `reception` | counter, visitor, standing_left, standing_right, door | badge, badge_reader, phone, visitor_book, plant, poster, monitor | yes |
+| `meeting_room` | *head_of_table*, *left_seat*, *right_seat*, screen, door | laptop, phone, mug, screen, poster | yes |
+| `home_desk` | *desk*, *sofa*, window | laptop, phone, mug, plant, router | no |
+| `cafe` | *table_left*, *table_right*, *table_left_2*, *table_right_2*, counter, door | laptop, phone, mug, wifi_sign | yes |
 | `corridor` | left, centre, right, door | badge, phone, poster, badge_reader | yes |
+| `street` | pavement_left, pavement_right, *bench*, bus_stop, shop_door, far_left, far_right | phone, car, bus_stop | no |
+| `classroom` | teacher, board, *teacher_desk*, *front_desk_left*, *front_desk_right*, standing_left, standing_right, door | board, laptop, map, phone | yes |
+| `studio` | centre | | no |
 
-| Transition | When |
+A scene's `setting.time_of_day` (`morning`, `day`, `evening`, `night`) sets the sky, the sun and
+the lamps of any set.
+
+| Transition | How the scene opens |
 |---|---|
-| `cut` | a clean cut (the default) |
-| `match_cut` | a cut that matches a shape or movement across the two shots |
-| `follow_object` | the camera follows a named object into the new scene (needs `object`) |
-| `door_reveal` | a door opens onto the new scene (the set needs a door) |
-| `fade_from_black` | only to open the film, or after a jump in time (`time_jump: true`) |
+| `cut` | on the whole place, the camera drifting in (the default) |
+| `match_cut` | close on the first speaker's face, easing back |
+| `follow_object` | close on a named thing of the set, then back to show the room (needs `object`) |
+| `door_reveal` | on the set's door as it opens (the set needs a door) |
+| `fade_from_black` | up from black; only to open the film, or after a jump in time (`time_jump: true`) |
 
-There are no decorative wipes or spins: a scene arrives by a cut unless something in the story
-carries us there.
+The opening shot carries the scene's title and lasts as long as a title card would. There are no
+decorative wipes or spins: a scene arrives by a cut onto something that is happening.
 
 ## When something can't be filmed
 
@@ -161,7 +185,7 @@ when there is one, the closest valid name:
 ```text
 [error] helpful_caller.direction.lighting: Unknown lighting 'warm_interor'.
     Did you mean warm_interior? Choose from: daylight, dramatic, night_practical, office, soft_studio, suspense, warm_interior.
-[error] helpful_caller.hc_07.act: 'phone_to_ear' and 'typing' both need the left arm.
+[error] helpful_caller.hc_07.act: 'phone_to_ear' and 'typing' both need the right arm.
     Give them to different lines.
 [error] helpful_caller.direction.shots[2].seconds: The dialogue in this shot needs about 10.0 s, longer than 6 s.
     Lengthen the shot or split the lines.

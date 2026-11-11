@@ -37,6 +37,7 @@ lines:
     go: table_left_2
     emotion: concern
     act: [hold_mug]
+    reactions: { tara: worried }
     say: "Then somebody in here is fishing. And not for coffee."
   - id: fo_05
     who: tara

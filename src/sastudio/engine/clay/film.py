@@ -299,8 +299,8 @@ cam_data.lens = float(CAM.get('lens') or 40)
 cam_data.dof.use_dof = MODE == 'film' and CAM.get('shot') not in ('establishing',)
 cam_data.dof.aperture_fstop = float(CAM.get('fstop') or 4.0) * .55      # a miniature: shallower than life
 # how tall the frame is at the subject, and where it is centred from the eye line
-FRAME_H = dict(wide=5.9, medium=2.9, two_shot=3.2, over_shoulder=2.2, close_up=1.55, extreme_close_up=.8, reaction=1.55, insert=1.0, portrait=4.6)
-AIM_DZ = dict(wide=-1.5, medium=-.62, two_shot=-.55, over_shoulder=-.08, close_up=-.1, extreme_close_up=-.06, reaction=-.1, portrait=-1.3)
+FRAME_H = dict(wide=5.9, medium=3.0, two_shot=3.3, over_shoulder=2.3, close_up=1.95, extreme_close_up=.95, reaction=1.95, insert=1.0, portrait=4.6)
+AIM_DZ = dict(wide=-1.5, medium=-.62, two_shot=-.55, over_shoulder=-.08, close_up=-.2, extreme_close_up=-.06, reaction=-.2, portrait=-1.3)
 FRAMES = sorted(int(x) for x in JOB.get('frames') or [0])      # the scene frames this shot films
 F0, F1 = FRAMES[0], FRAMES[-1] + 1
 
@@ -413,6 +413,8 @@ def opening(style):
     return (V((1.3, -12.4, 3.9)), V((0, 2.2, 2.5))), wide
 
 
+MOVES_IN_SHOT = bool(FOCUS) and any(w[1] > w[0] and w[0] <= F1 and w[1] + 9 >= F0 for w in PERF.actors[FOCUS].walks) \
+    and CAM.get('shot') in ('medium', 'close_up', 'reaction', 'extreme_close_up')
 OPENING = opening(CAM.get('style', 'establish')) if CAM.get('shot') == 'opening' else None
 if OPENING and CAM.get('style') != 'object':
     cam_data.dof.use_dof = False
@@ -429,6 +431,8 @@ def camera_at(f):
         return
     pos, aim = POS0.copy(), AIM0.copy()
     mv = CAM.get('move', 'static')
+    if FOCUS and mv in ('static', 'push_in') and MOVES_IN_SHOT:
+        mv = 'track'        # nobody walks out of their own shot: the camera goes with them
     if FOCUS and mv in ('pan', 'track', 'tilt'):
         d = eyes(FOCUS) - HEAD0
         if mv == 'track':

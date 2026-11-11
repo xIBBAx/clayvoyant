@@ -99,7 +99,7 @@ functions in `tests/`.
 | Transparent, very wide, very tall logos | PASS | `test_logos_of_any_shape_render` |
 | Missing fonts | N/A | fonts are bundled in the package |
 | Running out of memory | UNVERIFIED | peak memory is measured and `--jobs` documented; no low-memory test |
-| Missing textures, rigs, Blender add-ons, VRAM | N/A | clay renderer not included; clay commands stop with a clear message (`test_clay_commands_explain_the_missing_engine`) |
+| Missing Blender, missing sculpting packages, missing engine files | PASS | each stops with what to install (`test_missing_blender_says_how_to_fix_it`, `test_clay_commands_explain_the_missing_engine`); the engine loads no textures or add-ons |
 
 ### Files and folders
 

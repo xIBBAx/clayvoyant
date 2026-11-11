@@ -1,161 +1,134 @@
-# Clay motion: design for an open clay-animation renderer
+# Clay films
 
-**Status: in development, experimental.** `sastudio render` still makes cards films: the drawn
-styles (v1 sketch, v2 flat, v3 cut-out) move the speaker's mouth and eyes, and the clay style (v4)
-shows still portraits. A first clay stop-motion renderer exists as an experimental command that
-films one scene at a time. This page describes the whole renderer, what already works, and what
-it costs to run.
-
-## Where it stands
-
-| Milestone | State | What works | Not yet |
-|---|---|---|---|
-| M1 Direction | **Done** | cameras, moves, lighting, gestures, sets and transitions per scene, planned automatically or written by hand, validated, printed by `sastudio direct` ([DIRECTION.md](DIRECTION.md)) | |
-| M2 Clay characters | **Prototype** | built in Blender from the same `look.design` as the drawn styles: soft clay bodies, jointed arms, bead eyes and lids, hair styles, kurta, glasses, beard, bindi | simple puppet shapes; no hands with fingers; no fabric detail |
-| M3 Acting | **Partial** | replacement mouths following the words, blinks, eyelines to whoever speaks, breathing, head and arm gestures (nod, shake, tilt, point, wave, shrug, open palms, thumbs up, hand on chin, arms folded, phone to ear, typing) | walking, sitting, props in hands, facial expressions from `emotion`, phoneme lip sync, real voice timing |
-| M4 Sets, cameras, transitions | **Partial** | one miniature room with the organisation's logo framed on the wall, lighting presets, the planned camera, lens, depth of field and moves, a cache that reuses unchanged shots | every set renders as the same room with that set's props; transitions other than a cut; insert shots |
-| M5 Affordable full film | Not started | | held poses with replacement mouths, render estimates, assembly into `sastudio render`, audio |
-
-## Try it (experimental)
-
-You need [Blender](https://www.blender.org/download/) 4.2 or newer (tested with 5.2.2) and a GPU
-that Blender's EEVEE can use. Tell Security Awareness Studio where Blender is if it is not on
-your PATH:
+`sastudio film <project>` makes the whole film in clay stop motion: voices, sculpted characters,
+sets, cameras, light, lip sync, subtitles. This page explains what happens between the text you
+write and the frames you get, and where each part lives.
 
 ```bash
-export SASTUDIO_BLENDER=/path/to/blender          # Windows: set SASTUDIO_BLENDER=C:\path\to\blender.exe
-sastudio direct my-film --scenes too_good_email   # read the shot list first
-sastudio motion my-film --scene too_good_email --preset draft     # one scene, 960x540
-sastudio motion my-film --scene too_good_email --shot 3           # one shot
+pip install -e ".[clay,voices]"          # sculpting and the free voice
+sastudio voices install kokoro           # once
+sastudio direct my-film                  # read the shot list before filming
+sastudio motion my-film --scene first_day --shot 2    # a silent look at one shot
+sastudio film my-film --preset draft     # the film
 ```
 
-Under WSL2, point `SASTUDIO_BLENDER` at the Windows `blender.exe`: Linux Blender inside WSL could
-not start EEVEE on the GPU in our tests, and the Windows build can. The clip is written to
-`my-film/build/motion/`. It is silent, with subtitles, and is not yet part of `sastudio render`.
+Blender 4.2 or newer must be on `PATH`, or named in `SASTUDIO_BLENDER`. On WSL2 either the Linux
+build or the Windows `blender.exe` works; paths are converted for the Windows one.
 
-Measured on the reference laptop (GTX 1660 Ti, Windows Blender 5.2.2, 1280x720, 16 samples), for
-the worked example's phishing scene directed with gestures (10 shots, 61.6 s of film):
+## 1. Sculpting
 
-| Run | Shots filmed | Shots reused | Time |
-|---|---|---|---|
-| First time | 10 | 0 | 602 s |
-| Nothing changed | 0 | 10 | 9.8 s |
-| One gesture changed | 1 | 9 | 72 s |
+A character is not assembled from parts. Its head, its clothes, its hands and its hair are each one
+continuous form described by signed-distance functions (`engine/sculpt/sdfkit.py`): ellipsoids,
+cones and coils of clay blended into each other, then carved (the parting of the lips, the eye
+openings), then turned into a mesh by marching cubes. Colour is painted onto that mesh in washes,
+the way a puppet painter does it, and creases are darkened by measuring the sculpt itself.
 
-## What it should do
+- `engine/sculpt/heads.py`: the skull on real facial proportions, a carved mouth, eyes with
+  separate lids, brows, teeth and tongue, skin that is never one colour, beards and moustaches.
+- `engine/sculpt/bodies.py`: eight garments (blazer, suit jacket, zip jacket, shirt, sweater,
+  hoodie, kurta, knit vest), each with a real hem, plus shoes and the hand.
+- `engine/sculpt/hair.py`: ten styles, each one mass that hugs the skull and is combed by a tool.
+- `engine/sculpt/build.py`: builds a character's files (`.npz`) from one JSON of numbers.
 
-- Turn the same project files (organisation, characters, scenes, voices, languages) into a film
-  whose clay characters act: they walk into a scene, gesture, react, turn to each other and talk
-  with lip shapes that match the words.
-- Stage each scene with deliberate shots (wide, two-shot, close-up), camera moves and transitions
-  that mean something, or a clean cut.
-- Brand the sets from `organization` (logo on the wall, palette in the props) and build every
-  character from the same `look.design` used by the drawn styles.
-- Re-render only what changed: editing one line re-renders that line's shot, not the film.
-- Run on an ordinary gaming laptop GPU, with a fast preview tier and an honest estimate before a
-  long render starts.
+Nobody writes those numbers. `sastudio/claydesign.py` turns the `look.design` in your project
+(skin, hair, outfit, build, height, face sliders) into them, varies every face a little by
+character id, and lets `look.clay` set any of them outright ([CHARACTERS.md](CHARACTERS.md)).
+Sculpting takes about 25 seconds per character and is cached until the look changes.
 
-Not goals: photorealism, motion capture, or a general animation package.
+## 2. The puppet
 
-## Independence
+Inside Blender, `engine/clay/puppet.py` puts the sculpt on a rig that is solved with plain
+matrices every frame:
 
-The renderer must be original work that this repository can publish under its licence. It is
-written from public documentation and general techniques (Blender's Python API, armatures, shape
-keys, procedural modelling, standard lip-sync mouth sets) and from the specification on this page.
-The clay engine mentioned elsewhere in these docs is not included and is not the basis for this
-renderer. Contributors must not copy code or assets they do not have the right to share, and
-every asset added records its licence in `ASSET_LICENSES.md`. Before a release that includes the
-renderer, the maintainer checks it for overlap with any code the project cannot publish.
+- a spine that bends, twists and squashes the torso mesh itself;
+- sleeves and trouser legs swept along the bones each frame, bunching where they bend;
+- an anatomical arm and hand (`handrig.py`): the elbow swings with where the hand is going, the
+  forearm rolls and the wrist bends inside human limits, four fingers and a thumb curl through
+  fifteen bones, so a palm can only turn the way a palm turns;
+- a face of 21 controls (`faceops.py`) that move one continuous head mesh: jaw, lips, smiles and
+  frowns per side, brows, squints, how wide the eyes open;
+- clay, cloth, skin and eye materials (`claymat.py`): thumb-print whorls, fine grain, colour that is
+  never flat.
 
-## How it fits the current pipeline
+## 3. Acting
 
-Everything before rendering already exists and stays the same: validation, dialogue, voices,
-frame-exact timelines and the compositor that adds subtitles, name tags, title and key-point
-cards. The compositor can already take a folder of rendered frames for each line and lay the
-overlays on top, so a clay-motion renderer only has to produce frames for each shot.
+`engine/clay/acting.py` is the performance. Everything in it is a pure function of the frame
+number, which is what makes shots cacheable and resumable.
 
-```mermaid
-flowchart LR
-    T["timeline<br/>(exists)"] --> P["shot planner<br/>shots, framing, holds"]
-    P --> A["acting<br/>gestures, lip shapes,<br/>blinks, look-at"]
-    D["look.design<br/>(exists)"] --> C["clay characters<br/>procedural + rig"]
-    O["organization<br/>(exists)"] --> S["sets<br/>kit of parts + branding"]
-    A --> R["shot renderer<br/>Blender, cached per shot"]
-    C --> R
-    S --> R
-    R --> K["compositor<br/>(exists): subtitles,<br/>cards, transitions"]
-    K --> F["film.mp4 + subtitles<br/>+ manifest"]
-```
+- **Walking.** Feet plant ahead of the hips and stay planted; the pelvis rises over the standing
+  foot and sinks between steps; heel strikes, toe leaves; arms swing against the legs; a walk
+  starts with a half step and ends with a settling one.
+- **Sitting.** The pelvis lowers to the seat, the feet come forward and stay on the floor.
+- **Hands.** More than forty gestures, each a place for the hand, a finger shape and a wrist. Hands travel in
+  arcs, arrive a beat apart, settle past their mark, and never snap when a new gesture interrupts.
+- **Speech in the body.** The stressed sounds of a line nod the head, lift the brows and beat the
+  hands. A speaker changes gesture on the thought, not on a timer.
+- **Eyes.** Eyes lead, the head follows, the body last. Blinks, small saccades, a blink on every
+  big turn. Listeners look at the speaker and nod.
+- **Feelings.** Twenty-one faces, blended from one to the next, that stay under the words.
+- **Things.** A mug or a phone is carried in the palm; a hand that carries does not swing.
 
-| Stage | What it is | How it is tested |
-|---|---|---|
-| Shot planner | Pure Python. From the timeline, chooses shots (who is on screen, framing, camera move), holds and transitions, with rules such as keeping screen direction and holding long enough to read. | In CI, without Blender: same input gives the same plan; snapshot tests of plans. |
-| Acting | A small library of named gestures (nod, shrug, point, phone to ear, typing, arms folded) chosen by tags in a line (`act: [shrug]`) or simple defaults; lip shapes from the audio (an optional lip-sync tool) or, for the silent placeholder voice, from the text; blinks, breathing, characters looking at the speaker. | In CI: timing curves and mouth-shape tracks as data. |
-| Clay characters | Built procedurally from `look.design` with smoothed primitives and a standard armature, so a design written for the drawn styles also works in clay. A documented rig contract lets people import their own rigged character instead. | A turntable render per character and option; rig contract checks. |
-| Sets | Office, home, café and street built from reusable parts; logo and palette from `organization`. | Render tests with the fictional example organisation. |
-| Shot renderer | Blender in the background, one shot at a time, animated on twos (12 drawings a second, the stop-motion look). Each shot is cached by a hash of everything that affects its pixels. | Optional render tests on machines with a GPU. |
+Lip sync uses the nine mouth shapes of the Rhubarb alphabet. When the voice provider reports the
+time of each sound (Kokoro does), the mouth follows them; otherwise `sastudio/lipsync.py` reads
+the shapes from the spelling and lays them over the parts of the audio where someone is speaking.
 
-## Keeping renders affordable
+## 4. Places and light
 
-1. **Shot-level cache.** A shot is re-rendered only when its own inputs change (characters in it,
-   their acting, the set, the camera, the renderer version). Changing a voice re-renders only
-   shots whose lip shapes changed.
-2. **Animate on twos.** 12 drawings a second instead of 24 halves the frames and is the look of
-   hand-made stop motion.
-3. **Held poses with replacement mouths.** Most dialogue is a character holding a pose while they
-   talk. For such a hold the body is rendered once and each mouth shape once in the same light,
-   then the mouths are laid in frame by frame, as stop-motion studios do with replacement mouths.
-   A 4-second line on twos becomes about 9 renders instead of 48.
-4. **Preview tier.** 1280x720, few samples, simple lighting, for checking acting and timing.
-5. **Estimate first.** The planner knows how many renders a film needs and multiplies by the time
-   per render measured on your machine, before anything long starts.
+`engine/clay/setkit.py` is a kit of clay forms, furniture, props and lamps; `sets.py` builds eight
+places from it. Nothing is loaded from a model, photograph or texture file. A set wears the
+organisation's palette and name, and declares its *marks*: where people can stand or sit, which
+seats have a table, where the door is.
 
-## Measured on the reference laptop
+Light comes from the lighting mood you choose (key, fill, rim, exposure), from the set's own lamps,
+and from the time of day: by day the sun reaches a room through a window nobody sees, whose frame
+throws real pane shadows across the floor and the far wall. Rooms have a ceiling the camera sees
+and the light does not.
 
-Blender 5.2.2, NVIDIA GeForce GTX 1660 Ti (6 GB), Intel Core i7-10750H, 2026-11-10. A deliberately
-simple test scene written for this measurement (two primitive figures, a floor, a wall, two lights,
-a moving camera), 11 frames timed after the first:
+## 5. Filming
 
-| Engine | Size | Samples | Seconds per frame |
-|---|---|---|---|
-| EEVEE (Windows Blender) | 1280x720 | 16 | 0.29 |
-| EEVEE (Windows Blender) | 1920x1080 | 16 | 0.53 |
-| EEVEE (Windows Blender) | 1920x1080 | 64 | 1.22 |
-| Cycles, CUDA (Linux Blender under WSL2) | 1920x1080 | 32, denoised | 11.94 |
+`sastudio/stopmotion` writes a *job* for each shot (set, light, cast, every line with its mouth
+cues, every acting key, one camera) and `engine/clay/film.py` films it:
 
-Findings that shape the design:
+- The camera is placed from where the people really are: a close-up from the side a face is turned
+  to, an over-the-shoulder from behind the listener, a wide from standing height. A subject who
+  walks is followed. Depth of field focuses on the subject every frame.
+- Every scene opens on a filmed shot of its place, with the title over it, entered by its
+  transition (see [DIRECTION.md](DIRECTION.md)).
+- Frames are drawn on twos: twelve drawings a second, each held for two frames.
+- Each shot is stored under a hash of everything that can affect it. Changing a later line does
+  not re-film an earlier shot. A shot that was interrupted resumes at its first missing drawing.
+- Blender only runs the scripts shipped in this package. A job holds numbers, names from fixed
+  lists and file paths chosen by `sastudio`; nothing in a project file is ever executed.
 
-- Under WSL2, Linux Blender could not start EEVEE without a display (no GPU device for EGL); the
-  Windows build of Blender ran it on the same GPU. The renderer should support running Windows
-  Blender from WSL, native Linux with a GPU-enabled OpenGL, and Cycles as the slow fallback.
-- EEVEE was about 22 times faster than Cycles here. Real sets with several characters, props and
-  depth of field will cost several times more per frame than this test; treat these numbers as a
-  lower bound.
+The filmed frames then go through the same compositor as every other film here: subtitles, name
+tags the first time someone speaks, cards, the intro and outro, frame-exact audio, loudness
+normalisation, the manifest with checksums ([RENDERING.md](RENDERING.md)).
 
-## What a full film would take (estimate, not a measurement)
+## Guests
 
-The 12-scene starter film is 862.6 s long: 10,351 drawings on twos. With held poses and
-replacement mouths, assuming 70 % of the time is dialogue in held shots, about 4,500 renders.
+A character can be a model somebody already has (`sastudio model import`). A guest is fitted to
+the height of the cast, grounded by measuring its real, skinned geometry, stripped of any
+animation stored in the file, and then stands, walks, turns, looks, talks, blinks and gestures as
+far as its bones and shape keys allow. It does not sit and has no fingers to pose. The licence you
+state for the model is recorded in the project.
 
-| Time per render (1080p) | Without the techniques above (20,703 frames) | On twos, with held poses (about 4,500 renders) |
-|---|---|---|
-| 0.5 s (simple sets) | 2.9 h | 38 min |
-| 2 s (furnished sets) | 11.5 h | 2.5 h |
-| 5 s (rich sets, depth of field) | 28.8 h | 6.3 h |
+## Measured
 
-After the first render, the shot cache means an edit to one line costs that line's shot, which is
-seconds to a few minutes.
+On an Intel Core i7-10750H with a GeForce GTX 1660 Ti (6 GB), Blender 5.2.2 under WSL2 with CUDA:
 
-## Milestones
+| | |
+|---|---|
+| Sculpting one character | about 25 s (two worker processes) |
+| A drawing at 960x540, 6 samples, three people in an office | 2.0 s |
+| A drawing at 960x540, over-the-shoulder with depth of field | 2.6 s |
+| Of which posing the puppets | about 0.1 s |
+| Kokoro voice | 0.55 x the length of the line, about 600 MB of memory |
 
-| Milestone | Delivers | Done when |
-|---|---|---|
-| M1 Shot planner and animatic | Shots, holds and transitions planned from the timeline, previewed with the drawn characters (no Blender) | Plans are deterministic and snapshot-tested; an animatic of the starter film renders in minutes |
-| M2 Clay characters | Procedural clay figures from `look.design`, with a standard rig; rig contract for imported characters | Turntable renders of every bundled character and every design option, checked by eye |
-| M3 Acting | Gestures, lip shapes, blinks, breathing and look-at for one line | One line renders with readable lip sync and a gesture, composited with subtitles |
-| M4 Sets, cameras, transitions | Kit-of-parts sets with branding, camera moves, transitions; the shot cache | A full scene renders; changing one line re-renders only its shot |
-| M5 Affordable full film | Held poses with replacement mouths, preview tier, estimate before rendering | The starter film renders end to end within the estimate, on the reference laptop |
+Nearly all of a drawing's time is Cycles refitting the puppets' geometry, not sampling: more
+samples cost little, more people in frame cost more. Environment variables:
+`SASTUDIO_BLENDER` (which Blender), `SASTUDIO_CLAY_DEVICE` (`GPU` or `CPU`).
 
-Until M5, the honest description of the project is: captioned training films with drawn
-characters that talk and blink, or still clay portraits. Help with any milestone is welcome; see
-[CONTRIBUTING.md](../CONTRIBUTING.md).
+## Not built yet
+
+Sound effects, ambience and music beds; props beyond the mug and the phone; crowds; weather;
+rendering on a remote machine; a visual editor. See [ROADMAP.md](ROADMAP.md).

@@ -2,6 +2,44 @@
 
 ## Unreleased
 
+### Clay films
+
+- **`sastudio film`** makes the whole film in clay stop motion with one command: voices, sculpted
+  characters, sets, cameras, light, lip sync, subtitles. `sastudio motion` is a silent preview of
+  one scene or shot.
+- **The clay engine is part of the package** (`src/sastudio/engine`): characters sculpted from
+  signed-distance forms and marching cubes, an anatomical arm and hand rig with fingers, a
+  21-control face, clay, cloth and skin materials.
+- **Any described character is sculpted.** `look.design` now drives the clay figure as well as the
+  drawn ones, with `body` (build, height), `face` sliders, `acting` (energy, looseness, posture,
+  pace) and `clay` overrides. New garments (shirt, sweater, hoodie, kurta, zip jacket, knit vest),
+  hair (short, long, ponytail, headscarf, bald), beards, moustaches and a bindi.
+- **Acting**: walking on planted feet, sitting, more than forty gestures, twenty-one feelings,
+  listener reactions, eyes that lead the head, speech in the body, mugs and phones in the hand,
+  typing with hands on the desk, walking to a mark (`go:`), entrances through a door that opens,
+  business under way as a scene opens.
+- **Eight sets built by code**: office, reception, meeting room, home, cafe, corridor, street,
+  classroom; morning, day, evening and night; your palette and name on the walls.
+- **Scenes open on a filmed shot** with the title over it: establishing push-in, door reveal,
+  follow an object, match cut, fade from black.
+- **Shots are cached by what can affect them** and resume at the first missing drawing.
+- **Guests**: imported glTF, FBX and OBJ characters act in clay scenes; they are grounded by their
+  real geometry and stored animation is removed. Characters export to GLB, FBX, OBJ and `.blend`.
+- `examples/the-fast-one`: an original two-scene short made entirely by these commands.
+
+### Voices
+
+- **`kokoro`**: a free neural voice that runs on your computer (British and American English,
+  Hindi), with phoneme timings used for lip sync. `sastudio voices install kokoro`.
+- **`recorded`**: your own recordings, one file per line.
+- `--voices kokoro|recorded|offline` uses one free provider for a whole render.
+
+### Changed
+
+- New optional extras: `clay` (numpy, scipy, scikit-image) and `voices` (kokoro-onnx).
+- The mark is now sculpted by the engine: a thumbprint in clay whose whorl is an eye.
+
+
 - `sastudio init` takes your organisation's details: `--org`, `--short-name`, `--email`,
   `--report-url`, `--style` and `--logo` (any image, saved as PNG). Every option is checked before
   anything is created, values are written safely (quotes, Hindi and other scripts), and the
@@ -9,7 +47,6 @@
   still placeholders.
 - `.gitignore` keeps local editor and AI-agent settings (`.claude/`, `.cursor/`, `.codex/` and
   others) out of the repository.
-- Design for an open clay-motion renderer, with measured render costs: `docs/CLAY_MOTION.md`.
 
 ## 0.2.0 (2026-11-10)
 

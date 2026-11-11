@@ -8,8 +8,10 @@ You need **Python 3.11 or newer** and **FFmpeg**. Everything else is optional.
 | Hear a free placeholder voice | + espeak-ng |
 | Real voices | + a Sarvam or ElevenLabs account ([API_SETUP.md](API_SETUP.md)) |
 
-No Docker, no Node.js, no GPU, no Blender and no cloud account are needed. The clay renderer is
-not included in this release ([RENDERING.md](RENDERING.md#renderers)).
+No Docker, no Node.js and no cloud account are needed. The cards renderer needs nothing else. Clay
+films (`sastudio film`) also need [Blender](https://www.blender.org/download/) 4.2 or newer on `PATH`
+(or named in `SASTUDIO_BLENDER`) and the sculpting extra: `pip install -e ".[clay,voices]"`. A GPU
+makes clay films quicker and is not required ([CLAY_MOTION.md](CLAY_MOTION.md)).
 
 ## 1. Python and FFmpeg
 

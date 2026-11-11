@@ -518,7 +518,7 @@ def validate(project: Project, *, only: Iterable[str] | None = None) -> list[Iss
         from .render.clay import engine_included
 
         if not engine_included():
-            issues.append(Issue("error", "render.renderer", "The clay renderer is not included in this release.",
+            issues.append(Issue("error", "render.renderer", "The clay engine files are missing from this installation.",
                                 "Set render.renderer to cards (docs/RENDERING.md)."))
 
     # scene dependencies, against what will actually be built

@@ -25,7 +25,7 @@ All five were designed for this project.
 | **Remove a character** | delete them and their lines | | `validate` lists every line that still uses them |
 | **Style** of every character, or of one | `render.character_style:` or `look.style:` (v1-v4, below) | No | All scenes, or theirs |
 | **Appearance** in the drawn styles: hair, skin, outfit, shoes, glasses... | `look.design:` (below) | No | Scenes they appear in |
-| **New 3D clay characters** | needs the clay renderer, which is **not included in this release** | | |
+| **New clay characters** | describe them with `look.design`; `sastudio film` sculpts them | text | no |
 
 Ids never change when names do. That is what keeps renames safe. The worked example in
 [examples/quillmere](../examples/quillmere/) renames `leo` to Kabir in English and Hindi without
@@ -47,7 +47,7 @@ character's initials.
 | `v1` | `sketch` | graphite outlines over a light wash, hatched shadows: a storyboard page | the speaker talks and blinks |
 | `v2` | `flat` | clean flat colour, one shadow per shape: an explainer video | the speaker talks and blinks |
 | `v3` | `cutout` | layered paper with cut edges, cast shadows and grain: paper stop-motion | the speaker talks and blinks |
-| `v4` | `clay` | the bundled 3D clay portraits (the default) | no: still portraits |
+| `v4` | `clay` | a still of the sculpted clay character (the default) | no in a cards film; fully in a clay film (`sastudio film`) |
 
 Choose one for the whole film, and override it for any character:
 
@@ -96,20 +96,52 @@ A design is a few words in `studio.yaml`; anything you leave out comes from the 
 | `shoes.style` | `flat`, `sneaker`, `brogue`, `heel`, `boot` (with `shoes.color`) |
 | `extras` | any of `glasses`, `necklace`, `lapel_pin`, `freckles`, `earrings`, `beard`, `moustache`, `bindi` |
 
-A character with a design but no portrait is drawn in `v2` flat even when the film's style is clay.
+`outfit.style` also takes `hoodie` and `vest` (a knit vest over a shirt, with a lanyard).
 
-## About the five clay portraits
+In a cards film, a character with a design but no clay still is drawn in `v2` flat; make its still
+with `sastudio clay portraits my-film`. In a clay film every character is sculpted from its design.
 
-The portraits are renders of five clay-style characters, sculpted procedurally from the
-parameter files in `src/sastudio/engine/characters/` (face proportions, hair, glasses, garment,
-colours). The sculpting and puppet engine that made them is **not included in this release**, so
-in clay the characters exist as these images and those parameter files. They are
-deliberately simple: full-length figures with mitten-like hands, made to read clearly at small
-sizes beside dialogue, not as detailed character art.
+## Sculpted in clay
 
-When a release includes the clay renderer, the parameter files are what it builds the characters
-from, and `look.preset` and `look.colors` select and recolour them. Today `look.preset` also picks
-the bundled design for the drawn styles, and `look.colors` is accepted and ignored.
+`sastudio film` sculpts each character from the same design, with a real face, hands and
+clothes ([how](CLAY_MOTION.md)). Four more things can be said about a person there:
+
+```yaml
+    look:
+      design:
+        body: { build: broad, height: tall }     # slim | average | broad; short | average | tall
+        face: { jaw: 0.5, nose: -0.3, eyes: 0.4 }
+      acting: { energy: 1.2, looseness: 1.1, posture: 0.5, pace: 0.9 }
+      seed: "second draft"                        # a different set of small differences in the face
+```
+
+| Field | Meaning |
+|---|---|
+| `design.body.build`, `.height` | the width and the height of the figure |
+| `design.body.frame` | `feminine`, `masculine` or `neutral` proportions (default: from the character's `gender`) |
+| `design.face.*` | sliders from -1 to 1: `width`, `jaw`, `chin`, `nose`, `nose_width`, `cheeks`, `brows`, `eyes`, `length`, `mouth`, `lips` |
+| `acting.energy` | how big the gestures are (0.2 to 1.6) |
+| `acting.looseness` | how much the body sways and drifts (0.2 to 1.6) |
+| `acting.posture` | -1 slouched to 1 very upright |
+| `acting.pace` | how fast they walk (0.6 to 1.6) |
+| `seed` | every character id gets its own small differences in the face; a seed picks another set |
+| `clay` | `{ head: {...}, body: {...} }`: sculpt parameters set outright, for the curious (`engine/sculpt`) |
+
+Extras in clay: `glasses` and `earrings` are separate hard objects, `beard` and `moustache` are
+clay laid on the face that moves with the mouth, `freckles` and `bindi` are painted, `necklace`
+and `lapel_pin` appear on the tailored jackets. A `headscarf` is matte cloth wrapped round the head.
+
+Useful commands: `sastudio clay build my-film` sculpts the cast (about 25 seconds each, then
+cached); `sastudio clay portraits my-film` renders a still of each;
+`sastudio model export my-film --as priya --out priya.glb` writes one to a file other tools open.
+
+## About the five bundled characters
+
+Mira, Leo, Aarav, Nadia and Rook have their own sculpt files in
+`src/sastudio/engine/characters/` (face proportions, hair, glasses, garment, colours), so their
+faces are exactly as they were first sculpted. `look.preset` selects one; `look.colors` (`skin`,
+`hair`, `eyes`, `top`, `accent`, `bottom`) recolours it; a `design` on top changes only what it
+names. The portraits in `assets/characters/` are stills of those sculpts.
 
 ## Likeness and rights
 

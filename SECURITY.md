@@ -27,7 +27,7 @@ Only the latest release receives fixes.
   text can never be read as an option.
 - **Projects can't run code.** A project supplies data only: YAML, JSON character parameters,
   images and audio. It cannot supply Python, shell commands or `.blend` files. (The clay renderer
-  is not included in 0.1; when it is, Blender runs only the engine script shipped in this
+  runs Blender only on the engine scripts shipped in this
   package.) Do not open `.blend` files from people you don't trust: Blender files can contain
   scripts.
 - **API keys stay out of files.** Keys are read from environment variables or a `.env` file,

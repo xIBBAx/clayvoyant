@@ -1,12 +1,17 @@
 # Voice providers
 
-Each character has a voice. A voice comes from one of three providers:
+Each character has a voice. A voice comes from one of five providers:
 
 | Provider | Cost | Account | What it sounds like | Tested how |
 |---|---|---|---|---|
+| `kokoro` | free | none | a natural neural voice that runs on your computer: British and American English, Hindi | synthesised and rendered into films on the reference laptop; request building and failures in every test run |
+| `recorded` | free | none | your own recordings, one file per line | end to end, every test run |
 | `offline` | free | none | espeak-ng's robotic voice if installed, otherwise silence timed like speech | end to end, every test run |
 | `sarvam` | paid per character (your account) | [Sarvam AI](https://docs.sarvam.ai/) | natural Indian-language voices (Bulbul models) | request and error handling against recorded responses; **no live call has been made for this release** |
 | `elevenlabs` | paid per character (your account) | [ElevenLabs](https://elevenlabs.io/docs/) | natural multilingual voices | request and error handling against recorded responses; **no live call has been made for this release** |
+
+`--voices kokoro` (or `recorded`, or `offline`) on `sastudio film` and `sastudio render` uses one
+free provider for the whole cast in that render, whatever the project says.
 
 The offline provider proves that the pipeline works. It says nothing about whether Sarvam or
 ElevenLabs will work with your account; check that with a tiny live run (below) before you
@@ -47,6 +52,59 @@ voices:
 
 `sastudio characters my-film` lists every character's voice per language. `sastudio validate`
 checks each voice against the provider's catalogue before anything is sent.
+
+## Kokoro
+
+A free neural voice with no account, no key and no network once installed.
+
+```bash
+pip install "security-awareness-studio[voices]"     # the kokoro-onnx package
+sastudio voices install kokoro                      # the model, once: about 350 MB, checked by SHA-256
+```
+
+```yaml
+    voice: { provider: kokoro }                                   # a voice is chosen for the character and kept
+    voice: { provider: kokoro, speaker: bf_emma }                 # or name one
+    voice: { provider: kokoro, speaker: hf_alpha, settings: { speed: 0.95 } }
+```
+
+| Language | Voices this adapter is set up with |
+|---|---|
+| `en-GB`, `en-IN`, `en` | `bf_emma`, `bf_isabella`, `bf_alice`, `bf_lily`, `bm_george`, `bm_fable`, `bm_daniel`, `bm_lewis` |
+| `en-US` | `af_heart`, `af_bella`, `af_nicole`, `af_sarah`, `am_michael`, `am_fenrir`, `am_puck`, `am_eric` |
+| `hi-IN`, `hi` | `hf_alpha`, `hf_beta`, `hm_omega`, `hm_psi` |
+
+With no `speaker`, each character gets a voice of its own that matches its `gender` and stays the
+same from render to render.
+
+What to know before relying on it:
+
+- **There is no Indian-English accent.** Lines in `en-IN` are read by a British voice (or an
+  American one if you name it). For Indian English use Sarvam, or record the lines.
+- **Hindi** has four voices; the model's authors grade them below the English ones. Mixed
+  Hindi-English lines are spoken. Listen before you publish; this project has checked that the
+  output is speech and is timed correctly, not how natural a native speaker finds it.
+- It reports when each sound is spoken, which the clay renderer uses for lip sync.
+- On the reference laptop a line takes about half its own length to generate, on the CPU, in
+  about 600 MB of memory.
+- No voice cloning. The voices are the model's own.
+
+Licences: Kokoro-82M's weights are Apache-2.0; the `kokoro-onnx` package is MIT; its text front
+end (`phonemizer`, `espeak-ng`) is GPL-3.0. None of them is part of this package: `pip` installs
+them beside it, and the model is downloaded to `~/.cache/sastudio/kokoro` (or `SASTUDIO_KOKORO_DIR`).
+
+## Recorded
+
+Your own voice, or your colleagues', with their agreement. Give a character
+`voice: { provider: recorded }` and save one file per line:
+
+```text
+my-film/recordings/en-IN/te_01.wav        # .wav .flac .mp3 .m4a .ogg; the line ids are in the scene files
+```
+
+`sastudio voices plan my-film` lists every line with the words to say. A line with no recording
+stops the render by name; nothing is skipped. Replace a file and only that line's shots are
+filmed again. The folder can be changed with `voices.providers.recorded.folder`.
 
 ## Offline
 

@@ -113,7 +113,7 @@ def run_checks(project_dir: Path | None = None) -> list[Check]:
 
     blender = os.environ.get("SASTUDIO_BLENDER") or shutil.which("blender")
     if not engine_included():
-        out.append(Check("Clay renderer", "info", "not included in this release; Blender and Rhubarb are not needed",
+        out.append(Check("Clay renderer", "info", "engine files missing from this installation; reinstall to make clay films",
                          "The cards renderer (the default) is the supported renderer (docs/RENDERING.md)."))
     elif blender:
         txt = _run([blender, "--version"], timeout=60) or ""
