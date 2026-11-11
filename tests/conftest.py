@@ -117,30 +117,39 @@ class NetworkBlocked(RuntimeError):
 
 @pytest.fixture(autouse=True)
 def _no_network(request, monkeypatch):
-    """The suite promises it never touches the network: any internet connection from the test process fails the
-    test. Local IPC (Unix sockets, socket pairs) is untouched. A test that truly needs the network says so with
+    """The suite promises it never touches the network: any connection or datagram to an address off this machine
+    fails the test. Loopback (127.0.0.0/8, ::1) and Unix sockets are untouched: they never leave the computer, and
+    Windows builds socket.socketpair() out of a loopback connection. A test that truly needs the network says so with
     @pytest.mark.network; none does today."""
     if "network" in request.keywords:
         yield
         return
     real_connect, real_connect_ex, real_sendto = socket.socket.connect, socket.socket.connect_ex, socket.socket.sendto
 
-    def _inet(sock):
-        return sock.family in (socket.AF_INET, socket.AF_INET6)
+    import ipaddress
+
+    def _off_machine(sock, address) -> bool:
+        if sock.family not in (socket.AF_INET, socket.AF_INET6):
+            return False
+        host = address[0] if isinstance(address, tuple) else address
+        try:
+            return not ipaddress.ip_address(host).is_loopback
+        except ValueError:
+            return host not in ("localhost",)     # a name to look up is the network
 
     def connect(self, address):
-        if _inet(self):
+        if _off_machine(self, address):
             raise NetworkBlocked(f"test tried to connect to {address!r}; tests run offline")
         return real_connect(self, address)
 
     def connect_ex(self, address):
-        if _inet(self):
+        if _off_machine(self, address):
             raise NetworkBlocked(f"test tried to connect to {address!r}; tests run offline")
         return real_connect_ex(self, address)
 
     def sendto(self, *args):
-        if _inet(self):
-            raise NetworkBlocked("test tried to send a datagram; tests run offline")
+        if _off_machine(self, args[-1]):
+            raise NetworkBlocked("test tried to send a datagram off this machine; tests run offline")
         return real_sendto(self, *args)
 
     monkeypatch.setattr(socket.socket, "connect", connect)

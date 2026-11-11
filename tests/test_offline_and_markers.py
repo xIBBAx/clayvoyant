@@ -20,6 +20,20 @@ def test_a_datagram_fails_the_test():
         s.sendto(b"x", ("192.0.2.1", 53))
 
 
+def test_loopback_is_not_the_network():
+    import threading
+
+    srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    srv.bind(("127.0.0.1", 0))
+    srv.listen(1)
+    t = threading.Thread(target=lambda: srv.accept()[0].close())
+    t.start()
+    with socket.create_connection(srv.getsockname(), timeout=5):
+        pass
+    t.join(5)
+    srv.close()
+
+
 def test_local_socket_pairs_still_work():
     a, b = socket.socketpair()
     with a, b:
