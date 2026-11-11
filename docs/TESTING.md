@@ -21,23 +21,30 @@ fake transport (`tests/conftest.py`).
 
 ## Clay films: what was run, and where
 
-Clay films need Blender and a few minutes of rendering, so they are checked by hand on a real
-machine as well as by the test suite. On 2026-11-11, on an Intel Core i7-10750H with a GeForce
-GTX 1660 Ti (6 GB), Blender 5.2.2 under WSL2:
+Clay films need Blender and minutes of rendering, so they are checked on a real machine as well as
+by the test suite. On 2026-11-11, on an Intel Core i7-10750H with a GeForce GTX 1660 Ti (6 GB),
+Blender 5.2.2 under WSL2:
 
 | Check | Result |
 |---|---|
-| The test suite (jobs, timing, caching, design mapping, sculpting kit, lip sync, free voices, engine contracts) | 280 passed, 1 skipped (the opt-in paid-API test) |
+| The test suite, `pytest -o addopts='' -q`, with Blender and FFmpeg present | 318 passed, 1 skipped (the opt-in paid-API test) |
+| `tests/test_clay_smoke.py` with Blender present: sculpt two characters, film two drawings of a sample shot, check they are not blank, film again and see it reused | PASS, 41 s |
+| The suite with FFmpeg and Blender hidden from `PATH` | PASS: the FFmpeg and Blender tests skip with a reason, none fails |
 | CI: lint, tests, package build and a render from the wheel, Ubuntu and Windows, Python 3.11 to 3.13 | PASS |
-| Wheel contains every engine script; installed into a fresh Python 3.12 environment with the `clay` extra | PASS: `init`, `validate`, `direct`, sculpting a character (19 s) |
-| Filming a shot from that fresh installation (`sastudio motion`, 80 drawings, 960x540) | PASS: valid H.264, 159 frames |
-| The sample film end to end with `sastudio film --preset draft`: 13 Kokoro lines, 3 sculpts, 14 shots, assembly | PASS: 82.25 s, 1,974 frames, -16.0 LUFS, subtitles and manifest written |
-| Every set as an establishing shot; six described characters with every new garment and hair style | rendered and looked at |
-| An imported rigged glTF model as a character: fitted, grounded, portrait rendered | PASS |
+| The sample film at `preview`, every shot filmed from nothing (17 shots, 666 drawings) | PASS: 82.25 s, 1,974 frames, -16.0 LUFS, 54 min 57 s; frames looked at shot by shot |
+| The same film after a change to its last shot | 16 shots reused by content, 1 filmed, 3 min 17 s |
+| `sastudio` killed with SIGKILL while Blender was at drawing 14 of 21 of a new shot | PASS: no Blender left running; the next run said "21 drawings (14 already done)" and finished the shot |
+| A shot renumbered by an edit to the plan | PASS: reused from its old folder ("filmed as ..."); a half-filmed one carried on ("28 already done") |
+| Framing fixes, on drafts and in the sample | the cafe wide keeps the speaker inside the frame; an over-the-shoulder that would show the speaker's back is filmed as a two-shot or a medium; close-ups and reactions leave room in front of the face |
+| Cutting inside a line, in the sample | the cut to the listener lands where the speaker's mouth rests; the speaker's name tag leaves before the cut |
+| `direction.light`, a line's `beats`, an `insert` on a prop and `direction.clock`, each filmed at `draft` in a copy of the sample | looked at: the tuned close-up is lit from a low warm key on the other side; the nod and the worried face land at 40 % and 75 % of the line; the insert films the cafe's sign; the home office clock reads 07:05 |
+| Every set as an establishing shot; six described characters with every new garment and hair style | rendered and looked at (earlier session) |
+| An imported rigged glTF model as a character: fitted, grounded, portrait rendered | PASS (earlier session) |
 | Blender for Windows from WSL2 (OptiX) on the same job | UNVERIFIED: recorded as passing for an eight-drawing shot, but a later operator log contradicts it; re-run before relying on it |
 
 Not run: a clay film on native Windows or macOS; the `final` (1920x1080) preset for a whole film;
-Hindi dialogue in a clay film judged by a native listener.
+Hindi dialogue in a clay film judged by a native listener. Known wrong: eyelines when the person
+someone talks to stands behind them (see the README's honest edges).
 
 ## Edge cases
 

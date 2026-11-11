@@ -14,7 +14,7 @@ from pathlib import Path
 
 OUT = Path("docs/media/film")
 # moments of the film worth showing, as fractions of its length
-MOMENTS = (0.085, 0.16, 0.235, 0.30, 0.375, 0.44, 0.535, 0.565, 0.63, 0.70, 0.79, 0.89)
+MOMENTS = (0.085, 0.16, 0.235, 0.30, 0.375, 0.44, 0.535, 0.565, 0.625, 0.70, 0.79, 0.89)
 LOOP = (0.335, 5.2)      # where the loop starts (fraction of the film) and how long it runs (seconds)
 
 

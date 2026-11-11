@@ -144,14 +144,15 @@ Scenes render in parallel. `--jobs` sets how many at once (default: half your CP
 limit: lower `--jobs` if your computer starts swapping.
 
 Measured on one machine (Intel Core i7-10750H, 12 threads, 7.7 GB available to WSL2, FFmpeg 6.1.1),
-rendering the 12-scene starter film (14 min 23 s, silent placeholder voices). Examples, not promises:
+rendering the 12-scene starter film (14 min 19 s, silent placeholder voices), re-measured on
+2026-11-11. Examples, not promises:
 
 | Job | Wall clock | Peak memory |
 |---|---|---|
-| Whole starter film, `preview` (1280 x 720), `--jobs 4` | 74 s | 237 MB |
-| Whole starter film, `final` (1920 x 1080), `--jobs 3` | 2 min 22 s | 615 MB |
+| Whole starter film, `preview` (1280 x 720), `--jobs 4` | 90 s | 244 MB |
+| Whole starter film, `final` (1920 x 1080), `--jobs 3` | 2 min 41 s | 621 MB |
 | Re-running the same render with nothing changed | every scene reused | |
-| Three-scene example, `draft`, English / Hindi | 14 s / 21 s | 126 MB / 128 MB |
+| Three-scene example, `draft`, English / Hindi (measured for 0.1.0, not re-run) | 14 s / 21 s | 126 MB / 128 MB |
 
 The cards renderer draws with Pillow and encodes with FFmpeg's x264 on the CPU. A GPU does not
 speed it up.
