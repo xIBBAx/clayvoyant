@@ -33,6 +33,10 @@ dependencies = [
   "Pillow>=13.0,<14",  # 13.0 fixes known vulnerabilities in image decoding; project images are untrusted input
 ]
 
+[project.optional-dependencies]
+# Sculpting clay characters (sastudio film, sastudio clay): the signed-distance kit and marching cubes.
+clay = ["numpy>=1.26", "scipy>=1.11", "scikit-image>=0.22"]
+
 [dependency-groups]
 dev = ["pytest>=8", "ruff>=0.6"]
 
