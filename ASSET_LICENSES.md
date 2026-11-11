@@ -9,7 +9,11 @@ All source code (`src/`, `tests/`, `tools/`, `examples/`, `.github/`) is under t
 [MIT License](LICENSE), Copyright (c) 2026 Ibrahim Sultan.
 
 The clay engine (`src/sastudio/engine/`: the sculptor, the puppet and its rigs, acting, sets and the
-film runner) is part of that source and under the same licence. Every set, prop and character it
+film runner) is part of that source and under the same licence. Its core (the sculptor, the clay
+material, the puppet, the hand and face rigs) is the author's own earlier production code from a
+private film he made, published here by him and adapted for general use; several of those modules
+are carried over largely unchanged. Acting, sets, props, the film runner and the Python side were
+written for this repository. Every set, prop and character it
 makes is built by code: no third-party models, textures, photographs or sounds are bundled or loaded.
 `docs/media/brand/mark-clay-*.png` is sculpted and rendered by `tools/make_clay_mark.py`.
 
@@ -28,7 +32,7 @@ Made by Ibrahim Sultan for this project, and shared under the same MIT License a
 | Example organisation logo (a placeholder to replace) | `src/sastudio/templates/starter/assets/logo.png` | Drawn with Pillow |
 | Project mark in clay | `docs/media/brand/mark-clay-*.png` | Sculpted and rendered by `tools/make_clay_mark.py` with the clay engine |
 | Project logo (flat) | `docs/media/brand/*.svg`, `logo-for-*.png`, `mark-512.png` | Drawn with code (`tools/make_brand.py`; the SVG marks follow the clay mark) |
-| Clay engine: sculptor, puppet, rigs, acting, sets, props, light | `src/sastudio/engine/` | Code written by the author; every form is generated, nothing is loaded from a model, texture or photograph |
+| Clay engine: sculptor, puppet, rigs, acting, sets, props, light | `src/sastudio/engine/` | The author's own code: the sculpting and rigging core comes from his earlier production work, the rest was written for this repository (see [Code](#code)); every form is generated, nothing is loaded from a model, texture or photograph |
 | Sample film "The Fast One" (project, characters, script) | `examples/the-fast-one/` | Written for this project; all people and places are invented |
 | Frames and loop of the sample film; the eight sets; the character line-up | `docs/media/film/the-fast-one*.{jpg,gif}`, `docs/media/film/sets.jpg`, `docs/media/characters/clay-lineup.jpg`, `docs/media/characters/clay-proof.jpg` | Rendered by `sastudio film` and the engine from this repository (`tools/make_showcase_media.py`); the voices in the film are Kokoro's |
 | Fictional Quillmere Logistics logo (example only) | `examples/quillmere/assets/logo.png` | Drawn with code by `tools/make_example_assets.py` |
