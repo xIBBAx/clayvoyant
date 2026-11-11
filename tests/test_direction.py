@@ -273,13 +273,14 @@ def test_a_wall_clock_tells_the_scene_s_time(tmp_path):
 
 def test_a_line_that_names_its_camera_is_not_cut_in_two(tmp_path):
     long = "This is a long line, long enough to be cut in two by the planner when nobody says otherwise."
-    proj = _scene(write_project(tmp_path / "p"))
-    root = proj.root
+    root = _scene(write_project(tmp_path / "p")).root
     t = (root / "studio.yaml").read_text(encoding="utf-8")
-    t = t.replace('say: "Report to {org.security_email}." }', f'say: "{long}" }}')
+    old = 'say: "Report to {org.security_email}." }'
+    assert old in t
+    t = t.replace(old, f'say: "{long}" }}\n      - {{ id: l3, who: ana, say: "Fine." }}')
     (root / "studio.yaml").write_text(t, encoding="utf-8")
     auto = [s for s in D.plan(load_project(root))[0].shots if "l2" in s.lines]
+    assert len(auto) == 2 and auto[1].camera == "reaction", "left alone, the planner cuts this line"
     (root / "studio.yaml").write_text(t.replace(f'say: "{long}" }}', f'say: "{long}", camera: close_up }}'), encoding="utf-8")
     named = [s for s in D.plan(load_project(root))[0].shots if "l2" in s.lines]
     assert len(named) == 1 and named[0].camera == "close_up" and not named[0].part
-    assert len(auto) == 2 and auto[1].camera == "reaction", "left alone, the planner does cut this line"
