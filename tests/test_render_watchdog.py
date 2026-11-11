@@ -170,3 +170,23 @@ def test_a_shot_that_keeps_coming_out_blank_fails_loudly(tmp_path, monkeypatch, 
     with pytest.raises(RenderError, match="blank"):
         SM._film(_project(tmp_path), _job(), [0, 2], "shot", "medium", log=lambda *_: None)
     assert not list((tmp_path / ".studio" / "cache" / "clay").glob("*/.done"))
+
+
+@pytest.mark.skipif(not sys.platform.startswith("linux"), reason="PR_SET_PDEATHSIG is Linux only")
+def test_a_child_dies_with_its_parent_even_when_the_parent_is_killed_outright():
+    """Blender is started this way: if sastudio is killed with SIGKILL (nothing of ours runs), the kernel kills it."""
+    parent = subprocess.Popen([sys.executable, "-c", (
+        "import subprocess, sys, time\n"
+        "from sastudio.stopmotion import _die_with_parent\n"
+        "c = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(600)'], preexec_fn=_die_with_parent)\n"
+        "print(c.pid, flush=True)\n"
+        "time.sleep(600)\n")], stdout=subprocess.PIPE, text=True)
+    child = int(parent.stdout.readline())
+    assert not _gone(child)
+    parent.kill()
+    parent.wait(timeout=10)
+    for _ in range(50):
+        if _gone(child):
+            break
+        time.sleep(.1)
+    assert _gone(child), "the child outlived a parent killed with SIGKILL"

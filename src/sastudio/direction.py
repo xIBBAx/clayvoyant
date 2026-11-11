@@ -52,6 +52,35 @@ LIGHTING: dict[str, dict] = {
     "dramatic": {"key_k": 4300, "fill": 0.10, "rim": 0.60, "exposure": -0.2, "softness": 0.25, "practicals": False},
     "suspense": {"key_k": 3800, "fill": 0.20, "rim": 0.45, "exposure": -0.4, "softness": 0.35, "practicals": True},
 }
+# A scene can tune its light on top of the preset (`direction.light`): the YAML name, the engine's name, and the range.
+LIGHT_KNOBS: dict[str, tuple[str, float, float]] = {
+    "temperature": ("key_k", 1800, 9000),          # the key's colour, in kelvin
+    "key_direction": ("key_azimuth", -180, 180),   # degrees: 0 from behind the camera, 90 from camera right, 180 from behind the set
+    "key_height": ("key_height", 5, 85),           # degrees above the horizon
+    "key_strength": ("key_strength", 0.1, 4),      # times the preset's key
+    "fill": ("fill", 0, 1.5),                      # shadow side, as a share of the key
+    "rim": ("rim", 0, 2),                          # the edge light from behind
+    "softness": ("softness", 0, 1),                # 0 hard shadows, 1 very soft
+    "exposure": ("exposure", -3, 3),               # stops
+    "sun_direction": ("sun_azimuth", -180, 180),   # where the sun (or the window light) comes from
+    "sun_height": ("sun_height", 3, 85),
+    "sun_strength": ("sun_strength", 0, 4),
+    "sky": ("sky", 0, 4),                          # how bright the world outside is
+    "bounce": ("bounce", 0, 1),                    # a warm board below the camera that lifts faces in a backlit room
+}
+
+
+def light_overrides(scene) -> dict:
+    """The scene's `direction.light`, in the engine's terms. Absent keys keep the preset (and the cache) unchanged."""
+    light = ((getattr(scene, "direction", None) or {}).get("light")) or {}
+    out = {LIGHT_KNOBS[k][0]: v for k, v in light.items() if k in LIGHT_KNOBS}
+    if light.get("practicals") is not None:
+        out["practicals"] = bool(light["practicals"])
+    if light.get("tint"):
+        out["tint"] = light["tint"]
+    return out
+
+
 # Gestures: the body parts they use (two gestures in one line may not share a part), seconds,
 # and whether they play once, hold for the line, or loop.
 GESTURES: dict[str, dict] = {
@@ -92,7 +121,7 @@ SETS: dict[str, dict] = {
                      "seats": ["head_of_table", "left_seat", "right_seat"],
                      "props": ["laptop", "phone", "mug", "screen", "poster"], "door": True},
     "home_desk": {"marks": ["desk", "sofa", "window"], "seats": ["desk", "sofa"],
-                  "props": ["laptop", "phone", "mug", "plant", "router"], "door": False},
+                  "props": ["laptop", "phone", "mug", "plant", "router"], "door": False, "clock": True},
     "cafe": {"marks": ["table_left", "table_right", "table_left_2", "table_right_2", "counter", "door"],
              "seats": ["table_left", "table_right", "table_left_2", "table_right_2"],
              "props": ["laptop", "phone", "mug", "wifi_sign"], "door": True},
@@ -102,9 +131,22 @@ SETS: dict[str, dict] = {
                "seats": ["bench"], "props": ["phone", "car", "bus_stop"], "door": False},
     "classroom": {"marks": ["teacher", "board", "teacher_desk", "front_desk_left", "front_desk_right", "standing_left",
                             "standing_right", "door"], "seats": ["teacher_desk", "front_desk_left", "front_desk_right"],
-                  "props": ["board", "laptop", "map", "phone"], "door": True},
+                  "props": ["board", "laptop", "map", "phone"], "door": True, "clock": True},
     "studio": {"marks": ["centre"], "seats": [], "props": [], "door": False},
 }
+# What a wall clock reads when the scene does not say (`direction.clock: "17:45"`): the scene's time of day.
+CLOCK_AT = {"morning": "08:40", "day": "13:15", "evening": "18:25", "night": "22:50"}
+
+
+def clock_time(scene) -> str | None:
+    """HH:MM for the wall clock of the scene's set, or None when the set hangs no clock."""
+    d = scene.direction or {}
+    set_name = d.get("set") or _default_set(scene)
+    if not SETS.get(set_name, {}).get("clock"):
+        return None
+    return d.get("clock") or CLOCK_AT.get((scene.setting or {}).get("time_of_day", "day"), "13:15")
+
+
 # Transitions: a clean cut unless a story event motivates something else. No wipes or spins.
 TRANSITIONS: dict[str, str] = {
     "cut": "a clean cut (the default)",
@@ -139,6 +181,8 @@ class Shot:
     reason: str = ""
     position: list[float] | None = None  # the camera's exact place in the set, when the scene gives one
     aim: list[float] | None = None  # and the point it looks at
+    part: list[float] | None = None  # a piece of one line [from, to] as fractions: a cut inside the line
+    fallback: str = "two_shot"  # what an over-the-shoulder becomes when it would see the speaker from behind
 
 
 @dataclass
@@ -149,6 +193,7 @@ class ScenePlan:
     transition_in: str
     sides: dict[str, str]
     shots: list[Shot]
+    light: list[str] = field(default_factory=list)   # the light knobs this scene turns (`direction.light`)
 
 
 def _suggest(value: str, choices) -> str:
@@ -220,20 +265,39 @@ def validate(project) -> list[Problem]:
         elif tr == "fade_from_black" and idx > 0 and not d.get("time_jump"):
             out.append(Problem("error", f"{where}.transition_in", "A fade from black is only for the first scene or a "
                                "jump in time.", "Add `time_jump: true` if time has passed, or use a cut."))
+        end = d.get("end_with") or {}
+        if end.get("camera") and end["camera"] not in SHOTS:
+            out.append(Problem("error", f"{where}.end_with.camera", f"Unknown camera '{end['camera']}'.", _suggest(end["camera"], SHOTS)))
+        if end.get("move") and end["move"] not in MOVES:
+            out.append(Problem("error", f"{where}.end_with.move", f"Unknown camera move '{end['move']}'.", _suggest(end["move"], MOVES)))
+        if d.get("clock") and not SETS.get(set_name, {}).get("clock"):
+            out.append(Problem("warning", f"{where}.clock", f"The {set_name} set has no wall clock; `clock` does nothing here.",
+                               "Clocks hang in: " + ", ".join(k for k, v in SETS.items() if v.get("clock")) + "."))
         if d.get("open_with") and d["open_with"] not in SHOTS:
             out.append(Problem("error", f"{where}.open_with", f"Unknown camera '{d['open_with']}'.",
                                _suggest(d["open_with"], SHOTS)))
         line_ids = [ln.id for ln in s.lines]
         covered: dict[str, int] = {}
+        pieces: dict[str, list[tuple[float, float, str]]] = {}
         for n, shot in enumerate(d.get("shots") or [], 1):
             w = f"{where}.shots[{n}]"
+            part = shot.get("part")
+            if part is not None:
+                if len(shot.get("lines") or []) != 1:
+                    out.append(Problem("error", f"{w}.part", "A shot with `part` films a piece of one line.",
+                                       "Give it exactly one line."))
+                elif not (0 <= part[0] < part[1] <= 1):
+                    out.append(Problem("error", f"{w}.part", "`part` is [from, to] with 0 <= from < to <= 1.",
+                                       "For example [0, 0.6] and then [0.6, 1]."))
+                else:
+                    pieces.setdefault(shot["lines"][0], []).append((float(part[0]), float(part[1]), w))
             for lid in shot.get("lines") or []:
                 if lid not in line_ids:
                     out.append(Problem("error", w, f"No line '{lid}' in this scene.", _suggest(lid, line_ids)))
-                elif lid in covered:
+                elif lid in covered and not (part is not None and lid in pieces):
                     out.append(Problem("error", w, f"Line '{lid}' is already in shot {covered[lid]}."))
                 else:
-                    covered[lid] = n
+                    covered.setdefault(lid, n)
             out += _check_shot(shot, w, present, set_info, set_name)
             secs = shot.get("seconds")
             if secs:
@@ -241,6 +305,11 @@ def validate(project) -> list[Problem]:
                 if secs < need:
                     out.append(Problem("error", f"{w}.seconds", f"The dialogue in this shot needs about {need:.1f} s, "
                                        f"longer than {secs} s.", "Lengthen the shot or split the lines."))
+        for lid, ps in pieces.items():
+            ps.sort()
+            if ps[0][0] != 0 or ps[-1][1] != 1 or any(a[1] != b[0] for a, b in zip(ps, ps[1:], strict=False)):
+                out.append(Problem("error", ps[0][2] + ".part", f"The pieces of line '{lid}' must run from 0 to 1 "
+                                   "without gaps or overlaps.", "For example [0, 0.6] in one shot and [0.6, 1] in the next."))
         order = [covered[lid] for lid in line_ids if lid in covered]
         if order != sorted(order):
             out.append(Problem("error", f"{where}.shots", "Shots must follow the order of the lines."))
@@ -271,6 +340,22 @@ def validate(project) -> list[Problem]:
                 out.append(Problem("error", f"{w}.go", f"The {set_name} set has no mark '{ln.go}'.", _suggest(ln.go, set_info["marks"])))
             if ln.to and ln.to not in present:
                 out.append(Problem("error", f"{w}.to", f"'{ln.to}' is not in this scene.", "Add them to `extras`."))
+            for n, b in enumerate(getattr(ln, "beats", None) or [], 1):
+                wb = f"{w}.beats[{n}]"
+                who = b.get("who") or ln.who
+                if who not in present:
+                    out.append(Problem("error", f"{wb}.who", f"'{who}' is not in this scene.", _suggest(who, present)))
+                g = b.get("act")
+                if g and g not in GESTURES:
+                    out.append(Problem("error", f"{wb}.act", f"Unknown gesture '{g}'.", _suggest(g, GESTURES)))
+                elif g and GESTURES[g].get("prop") and GESTURES[g]["prop"] not in set_info["props"]:
+                    out.append(Problem("error", f"{wb}.act", f"'{g}' needs a {GESTURES[g]['prop']}, and the {set_name} set has none."))
+                elif g in ("sit_down", "stand_up", "walk_in", "walk_out"):
+                    out.append(Problem("error", f"{wb}.act", f"'{g}' moves someone across the set; give it to a line's `act`.",
+                                       "Beats are for business in place: a nod, a look, a mug, a phone."))
+                if b.get("feeling") and b["feeling"] not in EMOTIONS:
+                    out.append(Problem("warning", f"{wb}.feeling", f"'{b['feeling']}' is not an expression the clay renderer "
+                                       "knows; it will look neutral.", _suggest(b["feeling"], EMOTIONS)))
     return out
 
 
@@ -331,12 +416,16 @@ def plan(project) -> list[ScenePlan]:
     """Direct every enabled scene: explicit shots where given, varied defaults everywhere else."""
     plans: list[ScenePlan] = []
     prev_set = None
+    prev_end = None
     for s in (x for x in project.scenes if x.enabled):
         d = s.direction or {}
         set_name = d.get("set") or _default_set(s)
         present = _present(s, d)
         sides = {cid: ("left" if i % 2 == 0 else "right") for i, cid in enumerate(present)}  # screen direction holds
-        explicit = {lid: shot for shot in d.get("shots") or [] for lid in shot.get("lines") or []}
+        explicit: dict[str, list[dict]] = {}
+        for shot in d.get("shots") or []:
+            for lid in shot.get("lines") or []:
+                explicit.setdefault(lid, []).append(shot)
         seed = int(hashlib.sha256(s.id.encode()).hexdigest()[:8], 16)
         spoken = [ln for ln in s.lines if not ln.is_card]
         last_id = spoken[-1].id if spoken else None
@@ -346,24 +435,88 @@ def plan(project) -> list[ScenePlan]:
             if ln.id in done:
                 continue
             if ln.id in explicit:
-                spec = explicit[ln.id]
-                ids = list(spec.get("lines") or [])
-                done.update(ids)
-                cam = spec.get("camera", "medium")
-                on = _on_list(spec.get("who")) or ([ln.who] if ln.who else [])
-                shots.append(_shot(s, ids, cam, on, spec.get("focus") or (on[0] if on else None),
-                                   spec.get("move", "static"), spec, "as written in the scene"))
+                for spec in sorted(explicit[ln.id], key=lambda x: (x.get("part") or [0])[0]):
+                    ids = list(spec.get("lines") or [])
+                    done.update(ids)
+                    cam = spec.get("camera", "medium")
+                    on = _on_list(spec.get("who")) or ([ln.who] if ln.who else [])
+                    shots.append(_shot(s, ids, cam, on, spec.get("focus") or (on[0] if on else None),
+                                       spec.get("move", "static"), spec, "as written in the scene"))
                 continue
             if ln.is_card:
                 shots.append(_shot(s, [ln.id], "insert", [], None, "static", {}, "an on-screen card"))
                 continue
-            cam, on, move, reason = _choose(s, d, ln, i, shots, present, prev_set, set_name, last_id, seed)
-            shots.append(_shot(s, [ln.id], cam, on, ln.who, move, {}, reason))
+            if ln.id == last_id and shots and not ln.camera:
+                cam, on, move, reason = _ending(d, ln, present, prev_end, seed)
+                prev_end = (cam, move)
+            else:
+                cam, on, move, reason = _choose(s, d, ln, i, shots, present, prev_set, set_name, last_id, seed)
+            react = _reaction(d, ln, cam, present, shots, last_id, seed + i)
+            if react:
+                listener, at = react
+                shots.append(_shot(s, [ln.id], cam, on, ln.who, move, {"part": [0, at]}, reason))
+                shots.append(_shot(s, [ln.id], "reaction", [listener], listener, "static", {"part": [at, 1]},
+                                   f"cut inside the line to {listener} listening, where {ln.who}'s mouth rests"))
+                shots[-1].acts = {}
+            else:
+                shots.append(_shot(s, [ln.id], cam, on, ln.who, move, {}, reason))
         shots = _merge_holds(shots)
+        for k, sh in enumerate(shots):
+            if sh.camera == "over_shoulder":
+                near = [x for x in (shots[k - 1] if k else None, shots[k + 1] if k + 1 < len(shots) else None) if x]
+                if any(x.camera == "two_shot" and set(x.who) == set(sh.who) for x in near):
+                    sh.fallback = "medium"      # a two-shot of these two is already next to it
         plans.append(ScenePlan(s.id, set_name, d.get("lighting") or _default_lighting(s),
-                               d.get("transition_in", "cut"), sides, shots))
+                               d.get("transition_in", "cut"), sides, shots, sorted((d.get("light") or {}).keys())))
         prev_set = set_name
     return plans
+
+
+REACT_MIN_SECONDS = 3.4   # a line shorter than this is not cut in two
+
+
+def _reaction(d, ln, cam, present, shots, last_id, seed):
+    """Whether to cut away to the listener part way through a line: (listener, fraction) or None.
+
+    The line must be long enough to carry two shots, the speaker's own shot must show only the speaker, and the scene
+    must not have just cut to a reaction. The cut lands between 55 and 65 % of the line; the filming snaps it to a
+    drawing where the speaker's mouth is at rest. `direction.reactions: false` turns this off for a scene."""
+    if d.get("reactions", True) is False or ln.id == last_id or not shots or cam not in ("close_up", "medium"):
+        return None
+    if ln.camera:
+        return None     # the writer chose this line's camera: it holds for the whole line
+    listener = ln.to if ln.to in present and ln.to != ln.who else next((c for c in present if c != ln.who), None)
+    if not listener or _estimate(ln) < REACT_MIN_SECONDS:
+        return None
+    if any(sh.camera == "reaction" for sh in shots[-2:]):
+        return None
+    if shots[-1].camera == cam and shots[-1].who == [ln.who]:
+        return None     # the same framing continues from the line before: the planner joins them into one shot
+    return listener, round(.55 + (seed % 3) * .05, 2)
+
+
+# How a scene can end, and why. The planner never ends two scenes in a row the same way.
+ENDINGS = [
+    ("close_up", "push_in", "the scene's last word: closer"),
+    ("wide", "pull_out", "the matter is settled: we leave them in the place"),
+    ("two_shot", "static", "the last word lands on both of them"),
+]
+
+
+def _ending(d, ln, present, prev_end, seed):
+    """The last shot of a scene. `direction.end_with: {camera, move, why}` decides it; otherwise the first scene ends
+    closer and each later one ends differently from the one before (a two-shot needs someone to share it with)."""
+    listener = ln.to if ln.to in present and ln.to != ln.who else next((c for c in present if c != ln.who), None)
+    want = d.get("end_with")
+    if want:
+        cam = want.get("camera", "close_up")
+        on = present if cam in ("wide", "establishing") else ([ln.who, listener] if SHOTS[cam]["min"] == 2 and listener
+                                                              else [ln.who])
+        return cam, on, want.get("move", "static"), want.get("why") or "the scene asks to end this way"
+    options = [e for e in ENDINGS if (e[0], e[1]) != prev_end and (e[0] != "two_shot" or listener)]
+    cam, move, why = ENDINGS[0] if prev_end is None else options[seed % len(options)]
+    on = present if cam == "wide" else ([ln.who, listener] if cam == "two_shot" else [ln.who])
+    return cam, on, move, why
 
 
 def _choose(s, d, ln, i, shots, present, prev_set, set_name, last_id, seed):
@@ -386,18 +539,22 @@ def _choose(s, d, ln, i, shots, present, prev_set, set_name, last_id, seed):
             opener, why = options[seed % len(options)]
         on = present if opener in ("establishing", "wide") else [ln.who]
         return opener, on, "static", why
-    if ln.id == last_id:
-        return "close_up", [ln.who], "push_in", "the scene's last word: closer"
     spoken_before = {x.who for x in s.lines[:i]}
     if ln.who not in spoken_before:
         return ("wide" if len(present) > 2 else "medium"), (present if len(present) > 2 else [ln.who]), "static", \
             f"{ln.who} joins the conversation: seen in context"
     prev = s.lines[i - 1] if i else None
+    words = len((ln.say or "").split())
+    if shots[-1].camera == "reaction" and shots[-1].who == [ln.who]:
+        # we cut to this person listening; now they answer: a size wider, so the cut reads as a cut
+        return "medium", [ln.who], "static", "the listener answers: wider than the reaction"
+    if words <= 6 and ((ln.say or "").rstrip().endswith("!") or ln.emotion in ("surprised", "shocked")) and \
+            not (shots and shots[-1].camera in ("close_up", "extreme_close_up") and shots[-1].who == [ln.who]):
+        return "extreme_close_up", [ln.who], "static", "a short, sharp line: on the eyes"
     if prev is not None and (prev.say or "").rstrip().endswith("?") and prev.who != ln.who:
         return "close_up", [ln.who], "static", "an answer to a question"
     if (ln.say or "").rstrip().endswith("?") and listener:
         return "over_shoulder", [ln.who, listener], "static", "a question, seen past the listener"
-    words = len((ln.say or "").split())
     rotation = ["two_shot", "medium", "over_shoulder", "medium", "wide", "close_up"] if len(present) == 2 else \
                ["medium", "wide", "medium", "close_up", "two_shot", "medium"]
     cam = rotation[(seed + i) % len(rotation)]
@@ -418,12 +575,14 @@ def _choose(s, d, ln, i, shots, present, prev_set, set_name, last_id, seed):
 def _shot(s, ids, cam, on, focus, move, spec, reason) -> Shot:
     lines = [ln for ln in s.lines if ln.id in ids]
     info = SHOTS.get(cam, SHOTS["medium"])
-    secs = spec.get("seconds") or round(sum(_estimate(ln) for ln in lines), 2)
+    part = list(spec["part"]) if spec.get("part") is not None else None
+    secs = spec.get("seconds") or round(sum(_estimate(ln) for ln in lines) * ((part[1] - part[0]) if part else 1), 2)
     return Shot(lines=list(ids), camera=cam, who=list(on), focus=focus, move=move, seconds=secs,
                 lens=int(spec.get("lens_mm") or info["lens"]), height=spec.get("height", "eye"),
                 fstop=float(spec.get("fstop") or info["fstop"]),
                 acts={ln.id: list(ln.act) for ln in lines if ln.act}, reason=reason,
-                position=list(spec["position"]) if spec.get("position") else None, aim=list(spec["aim"]) if spec.get("aim") else None)
+                position=list(spec["position"]) if spec.get("position") else None, aim=list(spec["aim"]) if spec.get("aim") else None,
+                part=part)
 
 
 MAX_HOLD = 12.0  # seconds a held static shot may run before the planner cuts
@@ -439,7 +598,7 @@ def _merge_holds(shots: list[Shot]) -> list[Shot]:
     for sh in shots:
         last = out[-1] if out else None
         same = (last is not None and last.camera == sh.camera and last.who == sh.who and last.camera != "insert"
-                and "as written in the scene" not in (last.reason, sh.reason))
+                and "as written in the scene" not in (last.reason, sh.reason) and not last.part and not sh.part)
         if same and (sh.move == "push_in" or last.seconds + sh.seconds <= MAX_HOLD):
             last.lines += sh.lines
             last.seconds = round(last.seconds + sh.seconds, 2)
@@ -465,12 +624,14 @@ def describe(plans: list[ScenePlan]) -> str:
     rows = []
     for p in plans:
         lt = LIGHTING[p.lighting] if p.lighting in LIGHTING else {}
-        rows.append(f"{p.scene}: {p.set} set, {p.lighting} light ({lt.get('key_k', '?')} K), enters by {p.transition_in}")
+        tuned = f", tuned: {', '.join(p.light)}" if getattr(p, "light", None) else ""
+        rows.append(f"{p.scene}: {p.set} set, {p.lighting} light ({lt.get('key_k', '?')} K{tuned}), enters by {p.transition_in}")
         rows.append("   ".join(f"{c} {side}" for c, side in p.sides.items()) and
                     "   screen sides: " + ", ".join(f"{c} {side}" for c, side in p.sides.items()))
         for n, sh in enumerate(p.shots, 1):
             who = ", ".join(sh.who) or "-"
             acts = "; ".join(f"{k}: {'+'.join(v)}" for k, v in sh.acts.items())
             rows.append(f"  {n:>2}. {sh.camera:<16} {sh.lens:>3} mm  {sh.move:<8} {sh.seconds:>5.1f} s  on {who:<18}"
-                        f" lines {','.join(sh.lines)}" + (f"  [{acts}]" if acts else "") + f"  ({sh.reason})")
+                        f" lines {','.join(sh.lines)}" + (f" {sh.part[0]:.0%}-{sh.part[1]:.0%}" if sh.part else "")
+                        + (f"  [{acts}]" if acts else "") + f"  ({sh.reason})")
     return "\n".join(r for r in rows if r)

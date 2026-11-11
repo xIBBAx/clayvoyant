@@ -27,7 +27,33 @@
   framed from where the people really are and follows a subject who walks, stands or sits.
 - **Guests**: imported glTF, FBX and OBJ characters act in clay scenes; they are grounded by their
   real geometry and stored animation is removed. Characters export to GLB, FBX, OBJ and `.blend`.
+- **Cutting inside a line.** A shot can cover a `part` of one line, and the cut lands on the
+  nearest drawing where the speaker's mouth is at rest. Left alone, the planner cuts to the
+  listener part way through long lines (`direction.reactions: false` turns it off), the listener's
+  answer opens a size wider, and a short sharp line gets an extreme close-up. `reaction` and
+  `extreme_close_up` were declared before but could never be chosen.
+- **An insert on a prop is filmed** (`camera: insert, who: [laptop]`) with the line heard over it.
+  Before, such a line was skipped without a word and fell back to the drawn style.
+- **Framing**: a shot no longer shows the back of the speaker's head (an over-the-shoulder from
+  behind a listener who stands upstage becomes a two-shot or a medium), and everyone a shot is on
+  stays inside the frame however near the lens they sit.
 - `examples/the-fast-one`: an original two-scene short made entirely by these commands.
+
+### Reliability
+
+- A hung Blender is stopped: the time limit and a stall watchdog (no new drawing for 20 minutes)
+  are enforced while reading its output. Before, a Blender that hung without writing blocked forever.
+- A shot whose Blender crashes or hangs is started once more from its first missing drawing; an
+  error in the engine's own code is not retried.
+- Blank drawings (one flat colour, or unreadable) are thrown away and drawn again; a shot that stays
+  blank fails with a message.
+- No Blender outlives sastudio: Ctrl+C and `kill` stop it, and on Linux even `kill -9` does.
+- `sastudio clean <project> --shots` lists filmed shots that nothing uses any more, with sizes, and
+  deletes them only with `--yes`. A shot renumbered by an edit is found by its content and reused.
+- `sastudio motion --out` accepts a folder.
+- Tests: any internet connection from the test process fails the test; tests that need FFmpeg or
+  Blender skip with a reason when it is missing (one used to fail); a real two-drawing clay render
+  runs when Blender is present.
 
 ### Voices
 

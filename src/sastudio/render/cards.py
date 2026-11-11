@@ -43,6 +43,7 @@ class Visuals:
     clay: dict[str, Path] = field(default_factory=dict)  # line id -> folder of rendered clay frames
     clay_step: int = 2
     clay_names: set[str] = field(default_factory=set)  # lines that open with the speaker's name tag
+    clay_name_until: dict[str, int] = field(default_factory=dict)  # line id -> frame where the film cuts away from the speaker
     clay_titles: dict[str, Path] = field(default_factory=dict)  # scene id -> frames of its opening shot
     clay_fades: dict[str, bool] = field(default_factory=dict)  # scene id -> the opening fades up from black
     figures: dict[str, dict[str, Image.Image]] = field(default_factory=dict)  # drawn styles: variant -> image
@@ -203,6 +204,9 @@ class SceneRenderer:
         self._base_cache[key] = im
         return im
 
+    def name_end(self, beat: Beat) -> int:
+        return min(66, self.vis.clay_name_until.get(beat.line_id or "", 66))
+
     def clay_frame(self, beat: Beat, f: int) -> Image.Image | None:
         folder = self.vis.clay.get(beat.line_id or "")
         if folder is None:
@@ -222,10 +226,12 @@ class SceneRenderer:
         clay = self.clay_frame(beat, f)
         if clay is not None:
             im = clay.copy()
-            if beat.line_id in self.vis.clay_names and f < 66:
+            end = self.name_end(beat)
+            if beat.line_id in self.vis.clay_names and f < end:
                 # a film frame is left alone: only a name tag, the first time someone speaks, and it leaves again
+                # (sooner if the film cuts away from the speaker: a name never sits on someone else's face)
                 self.name_pill(im, beat.speaker_name or beat.speaker, self.S(220), self.H - self.S(250),
-                               min(ease(f / 6.0), ease((66 - f) / 8.0)))
+                               min(ease(f / 6.0), ease((end - f) / 8.0)))
             return self._overlays(im, beat, f)
         im = self.line_base(beat, beat.speaker).copy()
         slot = next((s for s in self.cast_layout(self.tl.cast) if s[0] == beat.speaker), None)
@@ -470,7 +476,8 @@ class SceneRenderer:
                     t = f / self.tl.fps
                     cue = next((c[2] for c in beat.cues if c[0] <= t < c[1]), None) if self.vis.burn_subtitles else None
                     clay_idx = f - f % self.vis.clay_step if beat.line_id in self.vis.clay else None
-                    tag = min(f, 66) if clay_idx is not None and beat.line_id in self.vis.clay_names and (f < 8 or 56 < f < 68) else 0
+                    end = self.name_end(beat)
+                    tag = min(f, end) if clay_idx is not None and beat.line_id in self.vis.clay_names and (f < 8 or end - 10 < f < end + 2) else 0
                     key = ("line", round(env * 6), min(f, 6), cue, clay_idx, self.speaker_variant(beat, f), tag)
                     if key != last_key or last is None:
                         last = seen.get(key)

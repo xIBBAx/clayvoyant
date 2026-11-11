@@ -166,6 +166,30 @@ See "Text shaping (Raqm)" above.
 Scenes are reused when nothing that affects their pictures changed. Run `sastudio clean my-film`
 to force every scene to render again (finished films and the voice cache are kept).
 
+### Clay films
+
+**`Blender wrote no new drawing for 20 min and was stopped.` / `Blender ran past its limit`**
+Blender hung (a lost GPU, a driver reset, a frozen display server). It has been stopped and nothing
+is left running. Every drawing it finished is kept: run the same command again and the shot
+carries on from its first missing drawing. A shot whose Blender crashes or hangs is already
+started once more by itself before you see this. Slow machines can allow longer with
+`SASTUDIO_CLAY_STALL_MINUTES=60`; `SASTUDIO_CLAY_RETRIES=0` turns the automatic second try off.
+
+**`N drawing(s) came out blank`**
+Blender wrote frames of one flat colour twice in a row (usually a GPU problem). Blank frames are
+never kept. Check the graphics driver, or film on the processor with `SASTUDIO_CLAY_DEVICE=CPU`.
+
+**I stopped a film (Ctrl+C, `kill`, closed the terminal). Is Blender still running?**
+No. On Ctrl+C or a plain `kill`, sastudio stops Blender before it exits; on Linux, Blender is also
+tied to sastudio's life, so even `kill -9` leaves no Blender behind. (A Windows `blender.exe`
+started from WSL2 is a separate Windows process: check Task Manager if you stop sastudio by force.)
+Run the same command again to carry on.
+
+**The `.studio/cache/clay` folder is huge**
+Each time a shot is filmed again (an edited line, a new look, a new version of the engine) the old
+copy stays behind. `sastudio clean my-film --shots` lists the ones nothing uses any more, with
+their sizes, and deletes them only when you add `--yes`. `--all` lists every filmed shot.
+
 ## Windows and WSL
 
 - Under WSL, keep projects in the Linux file system (for example `~/films`) for speed. Projects on

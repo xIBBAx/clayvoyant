@@ -43,10 +43,13 @@ clay (the default). The drawn styles (v1-v3) animate the speaker's mouth and bli
 [CHARACTERS.md](CHARACTERS.md#four-styles). Changing the style re-renders every scene once; the
 figures are drawn once per design and kept in `.studio/work/figures`.
 
-Measured on the machine in [REQUIREMENTS.md](REQUIREMENTS.md): drawing all six variants of one
-character takes about 0.3 s (flat), 0.4 s (sketch) and 0.9 s (cut-out); a 75-second scene at
-1280x720 renders in 14-20 s from a clean cache in a drawn style, against a few seconds in clay,
-because the speaker's face changes 12 times a second instead of holding still.
+Measured on the machine in [REQUIREMENTS.md](REQUIREMENTS.md): drawing all six variants
+of one character takes about 0.3 s (flat), 0.4 s (sketch) and 0.9 s (cut-out); a 75-second scene at
+1280x720 renders in 14-20 s from a clean cache in a drawn style, against a few seconds with the `v4`
+clay portraits, because a drawn speaker's face changes 12 times a second while a portrait is one
+still picture. That is the cards renderer only. Filming in clay with Blender (`sastudio film`, below)
+is a different job and much slower: seconds per drawing, about an hour for the 82-second sample film
+on a laptop GPU.
 
 ### A final film needs your real reporting address
 
@@ -141,14 +144,15 @@ Scenes render in parallel. `--jobs` sets how many at once (default: half your CP
 limit: lower `--jobs` if your computer starts swapping.
 
 Measured on one machine (Intel Core i7-10750H, 12 threads, 7.7 GB available to WSL2, FFmpeg 6.1.1),
-rendering the 12-scene starter film (14 min 23 s, silent placeholder voices). Examples, not promises:
+rendering the 12-scene starter film (14 min 19 s, silent placeholder voices), re-measured on
+2026-11-11. Examples, not promises:
 
 | Job | Wall clock | Peak memory |
 |---|---|---|
-| Whole starter film, `preview` (1280 x 720), `--jobs 4` | 74 s | 237 MB |
-| Whole starter film, `final` (1920 x 1080), `--jobs 3` | 2 min 22 s | 615 MB |
+| Whole starter film, `preview` (1280 x 720), `--jobs 4` | 90 s | 244 MB |
+| Whole starter film, `final` (1920 x 1080), `--jobs 3` | 2 min 41 s | 621 MB |
 | Re-running the same render with nothing changed | every scene reused | |
-| Three-scene example, `draft`, English / Hindi | 14 s / 21 s | 126 MB / 128 MB |
+| Three-scene example, `draft`, English / Hindi (measured for 0.1.0, not re-run) | 14 s / 21 s | 126 MB / 128 MB |
 
 The cards renderer draws with Pillow and encodes with FFmpeg's x264 on the CPU. A GPU does not
 speed it up.
@@ -164,6 +168,8 @@ assembly as every other film: subtitles, cards, intro and outro, loudness, the m
 | Presets | `draft` 960x540 at 6 samples, `preview` 1280x720 at 12, `final` 1920x1080 at 24 |
 | Cadence | on twos: twelve drawings a second |
 | Reuse | each shot is stored by a hash of what can affect it; an interrupted shot resumes at its first missing drawing |
+| Watchdog | Blender is stopped if it draws nothing new for 20 minutes (`SASTUDIO_CLAY_STALL_MINUTES`) and the shot is started once more (`SASTUDIO_CLAY_RETRIES`); a drawing of one flat colour is thrown away and drawn again; no Blender outlives sastudio, even after `kill -9` on Linux |
+| Disk | `sastudio clean <project> --shots` lists filmed shots nothing uses any more (a dry run until `--yes`) |
 | Where | sculpts in `.studio/rig`, shots in `.studio/cache/clay`, voices in `.studio/cache/voices` |
 | Device | `SASTUDIO_CLAY_DEVICE=CPU` skips the GPU request; by default a GPU is asked for and the CPU is the fallback, and the log says which was used |
 | Blender | `SASTUDIO_BLENDER` names the program; on WSL2 a Windows `blender.exe` works and paths are converted |

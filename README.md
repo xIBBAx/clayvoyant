@@ -44,12 +44,18 @@ sastudio film examples/the-fast-one --preset draft
 ```
 
 That one command voices thirteen lines, sculpts three people, builds a cafe and an office, films
-fourteen shots on twos and assembles a subtitled film in `examples/the-fast-one/build/`. No
+seventeen shots on twos and assembles a subtitled film in `examples/the-fast-one/build/`. No
 account and no API key. Edit a line and only the shots it can affect are filmed again.
 
 <p align="center">
-  <img src="docs/media/film/the-fast-one-sheet.jpg" width="100%" alt="Twelve frames from The Fast One. A cafe at dusk with the city in the window: Tara typing at a table, Odile behind the counter pointing at the menu board, close-ups of both, the two of them at the table with a mug. Then an office in morning light: a laptop in close-up that the camera pulls back from to show Bashir, bearded and in glasses, typing at his desk; Tara walking in through the door and waving; Bashir standing to make a point; a thumbs-up.">
+  <img src="docs/media/film/the-fast-one-sheet.jpg" width="100%" alt="Twelve frames from The Fast One. A cafe at dusk with the city in the window: Tara at a table with her laptop and Odile behind the counter, seen whole; Tara listening in close-up while Odile explains which Wi-Fi is hers; Tara reading out what the other network wants; the two of them at the table; Odile in close-up, smiling. A key point card. Then an office in morning light: Tara arriving at Bashir's desk; Bashir, bearded and in glasses, asking what stopped her; Tara explaining with her palms open; Bashir standing to make his point; the two of them as he offers to buy the coffee. A last key point card.">
 </p>
+
+**[Watch The Fast One](https://github.com/xIBBAx/security-awareness-studio/releases/latest/download/The_Fast_One.en-GB.mp4)** (82 seconds, 6.5 MB; attached to the release
+with its [subtitles](https://github.com/xIBBAx/security-awareness-studio/releases/latest/download/The_Fast_One.en-GB.srt)). It is exactly what the command above
+makes with `--preset preview`: 1280x720 at 24 frames a second, 1,974 frames, two scenes, seventeen
+filmed shots (two of them reactions cut into the middle of a line), thirteen Kokoro lines at -16
+LUFS. Filming every shot from nothing took 55 minutes on a laptop GeForce GTX 1660 Ti.
 
 Everything in [The Fast One](examples/the-fast-one/) comes from two scene files and one page of
 character descriptions. Nobody opened Blender, drew anything or recorded a voice.
@@ -102,9 +108,10 @@ No model files, no photographs, nothing to license.
 </p>
 
 **The camera.** Nine framings, seven moves, seven lighting moods, depth of field. Left alone, the
-planner cuts like an editor: an answer gets a close-up, a question is seen over a shoulder, a
-scene's last word pushes in, and no scene opens the way the last one did. `sastudio direct` prints
-the shot list before anything is filmed.
+planner cuts like an editor: an answer gets a close-up, a question is seen over a shoulder, a long
+line cuts away to the listener between two words, and no scene opens or ends the way the one before
+it did. Every face gets room to look into, and no shot shows the back of a speaker's head.
+`sastudio direct` prints the shot list before anything is filmed.
 
 **Beginnings.** A scene opens on a filmed shot of its place with the title over it, entered the
 way the story asks: a slow push into the room, a door that opens, the camera pulling back from an
@@ -155,14 +162,17 @@ shots are cached by content. [ARCHITECTURE.md](docs/ARCHITECTURE.md) and
 
 ## What it costs to run
 
-Measured on one laptop (Intel Core i7-10750H, 12 threads, GeForce GTX 1660 Ti with 6 GB, Blender
-5.2 under WSL2):
+Measured on one laptop on 2026-11-11 (Intel Core i7-10750H, 12 threads, GeForce GTX 1660 Ti with
+6 GB, Blender 5.2.2 under WSL2):
 
-- Sculpting a character: about 25 seconds, once per look.
-- A voice line with Kokoro: about half its own length, on the CPU.
-- Filming: 2 to 3 seconds per drawing at 960x540, so roughly half a minute of work for each second
-  of film on twos. People the camera cannot see are not drawn.
-- The cards renderer: the 14-minute starter film in about a minute as a draft.
+- Sculpting the sample's three characters: 46 seconds for all three, once per look.
+- Voicing its thirteen lines with Kokoro on the CPU: 26 seconds for 47 seconds of speech.
+- Filming at `preview` (1280x720, 12 samples): 4.7 seconds a drawing on average (4.3 to 5.0 over
+  the sample's 666 drawings), so about 2.3 minutes of work for each second of film on twos. The
+  `draft` preset (960x540, 6 samples) took 2.2 to 2.6 seconds a drawing over 247 drawings. People
+  the camera cannot see are not drawn.
+- The cards renderer: the 14-minute starter film in 90 seconds at `preview` and 2 minutes 41 seconds
+  at `final`, on the CPU.
 
 ## Honest edges
 
@@ -172,6 +182,14 @@ Measured on one laptop (Intel Core i7-10750H, 12 threads, GeForce GTX 1660 Ti wi
   otherwise the spelling and the loudness of the voice.
 - There is no sound-effect or music library yet: a film has its dialogue and, if you add one, a
   music track. Rendering on a remote GPU is not built.
+- Another language is another film: you write each line's translation in the scene file and
+  render once per language. Nothing translates for you.
+- Eyelines go wrong when someone talks to a person standing behind them: in the sample's office
+  scene Tara often looks away from Bashir, whose desk is behind her. Part of the cause is known (a
+  person stops turning towards someone the camera cannot see); the rest is being traced, and the
+  sample will be filmed again with the fix.
+- The `final` preset (1920x1080) has not yet been run for a whole film; the sample was built with
+  `preview`. CI has no Blender, so the clay smoke test runs only where Blender is installed.
 - The starter scenes are general guidance, not policy. Replace each procedure with your own.
 
 ## Documentation

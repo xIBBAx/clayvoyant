@@ -25,9 +25,11 @@ helpful_caller: office set, office light (4500 K), enters by cut
 The automatic plan follows ordinary film grammar: every scene opens on a filmed shot of its place
 with the title over it; the first line in a new place shows everyone in it, and a return to a known
 place opens differently each time; someone joining a conversation is seen in
-context; a question is seen past the listener's shoulder and its answer closer; the last word of a
-scene gets a slow push in; the same framing is never cut to itself (a jump cut); held shots are
-cut after about 12 seconds; and each character keeps their side of the screen.
+context; a question is seen past the listener's shoulder and its answer closer; a long line cuts
+to the listener between two words; the first scene ends with a slow push in on the last word, and
+no scene ends the way the one before it did (pull back to leave them in the place, or hold on both
+of them); the same framing is never cut to itself (a jump cut); held shots are cut after about 12
+seconds; and each character keeps their side of the screen.
 
 ## Change one thing
 
@@ -43,7 +45,15 @@ On a line:
     to: leo                         # who they are talking to: their eyeline
     go: standing_right              # a mark they walk to as the line begins (they sit if it is a seat)
     reactions: { leo: surprised }   # how listeners take it
+    beats:                          # business at a moment inside the line (0 = its first word, 1 = its last)
+      - { at: 0.35, who: leo, act: lean_in }
+      - { at: 0.8, who: leo, feeling: suspicious, act: tilt_head }
 ```
+
+A beat is how a scene gets its timing: the listener's doubt arrives on the word that earns it, not
+when the line starts. `who` defaults to the speaker; a beat takes any gesture that stays in place
+(a nod, a look, a mug, a phone) and any feeling. Walking, sitting and standing belong to a line's
+`act`, which moves the person before the words.
 
 On a scene:
 
@@ -53,6 +63,8 @@ direction:
   set: office                       # where it happens
   lighting: suspense                # how it is lit
   open_with: close_up               # how the scene begins
+  end_with: { camera: wide, move: pull_out, why: "he is alone with it now" }   # how it ends, and why
+  clock: "17:45"                    # what the wall clock reads (home_desk, classroom); default: the time of day
   transition_in: cut                # how we arrive from the previous scene
   object: phone                     # for follow_object: the thing the scene opens on
   extras: [nadia]                   # in the scene without a line
@@ -85,7 +97,29 @@ the acting area is around `[0, 0.5, 0]`):
 
 `who` is the character (or, for an `insert`, the prop) the shot shows; `focus` must be one of
 them; `seconds` must be long enough for the dialogue; `lens_mm` (12-200), `fstop` (1.2-22) and
-`height` (`eye`, `low`, `high`) override the camera's defaults.
+`height` (`eye`, `low`, `high`) override the camera's defaults. An `insert` on a prop is filmed:
+the prop fills the frame and the line is heard over it.
+
+### Cutting inside a line
+
+An editor rarely holds one face for a whole long line. Give a line two shots, each with the `part`
+of the line it covers, and the film cuts between them while the line plays on:
+
+```yaml
+    - { lines: [hc_04], camera: close_up, who: rook, part: [0, 0.6] }
+    - { lines: [hc_04], camera: reaction, who: leo, part: [0.6, 1] }      # Leo hears the rest of it
+```
+
+The pieces of a line must run from 0 to 1 without gaps. The cut does not land on the exact
+fraction: it moves to the nearest drawing, between 35 and 80 % of the line, where the speaker's
+mouth is at rest (a pause, or lips closed on m, b or p), so it never chops a word.
+
+You get this without writing it, too. When a line runs longer than about 3.4 seconds and its own
+shot shows only the speaker, the automatic plan cuts to the listener 55-65 % of the way through,
+and the next line by that listener opens a size wider. `sastudio direct` shows each cut as
+`lines hc_04 0%-60%` and `60%-100%`. Turn it off for a scene with `direction: { reactions: false }`.
+A short, sharp line (six words or fewer, ending in `!` or spoken surprised) gets an
+`extreme_close_up`.
 
 ## What you can name
 
@@ -95,7 +129,7 @@ them; `seconds` must be long enough for the dialogue; `lens_mm` (12-200), `fstop
 | `wide` | 28 mm | full figures | 1-6 |
 | `medium` | 40 mm | waist up | 1 |
 | `two_shot` | 35 mm | two figures, waist up | 2 |
-| `over_shoulder` | 50 mm | the speaker past the listener's shoulder (a two-shot when the listener stands behind the speaker) | 2 |
+| `over_shoulder` | 50 mm | the speaker past the listener's shoulder (a two-shot, or a medium when a two-shot of the pair is next to it, if the listener stands behind the speaker) | 2 |
 | `close_up` | 65 mm | head and shoulders | 1 |
 | `extreme_close_up` | 100 mm | eyes and mouth | 1 |
 | `reaction` | 65 mm | a listener's face while someone else speaks | 1 |
@@ -123,6 +157,43 @@ them; `seconds` must be long enough for the dialogue; `lens_mm` (12-200), `fstop
 
 Each lighting preset differs in colour temperature, contrast and shadow, so they look different
 from one another.
+
+### Light
+
+A preset is a starting point. `direction.light` turns its knobs for one scene, so a room can have
+its own light: where the key comes from, how hard it is, what colour the room is, how bright the
+world outside the window is. Leave a knob out and the preset's value stands (and shots already
+filmed are kept).
+
+```yaml
+direction:
+  lighting: warm_interior
+  light:
+    key_direction: 65        # degrees: 0 from behind the camera, 90 from camera right, 180 from behind the set
+    key_height: 18           # degrees above the floor: low and long for late afternoon
+    temperature: 2900        # the key's colour, kelvin
+    tint: "#FFD9B8"          # a colour cast over key and fill
+    sun_direction: 120       # the window light comes from behind and to the right...
+    sun_height: 9
+    bounce: 0.5              # ...so a warm board below the camera lifts the faces
+    sky: 0.6                 # a dimmer world outside
+```
+
+| Knob | Range | What it does |
+|---|---|---|
+| `temperature` | 1800-9000 | the key light's colour, in kelvin |
+| `key_direction`, `key_height` | -180-180, 5-85 | where the key comes from (the fill moves to the other side) |
+| `key_strength` | 0.1-4 | times the preset's key |
+| `fill`, `rim` | 0-1.5, 0-2 | the shadow side and the edge light from behind |
+| `softness` | 0-1 | 0 hard shadows, 1 very soft |
+| `exposure` | -3-3 | stops |
+| `sun_direction`, `sun_height`, `sun_strength` | -180-180, 3-85, 0-4 | the sun, or the daylight through a window |
+| `sky` | 0-4 | how bright the world outside is |
+| `bounce` | 0-1 | a warm fill from below the camera, for a backlit room |
+| `tint` | `#RRGGBB` | a colour cast over key and fill |
+| `practicals` | true/false | whether the set's own lamps are lit |
+
+`sastudio direct` lists the knobs a scene turns next to its lighting.
 
 | Gesture | Uses | Kind | Needs |
 |---|---|---|---|

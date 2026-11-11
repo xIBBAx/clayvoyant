@@ -28,9 +28,10 @@ from ..render import clay
 
 FPS = 24
 STEP = 2
-ENGINE_VERSION = "5"  # bump when the engine changes what it draws: every cached shot is filmed again
+ENGINE_VERSION = "6"  # bump when the engine changes what it draws: every cached shot is filmed again
 PRESETS = {"draft": (960, 540, 6), "preview": (1280, 720, 12), "final": (1920, 1080, 24)}
 LEAD = 3              # frames of breath before a line when there is no recorded audio to time it
+SPEAKER_UNTIL = "speaker_until"   # in a line's folder: the first frame of the line that does not show its speaker
 TITLE_KEY = "title:"  # the opening shot of a scene, in the dict film_scene returns
 # Gestures of the direction vocabulary and the engine's gesture each one plays.
 HANDS = {"shrug": "shrug", "point": "point", "wave": "wave", "open_palms": "present", "thumbs_up": "thumb",
@@ -202,6 +203,25 @@ def scene_job(project, scene, plan: D.ScenePlan, spans: list[Span], lang: str | 
             if g == "walk_in":
                 c = next(x for x in cast if x["id"] == ln.who)
                 c["enter_from"] = "door" if set_info.get("door") else "offscreen"
+        for b in getattr(ln, "beats", None) or []:
+            # business at a point inside the line, on the line's own clock: Odile nods at "fishing"
+            who = b.get("who") or ln.who
+            if who not in plan.sides:
+                continue
+            f = int(sp.start + float(b["at"]) * max(1, sp.end - sp.start))
+            if b.get("feeling") and _mood(b["feeling"]):
+                keys.append(dict(who=who, frame=f, f=_mood(b["feeling"])))
+                last_mood[who] = _mood(b["feeling"])
+            g = b.get("act")
+            if g in D.GESTURES:
+                to = ln.who if who != ln.who else ln.to
+                ks, hands = _gesture_keys(who, g, f, max(f + 24, sp.end), to, set_info)
+                keys += ks
+                if hands:
+                    manual.add(who)
+                if g in CARRIED:
+                    carry.append({"who": who, "prop": CARRIED[g], "start": f - 8, "end": max(f + 24, sp.end) + 8,
+                                  "color": (project.org.get("palette") or {}).get("accent")})
         if ln.go:
             keys.append(dict(who=ln.who, frame=sp.start - 8, walk=ln.go))
         mood = _mood(ln.emotion)
@@ -223,21 +243,59 @@ def scene_job(project, scene, plan: D.ScenePlan, spans: list[Span], lang: str | 
         lines.append({"id": ln.id, "who": ln.who, "start": sp.start, "end": sp.end, "cues": cues, "to": ln.to,
                       "manual": sorted(manual)})
     org = project.org
+    clock = D.clock_time(scene)
     return {"set": {"name": plan.set, "palette": org.get("palette") or {}, "org": org.get("short_name") or org.get("name"),
+                    **({"clock": clock} if clock else {}),
                     "seed": int(hashlib.sha256(scene.id.encode()).hexdigest()[:6], 16) % 997 + 1,
                     "time": (scene.setting or {}).get("time_of_day", "day")},
-            "lighting": dict(D.LIGHTING[plan.lighting], name=plan.lighting),
+            "lighting": dict(D.LIGHTING[plan.lighting], name=plan.lighting, **D.light_overrides(scene)),
             "cast": cast, "lines": lines, "keys": sorted(keys, key=lambda x: x["frame"]), "door": doors, "carry": carry, "fps": FPS,
             **({"aliases": _aliases()} if any(c.get("model") for c in cast) else {})}
 
 
-def shot_frames(shot: D.Shot, spans: list[Span]) -> list[int]:
-    """The scene frames a shot shows, on twos within each line's beat (the grid the cards compositor reads)."""
+REST_SHAPES = ("X", "A")   # the mouth at rest, or closed on m/b/p: where an editor cuts inside a line
+
+
+def cut_point(sp: Span, frac: float, cues: list | None) -> int:
+    """Where inside a line a cut at `frac` of it really lands: the drawing (on twos, from the beat) nearest that point
+    at which the speaker's mouth rests for at least two frames, between 35 and 80 % of the line; the plain fraction
+    when no such moment exists. Both shots on either side of the cut ask this, so they always agree."""
+    want = frac * sp.frames
+    rests = []
+    cues = list(cues or [])
+    for (t, shape), nxt in zip(cues, cues[1:] + [(None, None)], strict=False):
+        if shape in REST_SHAPES and (nxt[0] is None or (nxt[0] - t) * FPS >= 2):
+            rests.append(sp.lead + t * FPS)
+    near = [r for r in rests if .35 * sp.frames <= r <= .8 * sp.frames]
+    k = int(round(min(near, key=lambda r: abs(r - want)) if near else want))
+    k -= k % STEP
+    return max(STEP, min(sp.frames - 1 - (sp.frames - 1) % STEP, k))
+
+
+def shot_frames(shot: D.Shot, spans: list[Span], cues: dict | None = None) -> list[int]:
+    """The scene frames a shot shows, on twos within each line's beat (the grid the cards compositor reads).
+    A shot with `part` shows a piece of its one line, cut where `cut_point` says (`cues`: line id -> mouth cues)."""
     out: list[int] = []
     for sp in spans:
         if sp.line.id in shot.lines:
-            out += [sp.beat + f for f in range(0, sp.frames, STEP)]
+            fs = range(0, sp.frames, STEP)
+            if shot.part:
+                a, b = shot.part
+                lo = 0 if a <= 0 else cut_point(sp, a, (cues or {}).get(sp.line.id))
+                hi = sp.frames if b >= 1 else cut_point(sp, b, (cues or {}).get(sp.line.id))
+                fs = [f for f in fs if lo <= f < hi]
+            out += [sp.beat + f for f in fs]
     return sorted(set(out))
+
+
+def line_cues(scene_part: dict) -> dict:
+    return {ln["id"]: ln.get("cues") or [] for ln in scene_part.get("lines") or []}
+
+
+def is_card(shot: D.Shot) -> bool:
+    """An on-screen card (a line written as `card:`): drawn by the compositor, not filmed. An insert the director
+    points at a prop of the set (`camera: insert, who: [laptop]`) is filmed: the prop, with the line heard over it."""
+    return shot.camera == "insert" and not shot.who
 
 
 def shot_job(scene_part: dict, shot: D.Shot, frames: list[int], preset: str) -> dict:
@@ -252,7 +310,8 @@ def shot_job(scene_part: dict, shot: D.Shot, frames: list[int], preset: str) -> 
     job.update(mode="film", frames=frames, width=w, height=h, samples=samples,
                camera={"shot": shot.camera, "who": list(shot.who), "focus": shot.focus, "lens": shot.lens or D.SHOTS[shot.camera]["lens"],
                        "fstop": shot.fstop, "move": shot.move, "height": shot.height,
-                       **({"position": shot.position, "aim": shot.aim} if shot.position and shot.aim else {})})
+                       **({"position": shot.position, "aim": shot.aim} if shot.position and shot.aim else {}),
+                       **({"fallback": shot.fallback} if shot.camera == "over_shoulder" and shot.fallback != "two_shot" else {})})
     return job
 
 
@@ -385,6 +444,16 @@ def blank_frames(paths) -> list[Path]:
     return bad
 
 
+def _die_with_parent():  # pragma: no cover - runs in the child between fork and exec
+    """Linux: ask the kernel to kill Blender if this process dies, even by SIGKILL, so no Blender outlives it."""
+    import contextlib
+    import ctypes
+    import signal
+
+    with contextlib.suppress(Exception):    # no libc prctl (musl, a sandbox): the watchdog still stops Blender
+        ctypes.CDLL("libc.so.6", use_errno=True).prctl(1, signal.SIGKILL)   # PR_SET_PDEATHSIG
+
+
 def run_blender(job: dict, work: Path, log=print, timeout: float = 48 * 3600) -> None:
     """Run the engine on a job; paths are converted for a Windows Blender under WSL. Progress goes to `log`.
 
@@ -403,7 +472,9 @@ def run_blender(job: dict, work: Path, log=print, timeout: float = 48 * 3600) ->
     (work / "job.json").write_text(json.dumps(job), "utf-8")
     with resources.as_file(clay.ENGINE.joinpath("clay").joinpath("film.py")) as script:
         cmd = [exe, "-b", "--factory-startup", "-P", conv(Path(script)), "--", conv(work / "job.json")]
-        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8", errors="replace")
+        linux = os.name == "posix" and os.uname().sysname == "Linux"
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8", errors="replace",
+                                **({"preexec_fn": _die_with_parent} if linux else {}))
         tail: list[str] = []
 
         def on_line(line: str) -> None:
@@ -448,10 +519,20 @@ def _film(project, job: dict, frames: list[int], label: str, what: str, log=prin
     if (out / ".done").exists() and all((out / f"{f:06d}.png").exists() for f in frames):
         log(f"  {label}: unchanged, reused")
         return out
+    # the same job filmed under another label (a shot added earlier in the scene renumbers the ones after it):
+    # reuse it when finished, carry on filming into it when it was interrupted
+    for other in sorted(out.parent.glob(f"*.{key}")) if out.parent.is_dir() and not out.exists() else []:
+        if (other / ".done").exists() and all((other / f"{f:06d}.png").exists() for f in frames):
+            log(f"  {label}: unchanged, reused (filmed as {other.name.rsplit('.', 1)[0]})")
+            return other
+        out = other
+        break
     job = dict(job, rig=str(clay.rig_dir(project)), out=str(out), font=str(_font()))
     left = sum(1 for f in frames if not (out / f"{f:06d}.png").exists())
     log(f"  {label}: {what}, {len(frames)} drawings" + (f" ({len(frames) - left} already done)" if left != len(frames) else ""))
     retries = int(_env_number("SASTUDIO_CLAY_RETRIES", RETRIES))
+    for stale in out.glob("*.part.png") if out.is_dir() else []:
+        stale.unlink(missing_ok=True)     # a drawing a stopped Blender was half way through writing
     for attempt in range(retries + 1):
         todo = [f for f in frames if not (out / f"{f:06d}.png").exists()]
         try:
@@ -493,7 +574,9 @@ def film_scene(project, scene, plan: D.ScenePlan, spans: list[Span], preset: str
     clay.build_rigs(project, ids=list(plan.sides), log=log)
     part = scene_job(project, scene, plan, spans, lang, phonemes)
     by_line = {sp.line.id: sp for sp in spans}
+    cues = line_cues(part)
     out: dict[str, Path] = {}
+    sources: dict[str, list[tuple[Path, set[int]]]] = {}
     n = 0
     if title_frames:
         # the scene's title is laid over a real shot of the place: no card between scenes
@@ -503,25 +586,38 @@ def film_scene(project, scene, plan: D.ScenePlan, spans: list[Span], preset: str
         out[TITLE_KEY + scene.id] = _line_folder(project, folder, f"{scene.id}.title.{preset}", 0, title_frames)
     for i, shot in enumerate(plan.shots):
         ids = [lid for lid in shot.lines if lid in by_line]
-        if shot.camera == "insert" or not ids:
+        if is_card(shot) or not ids:
             continue
         n += 1
-        frames = shot_frames(shot, spans)
+        frames = shot_frames(shot, spans, cues)
         folder = film_shot(project, part, shot, frames, preset, f"{scene.id}_s{i + 1:02d}_{preset}", log)
         for lid in ids:
-            sp = by_line[lid]
-            out[lid] = _line_folder(project, folder, f"{scene.id}.{lid}.{preset}", sp.beat, sp.frames)
+            sources.setdefault(lid, []).append((folder, set(frames), by_line[lid].line.who in shot.who))
+    for lid, src in sources.items():
+        sp = by_line[lid]
+        out[lid] = _line_folder(project, [(d, held) for d, held, _ in src], f"{scene.id}.{lid}.{preset}", sp.beat, sp.frames)
+        # the speaker's name tag may only be on screen while the speaker is: a cut to the listener ends it
+        away = [fr - sp.beat for _, held, shows in src if not shows for fr in held]
+        (out[lid] / SPEAKER_UNTIL).write_text(str(min(away) if away else sp.frames))
     return out
 
 
-def _line_folder(project, folder: Path, name: str, beat: int, frames: int) -> Path:
-    """A beat's own view of a shot: its drawings numbered 00001.png on twos, as the compositor reads them."""
-    dest = project.root / ".studio" / "work" / "clay" / "lines" / f"{name}.{folder.name[-20:]}"
+def _line_folder(project, folder, name: str, beat: int, frames: int) -> Path:
+    """A beat's own view of its shots: its drawings numbered 00001.png on twos, as the compositor reads them.
+    `folder` is one shot's folder, or [(folder, scene frames it holds), ...] for a line cut between shots."""
+    src_list = [(folder, None)] if isinstance(folder, Path) else list(folder)
+    tag = src_list[0][0].name[-20:] if len(src_list) == 1 else \
+        hashlib.sha256("|".join(f.name for f, _ in src_list).encode()).hexdigest()[:20]
+    dest = project.root / ".studio" / "work" / "clay" / "lines" / f"{name}.{tag}"
     if not (dest / ".done").exists():
         shutil.rmtree(dest, ignore_errors=True)
         dest.mkdir(parents=True)
         for f in range(0, frames, STEP):
-            src = folder / f"{beat + f:06d}.png"
+            fr = beat + f
+            home = next((d for d, held in src_list if held is None or fr in held), None)
+            if home is None:
+                raise RenderError(f"{name}: no shot films scene frame {fr}.", "Check the `part` pieces of this line.")
+            src = home / f"{fr:06d}.png"
             try:
                 os.link(src, dest / f"{f + 1:05d}.png")
             except OSError:
@@ -614,12 +710,12 @@ def render_shot(project, scene_id: str, shot_index: int, preset: str, out: Path,
     if not 0 <= shot_index < len(plan.shots):
         raise ConfigError(f"Scene {scene_id} has {len(plan.shots)} shots.", "See them with `sastudio direct`.")
     shot = plan.shots[shot_index]
-    if shot.camera == "insert":
-        raise ConfigError("Insert shots (on-screen cards) are drawn by the cards renderer, not filmed.", "Choose another shot.")
+    if is_card(shot):
+        raise ConfigError("That shot is an on-screen card: the compositor draws it, it is not filmed.", "Choose another shot.")
     spans = spans_estimated(project, scene)
     clay.build_rigs(project, ids=list(plan.sides), log=log)
     part = scene_job(project, scene, plan, spans)
-    frames = shot_frames(shot, spans)
+    frames = shot_frames(shot, spans, line_cues(part))
     folder = film_shot(project, part, shot, frames, preset, f"{scene_id}_s{shot_index + 1:02d}_{preset}_silent", log)
     _encode([folder / f"{f:06d}.png" for f in frames], out)
     log(f"Wrote {out} ({len(frames)} drawings)")
@@ -634,8 +730,8 @@ def render_scene(project, scene_id: str, preset: str, out: Path, log=print) -> P
     part = scene_job(project, scene, plan, spans)
     all_frames: list[Path] = []
     for i, shot in enumerate(plan.shots):
-        frames = shot_frames(shot, spans)
-        if shot.camera == "insert" or not frames:
+        frames = shot_frames(shot, spans, line_cues(part))
+        if is_card(shot) or not frames:
             continue
         folder = film_shot(project, part, shot, frames, preset, f"{scene_id}_s{i + 1:02d}_{preset}_silent", log)
         all_frames += [folder / f"{f:06d}.png" for f in frames]
@@ -643,4 +739,40 @@ def render_scene(project, scene_id: str, preset: str, out: Path, log=print) -> P
         raise RenderError(f"Scene {scene_id} has no spoken lines to film.")
     _encode(all_frames, out)
     log(f"Wrote {out} ({len(all_frames)} drawings, {len(all_frames) * STEP / FPS:.1f} s, silent)")
+    return out
+
+
+# ----------------------------------------------------------------------------------------------- the shot cache
+def cache_dir(project) -> Path:
+    return project.root / ".studio" / "cache" / "clay"
+
+
+def _size(folder: Path) -> int:
+    return sum(p.stat().st_size for p in folder.rglob("*") if p.is_file())
+
+
+def stale_shots(project, *, everything: bool = False) -> list[tuple[Path, int, str]]:
+    """Cached shots that can go: (folder, bytes, why). A shot is stored as `<label>.<hash>`; when a line, a look or
+    the engine changes, the shot is filmed again under a new hash and the old folder is never read again. The newest
+    folder of each label is kept (finished or not, so an interrupted shot can still resume); `everything` lists all."""
+    root = cache_dir(project)
+    if not root.is_dir():
+        return []
+    by_label: dict[str, list[Path]] = {}
+    for d in root.iterdir():
+        if d.is_dir() and "." in d.name:
+            by_label.setdefault(d.name.rsplit(".", 1)[0], []).append(d)
+
+    def age(d: Path) -> float:
+        done = d / ".done"
+        return (done if done.exists() else d).stat().st_mtime
+
+    out = []
+    for _label, dirs in sorted(by_label.items()):
+        dirs.sort(key=age, reverse=True)
+        for i, d in enumerate(dirs):
+            if everything:
+                out.append((d, _size(d), "all shots"))
+            elif i > 0:
+                out.append((d, _size(d), f"superseded by {dirs[0].name}"))
     return out

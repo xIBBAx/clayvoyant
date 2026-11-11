@@ -123,21 +123,25 @@ state for the model is recorded in the project.
 
 ## Measured
 
-On an Intel Core i7-10750H with a GeForce GTX 1660 Ti (6 GB), Blender 5.2.2 under WSL2 with CUDA:
+On 2026-11-11, on an Intel Core i7-10750H (12 threads) with a GeForce GTX 1660 Ti (6 GB), Blender
+5.2.2 under WSL2 with CUDA:
 
 | | |
 |---|---|
-| Sculpting one character | about 25 s (two worker processes) |
-| A drawing at 960x540, 6 samples, three people in an office | 2.0 s |
-| A drawing at 960x540, over-the-shoulder with depth of field | 2.6 s |
-| Of which posing the puppets | about 0.1 s |
-| Kokoro voice | 0.55 x the length of the line, about 600 MB of memory |
+| Sculpting the sample's three characters from nothing | 46 s in all, 0.9 GB at most |
+| A drawing at `draft` (960x540, 6 samples) | 2.2 to 2.6 s (247 drawings, four shots) |
+| A drawing at `preview` (1280x720, 12 samples) | 4.3 to 5.0 s, 4.7 s on average (666 drawings, 17 shots) |
+| The whole sample film at `preview`, every shot filmed from nothing | 54 min 57 s, 1.95 GB at most |
+| Kokoro voice | 26 s for the sample's 47 s of speech, model loading included; 0.6 GB |
+| Posing the puppets, per drawing | not re-measured (an earlier note said about 0.1 s) |
 
-Nearly all of a drawing's time is Cycles refitting the puppets' geometry, not sampling: more
-samples cost little, more people in frame cost more. Environment variables:
-`SASTUDIO_BLENDER` (which Blender), `SASTUDIO_CLAY_DEVICE` (`GPU` or `CPU`).
+Going from `draft` to `preview` (1.8 times the pixels, twice the samples) roughly doubles the time a
+drawing takes; more people in frame cost more. Environment variables: `SASTUDIO_BLENDER` (which
+Blender), `SASTUDIO_CLAY_DEVICE` (`GPU` or `CPU`), `SASTUDIO_CLAY_STALL_MINUTES` (how long Blender
+may draw nothing before it is stopped, default 20) and `SASTUDIO_CLAY_RETRIES` (default 1).
 
 ## Not built yet
 
-Sound effects, ambience and music beds; props beyond the mug and the phone; crowds; weather;
-rendering on a remote machine; a visual editor. See [ROADMAP.md](ROADMAP.md).
+Sound effects and ambience (a music bed of your own does work: `render.music`, ducked under the
+dialogue); props beyond the mug and the phone; crowds; weather; rendering on a remote machine; a
+visual editor. See [ROADMAP.md](ROADMAP.md).

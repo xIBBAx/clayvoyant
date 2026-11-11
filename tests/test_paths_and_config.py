@@ -259,3 +259,21 @@ def test_validate_notes_placeholder_contacts_without_failing_strict(tmp_path, ca
     _use_real_contacts(root)
     assert main(["validate", str(root), "--strict"]) == 0
     assert "[note]" not in capsys.readouterr().out
+
+
+def test_a_mistake_inside_a_scene_is_named_exactly(tmp_path):
+    """Scenes may be written inline or as a file reference, so the schema has two shapes; its first complaint was
+    "is not valid under any of the given schemas". The message now names the setting and what is wrong with it."""
+    from sastudio.errors import ConfigError
+    from sastudio.project import load_project
+
+    from .conftest import write_project
+
+    root = write_project(tmp_path / "p")
+    p = root / "studio.yaml"
+    p.write_text(p.read_text(encoding="utf-8").replace("  - id: one\n", "  - id: one\n    direction:\n      reactions: maybe\n", 1),
+                 encoding="utf-8")
+    with pytest.raises(ConfigError) as e:
+        load_project(root)
+    assert "scenes[0].direction.reactions: 'maybe' is not of type 'boolean'" in e.value.message
+    assert "any of the given schemas" not in e.value.message

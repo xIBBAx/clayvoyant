@@ -1,7 +1,8 @@
 # The Fast One
 
 A two-scene clay stop-motion short: a cafe at dusk where one Wi-Fi network is a little too keen,
-and an office the next morning where somebody collects near-misses. About seventy seconds.
+and an office the next morning where somebody collects near-misses. 82 seconds with its opening
+and closing cards (the two scenes run 34 and 37 seconds).
 
 Everything here is invented (Quillmere Logistics, the cafe, Tara, Odile and Bashir), and
 everything on screen is made by the commands below from the three text files in this folder.
@@ -28,7 +29,8 @@ on purpose; add `--allow-placeholder-contacts` for a demonstration.
 | `transition_in: fade_from_black` | the film fades up on the cafe, with the title over the shot |
 | `transition_in: follow_object`, `object: laptop` | scene two opens close on a laptop and pulls back to find Bashir at his desk |
 | `act: [walk_in, wave]` | Tara comes in through the door, which opens for her, and arrives on her line |
-| `act: [stand_up, nod]`, `[check_phone]`, `[thumbs_up]` | he stands to make the point; she reads it off her phone; the last shot pushes in |
+| `act: [stand_up, nod]`, `[check_phone]`, `[thumbs_up]` | he stands to make the point; she reads it off her phone; his thumbs-up lands on both of them |
+| nothing: the planner decides | a long line cuts to the listener between two words; each face has room to look into; scene one ends pushing in, scene two on a two-shot, because no two scenes end alike |
 | `emotion:` and `reactions:` | faces change on the line, and the listener's changes too |
 | `voice: { provider: kokoro, ... }` | three free neural voices; mouths follow their sounds |
 

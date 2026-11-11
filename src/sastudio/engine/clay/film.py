@@ -93,25 +93,46 @@ s.render.image_settings.compression = 30
 # ------------------------------------------------------------------ the place
 SET = JOB.get('set') or {}
 TIME = SET.get('time', 'day')
-C = dict(palette=SET.get('palette') or {}, org=SET.get('org'), seed=int(SET.get('seed', 1)), time=TIME)
+C = dict(palette=SET.get('palette') or {}, org=SET.get('org'), seed=int(SET.get('seed', 1)), time=TIME, clock=SET.get('clock'))
 SKIES = dict(day=('#5e9bd6', '#dfeaf4', '#b9a98f', 1.0), morning=('#7fb0dc', '#f6e3c8', '#b9a98f', .9),
              evening=('#39507f', '#f2a66a', '#6f5a4a', .55), night=('#070b18', '#1a2440', '#0b0d14', .06))
 top, hor, gnd, sky_st = SKIES.get(TIME, SKIES['day'])
 # a still on a transparent ground needs no place at all
 STG = SETS.stage(dict(centre=SETS.mark(0, 0)), [(0, 0)], back=7) if JOB.get('transparent') else SETS.build(SET.get('name', 'studio'), C)
-K.sky(sky_st if STG['outdoor'] else sky_st * .55, top, hor, gnd)
+K.sky((sky_st if STG['outdoor'] else sky_st * .55) * float((JOB.get('lighting') or {}).get('sky', 1)), top, hor, gnd)
 PRACTICALS = [o for o in bpy.data.objects if o.type == 'LIGHT']
 
 
+def _hex(h):
+    h = str(h).lstrip('#')
+    return tuple(int(h[i:i + 2], 16) / 255 for i in (0, 2, 4))
+
+
+def _around(az, el, r):
+    """A point r from the acting area, az degrees round from behind the camera (+90 camera right), el above it."""
+    a, b = math.radians(az), math.radians(el)
+    return (math.sin(a) * math.cos(b) * r, -math.cos(a) * math.cos(b) * r, math.sin(b) * r)
+
+
 def light_stage(L):
-    """Key, fill and rim from the lighting preset; the sun for daylight; the set's own lamps for the rest."""
+    """Key, fill and rim from the lighting preset; the sun for daylight; the set's own lamps for the rest.
+    A scene's `direction.light` turns the knobs: where the key and the sun come from, how strong, the tint, a bounce."""
+    tint = _hex(L['tint']) if L.get('tint') else None
     kcol = K.kelvin(L.get('key_k', 4500))
+    if tint:
+        kcol = tuple(c * t for c, t in zip(kcol, tint, strict=False))
     soft = L.get('softness', .7)
     night = TIME == 'night'
     kE = 1700 * (.55 if STG['outdoor'] and not night else 1)
-    key = K.aim(K.lamp((-7.5, -9, 9.5), kE, 3 + 9 * soft, kcol, shadow=True), (0, .8, 2.4))
+    turned = 'key_azimuth' in L or 'key_height' in L
+    kpos = _around(L.get('key_azimuth', -39.8), L.get('key_height', 39.0), 15.09) if turned else (-7.5, -9, 9.5)
+    key = K.aim(K.lamp(kpos, kE * float(L.get('key_strength', 1)), 3 + 9 * soft, kcol, shadow=True), (0, .8, 2.4))
     key.data.shadow_soft_size = .5
-    K.aim(K.lamp((9, -7, 5), kE * L.get('fill', .5) * .42, 8, tuple(c * f for c, f in zip(kcol, (.82, .9, 1.08))), shadow=False), (0, .8, 2.2))
+    fpos = _around(-L.get('key_azimuth', -39.8) * 1.3, 24, 12.45) if turned else (9, -7, 5)
+    K.aim(K.lamp(fpos, kE * L.get('fill', .5) * .42, 8, tuple(c * f for c, f in zip(kcol, (.82, .9, 1.08))), shadow=False), (0, .8, 2.2))
+    if L.get('bounce'):
+        # a warm board on the floor in front of the people: it lifts faces when the light is behind them
+        K.aim(K.lamp((0, -5.5, .35), kE * float(L['bounce']) * .32, 7, (1, .95, .88), shadow=False), (0, .8, 2.0))
     K.aim(K.lamp((3.5, STG['back'] - 1.3, 7.2), kE * L.get('rim', .3) * 1.5, 3, K.kelvin(L.get('key_k', 4500) - 900), shadow=False), (0, .5, 2.6))
     for o in PRACTICALS:
         o.data.energy *= 1.0 if L.get('practicals') or night else .3
@@ -122,7 +143,10 @@ def light_stage(L):
             e *= .45
         if not STG['outdoor'] and TIME == 'evening':
             e *= .45        # indoors at dusk the lamps do the work; the last sun only draws a warm bar across the wall
-        _, src = K.sun(-38 if STG['outdoor'] else -47, el, col, e * (1.0 if STG['outdoor'] else .9), soft=.02 + .05 * soft)
+        el = L.get('sun_height', el)
+        e *= float(L.get('sun_strength', 1))
+        _, src = K.sun(L.get('sun_azimuth', -38 if STG['outdoor'] else -47), el, col, e * (1.0 if STG['outdoor'] else .9),
+                       soft=.02 + .05 * soft)
         if not STG['outdoor']:
             # the sun reaches the room through a window nobody sees: its frame draws the light across the floor and the far wall
             K.gobo(src, (0, 1.4, 1.6), dist=18, w=20, h=13, cols=4, rows=3, bar=.4, blinds=L.get('name') == 'suspense')
@@ -355,10 +379,10 @@ def fit(pos, aim, heads, margin=.84):
     return pos
 
 
-def frame_shot(shot=None):
+def frame_shot(shot=None, only=None):
     """Where the camera stands at the start of the shot and what it looks at, from the people as they really are."""
     shot = shot or CAM.get('shot', 'medium')
-    who = [w for w in CAM.get('who') or [] if w in PERF.actors and PERF.actors[w].P.vis] or [n for n, a in PERF.actors.items() if a.P.vis][:1]
+    who = [w for w in only or CAM.get('who') or [] if w in PERF.actors and PERF.actors[w].P.vis] or [n for n, a in PERF.actors.items() if a.P.vis][:1]
     if CAM.get('position') and CAM.get('aim'):
         # the director put the camera exactly here: it is not second-guessed
         return V(CAM['position']), V(CAM['aim']), (CAM.get('focus') if CAM.get('focus') in PERF.actors else (who[0] if who else None))
@@ -387,8 +411,9 @@ def frame_shot(shot=None):
         # of the set, and see the back of the speaker's head. Then the pair is filmed as a two-shot from the front.
         to_cam = V((pos.x - sp.x, pos.y - sp.y, 0))
         if to_cam.length > 1e-6 and to_cam.normalized().dot(facing(who[0])) < .26:
-            print(f'FILM over_shoulder would see {who[0]} from behind: filmed as a two-shot', flush=True)
-            return frame_shot('two_shot')
+            fb = CAM.get('fallback') or 'two_shot'
+            print(f'FILM over_shoulder would see {who[0]} from behind: filmed as a {fb.replace("_", "-")}', flush=True)
+            return frame_shot(fb, only=[who[0]] if fb != 'two_shot' else None)
         return pos, V((sp.x, sp.y, sp.z - .1)), who[0]
     # stand on the side the subject is turned towards, for a three-quarter view of the face
     yaw = sum((PERF.actors[w].last_yaw or 0) for w in who) / len(who)
@@ -398,7 +423,31 @@ def frame_shot(shot=None):
     pos.z += dict(low=-.75, high=1.0).get(CAM.get('height', 'eye'), 0) * (dist / 6) ** .5
     if len(heads) > 1:
         pos = fit(pos, aim, heads)
+    elif shot in LEAD_ROOM:
+        # Lead room: a face sits on the far side of the frame from the person it is talking or listening to, with the
+        # open space in front of it. The camera trucks sideways (its angle is kept), so the eyeline reads across the cut.
+        partner = partner_of(who[0])
+        if partner:
+            right = (aim - pos).normalized().cross(V((0, 0, 1))).normalized()
+            toward = clamp((eyes(partner) - aim).dot(right) / 1.5, -1, 1)
+            width = FRAME_H.get(shot, 2.9) * s.render.resolution_x / s.render.resolution_y
+            shift = right * (toward * LEAD_ROOM[shot] * width)
+            pos, aim = pos + shift, aim + shift
     return pos, aim, (CAM.get('focus') if CAM.get('focus') in PERF.actors else who[0])
+
+
+LEAD_ROOM = dict(close_up=.12, reaction=.12, medium=.10, extreme_close_up=.06)   # share of the frame's width
+
+
+def partner_of(name):
+    """Who this person is playing to during the shot: the line's listener if they speak, the speaker if they listen."""
+    for ln in JOB.get('lines') or []:
+        if ln.get('end', 0) <= F0 or ln.get('start', 0) >= F1:
+            continue
+        other = (ln.get('to') if ln.get('who') == name else ln.get('who'))
+        if other and other != name and other in PERF.actors:
+            return other
+    return next((n for n, a in PERF.actors.items() if n != name and a.P.vis), None)
 
 
 def look_through(pos, aim):
