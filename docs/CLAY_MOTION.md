@@ -96,6 +96,11 @@ cues, every acting key, one camera) and `engine/clay/film.py` films it:
 - The camera is placed from where the people really are: a close-up from the side a face is turned
   to, an over-the-shoulder from behind the listener, a wide from standing height. A subject who
   walks is followed. Depth of field focuses on the subject every frame.
+- Two checks run on every placement. People are played towards the open front of the set, so when
+  the listener stands upstage of the speaker an over-the-shoulder would see the back of the
+  speaker's head: that shot is filmed as a two-shot from the front instead, and the log says so.
+  And everyone a shot is on is projected through the real lens; if perspective pushes someone near
+  the camera past the edge of the frame, the camera steps back until they fit.
 - Every scene opens on a filmed shot of its place, with the title over it, entered by its
   transition (see [DIRECTION.md](DIRECTION.md)).
 - Frames are drawn on twos: twelve drawings a second, each held for two frames.

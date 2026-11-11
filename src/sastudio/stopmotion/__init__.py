@@ -28,7 +28,7 @@ from ..render import clay
 
 FPS = 24
 STEP = 2
-ENGINE_VERSION = "4"  # bump when the engine changes what it draws: every cached shot is filmed again
+ENGINE_VERSION = "5"  # bump when the engine changes what it draws: every cached shot is filmed again
 PRESETS = {"draft": (960, 540, 6), "preview": (1280, 720, 12), "final": (1920, 1080, 24)}
 LEAD = 3              # frames of breath before a line when there is no recorded audio to time it
 TITLE_KEY = "title:"  # the opening shot of a scene, in the dict film_scene returns
@@ -288,8 +288,108 @@ def _font() -> Path:
         return Path(fdir) / "AtkinsonHyperlegibleNext[wght].ttf"
 
 
+STALL_MINUTES = 20    # no new drawing for this long and Blender is taken to be hung (SASTUDIO_CLAY_STALL_MINUTES)
+RETRIES = 1           # a shot whose Blender dies or hangs is started once more, from its first missing drawing
+
+
+def _env_number(name: str, default: float) -> float:
+    try:
+        return float(os.environ.get(name, default))
+    except ValueError:
+        return default
+
+
+def _stop(proc: subprocess.Popen, grace: float = 10.0) -> None:
+    """End a child process and reap it: ask first, then insist. Nothing is left running behind a failed shot."""
+    if proc.poll() is None:
+        try:
+            proc.terminate()
+            proc.wait(timeout=grace)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+        except OSError:
+            pass
+    try:
+        proc.wait(timeout=grace)
+    except subprocess.TimeoutExpired:  # pragma: no cover - a process that survives SIGKILL is the kernel's problem
+        pass
+
+
+def watch(proc: subprocess.Popen, on_line, *, timeout: float, stall: float, progress=lambda line: True) -> int:
+    """Read a child's output until it exits, enforcing two limits on the read itself (a hung child writes nothing,
+    so a limit checked after the read loop would never be reached):
+
+    timeout  seconds for the whole run
+    stall    seconds without a line that `progress` accepts (for Blender: a finished drawing)
+
+    On either limit, or any exception (Ctrl+C included), the child is terminated, killed if it does not stop, and reaped
+    before this returns or raises. Returns the exit code; raises TimeoutError naming the limit that was hit."""
+    import queue
+    import threading
+    import time
+
+    lines: queue.Queue = queue.Queue()
+
+    def pump():
+        try:
+            for ln in proc.stdout:
+                lines.put(ln)
+        finally:
+            lines.put(None)
+
+    reader = threading.Thread(target=pump, daemon=True)
+    reader.start()
+    start = last = time.monotonic()
+    try:
+        while True:
+            now = time.monotonic()
+            if now - start > timeout:
+                raise TimeoutError(f"ran past its limit of {timeout / 60:.0f} min")
+            if now - last > stall:
+                raise TimeoutError(f"wrote no new drawing for {stall / 60:.0f} min")
+            try:
+                ln = lines.get(timeout=min(1.0, max(.05, timeout - (now - start)), max(.05, stall - (now - last))))
+            except queue.Empty:
+                continue
+            if ln is None:
+                break
+            ln = ln.rstrip()
+            if progress(ln):
+                last = time.monotonic()
+            on_line(ln)
+        try:
+            return proc.wait(timeout=30)
+        except subprocess.TimeoutExpired:
+            raise TimeoutError("closed its output but did not exit") from None
+    finally:
+        _stop(proc)
+        reader.join(timeout=5)
+
+
+def blank_frames(paths) -> list[Path]:
+    """Frames that came out as one flat colour (a black frame from a lost GPU context, an empty scene, a white flash).
+    A real drawing always has light and shade in it, so a 32x18 thumbnail whose brightest and darkest pixels differ by
+    under 6 levels is not a drawing. About 10 ms a frame."""
+    from PIL import Image
+
+    bad = []
+    for p in paths:
+        try:
+            with Image.open(p) as im:
+                lo, hi = im.convert("L").resize((32, 18)).getextrema()
+        except (OSError, ValueError):
+            bad.append(Path(p))   # unreadable or truncated: as bad as blank
+            continue
+        if hi - lo < 6:
+            bad.append(Path(p))
+    return bad
+
+
 def run_blender(job: dict, work: Path, log=print, timeout: float = 48 * 3600) -> None:
-    """Run the engine on a job; paths are converted for a Windows Blender under WSL. Progress goes to `log`."""
+    """Run the engine on a job; paths are converted for a Windows Blender under WSL. Progress goes to `log`.
+
+    The run is watched: past `timeout`, or with no new drawing for SASTUDIO_CLAY_STALL_MINUTES (default 20), Blender
+    is stopped and RenderError is raised. Blender never outlives this call."""
     clay.require_engine()
     exe, wsl_win = find_blender()
     conv = _winpath if wsl_win else str
@@ -305,8 +405,9 @@ def run_blender(job: dict, work: Path, log=print, timeout: float = 48 * 3600) ->
         cmd = [exe, "-b", "--factory-startup", "-P", conv(Path(script)), "--", conv(work / "job.json")]
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8", errors="replace")
         tail: list[str] = []
-        for line in proc.stdout:
-            line = line.rstrip()
+
+        def on_line(line: str) -> None:
+            nonlocal tail
             tail = (tail + [line])[-30:]
             if line.startswith("FILM device"):
                 cpu = job["device"] == "GPU" and line.startswith("FILM device CPU")
@@ -317,7 +418,16 @@ def run_blender(job: dict, work: Path, log=print, timeout: float = 48 * 3600) ->
                 done, total = n.split("/")
                 if int(done) % 12 == 0 or done == total:
                     log(f"    drawing {done} of {total} ({line.split()[-1]})")
-        code = proc.wait(timeout=timeout)
+            elif line.startswith("FILM over_shoulder"):
+                log("    " + line[5:])
+
+        stall = _env_number("SASTUDIO_CLAY_STALL_MINUTES", STALL_MINUTES) * 60
+        try:
+            # building the set and the puppets comes before the first drawing, and counts as progress too
+            code = watch(proc, on_line, timeout=timeout, stall=stall, progress=lambda ln: ln.startswith("FILM"))
+        except TimeoutError as e:
+            raise RenderError(f"Blender {e} and was stopped. The drawings it finished are kept; run the same command "
+                              "again to carry on from the first missing one.") from None
     for t in tail:
         if t.startswith("FILM guest"):
             log("    " + t[5:])
@@ -341,7 +451,27 @@ def _film(project, job: dict, frames: list[int], label: str, what: str, log=prin
     job = dict(job, rig=str(clay.rig_dir(project)), out=str(out), font=str(_font()))
     left = sum(1 for f in frames if not (out / f"{f:06d}.png").exists())
     log(f"  {label}: {what}, {len(frames)} drawings" + (f" ({len(frames) - left} already done)" if left != len(frames) else ""))
-    run_blender(job, project.root / ".studio" / "work" / "clay" / label, log)
+    retries = int(_env_number("SASTUDIO_CLAY_RETRIES", RETRIES))
+    for attempt in range(retries + 1):
+        todo = [f for f in frames if not (out / f"{f:06d}.png").exists()]
+        try:
+            run_blender(job, project.root / ".studio" / "work" / "clay" / label, log)
+            problem = None
+        except RenderError as e:
+            # an error in the engine's own code will not fix itself; a crash, a lost GPU or a hang might
+            if "Traceback" in str(e) or attempt == retries:
+                raise
+            problem = str(e).splitlines()[0]
+        blank = blank_frames(out / f"{f:06d}.png" for f in todo if (out / f"{f:06d}.png").exists())
+        for p in blank:
+            p.unlink()      # a flat frame is not kept: the next attempt draws it again
+        if blank:
+            problem = f"{len(blank)} drawing(s) came out blank ({', '.join(p.stem for p in blank[:6])})"
+            if attempt == retries:
+                raise RenderError(f"{label}: {problem}.", "Check the GPU driver, or set SASTUDIO_CLAY_DEVICE=CPU.")
+        if problem is None:
+            break
+        log(f"    {problem}; starting Blender once more from the first missing drawing")
     missing = [f for f in frames if not (out / f"{f:06d}.png").exists()]
     if missing:
         raise RenderError(f"{label}: Blender finished but {len(missing)} frame(s) are missing.")

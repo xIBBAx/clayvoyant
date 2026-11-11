@@ -95,7 +95,7 @@ them; `seconds` must be long enough for the dialogue; `lens_mm` (12-200), `fstop
 | `wide` | 28 mm | full figures | 1-6 |
 | `medium` | 40 mm | waist up | 1 |
 | `two_shot` | 35 mm | two figures, waist up | 2 |
-| `over_shoulder` | 50 mm | the speaker past the listener's shoulder | 2 |
+| `over_shoulder` | 50 mm | the speaker past the listener's shoulder (a two-shot when the listener stands behind the speaker) | 2 |
 | `close_up` | 65 mm | head and shoulders | 1 |
 | `extreme_close_up` | 100 mm | eyes and mouth | 1 |
 | `reaction` | 65 mm | a listener's face while someone else speaks | 1 |

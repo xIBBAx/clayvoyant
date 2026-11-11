@@ -325,9 +325,39 @@ def thing_pos(t):
     return o.matrix_world.translation.copy() if hasattr(o, 'matrix_world') else V(o)
 
 
-def frame_shot():
+def facing(name):
+    """The horizontal direction a person's face points (yaw 0 faces the open front of the set, -y)."""
+    y = PERF.actors[name].last_yaw or 0
+    return V((math.sin(y), -math.cos(y), 0))
+
+
+def fit(pos, aim, heads, margin=.84):
+    """Back the camera away from its aim, keeping the angle, until every head (and its width) sits inside the frame.
+
+    The framing distance comes from the people's spread across the stage, but whoever stands nearer the lens than the
+    aim point is pushed outwards by perspective: a seated speaker in the foreground of a wide could lose half her face
+    to the edge of the frame. Each head is projected through the real lens and the camera steps back until it fits."""
+    tx, ty = math.tan(hfov() / 2) * margin, math.tan(vfov() / 2) * margin
+    for _ in range(30):
+        fwd = (aim - pos).normalized()
+        right = fwd.cross(V((0, 0, 1))).normalized()
+        up = right.cross(fwd)
+        ok = True
+        for h in heads:
+            for p in (h + right * .42, h - right * .42, h + up * .5):
+                r = p - pos
+                depth = r.dot(fwd)
+                if depth <= .2 or abs(r.dot(right) / depth) > tx or abs(r.dot(up) / depth) > ty:
+                    ok = False
+        if ok:
+            return pos
+        pos = aim + (pos - aim) * 1.06
+    return pos
+
+
+def frame_shot(shot=None):
     """Where the camera stands at the start of the shot and what it looks at, from the people as they really are."""
-    shot = CAM.get('shot', 'medium')
+    shot = shot or CAM.get('shot', 'medium')
     who = [w for w in CAM.get('who') or [] if w in PERF.actors and PERF.actors[w].P.vis] or [n for n, a in PERF.actors.items() if a.P.vis][:1]
     if CAM.get('position') and CAM.get('aim'):
         # the director put the camera exactly here: it is not second-guessed
@@ -352,6 +382,13 @@ def frame_shot():
         side = V((-d.y, d.x, 0)) * (1 if ls.x > sp.x else -1)
         pos = ls - d * 2.7 + side * 1.0 + V((0, 0, .34))     # behind and well to the side: the near head frames the shot, it does not fill it
         pos.y = min(pos.y, min(sp.y, ls.y) - 1.2) if abs(d.y) < .5 else pos.y
+        # The point of the shot is the speaker's face. People are played towards the open front of the set, so when the
+        # listener stands upstage of the speaker this camera would sit behind the listener looking out at the open side
+        # of the set, and see the back of the speaker's head. Then the pair is filmed as a two-shot from the front.
+        to_cam = V((pos.x - sp.x, pos.y - sp.y, 0))
+        if to_cam.length > 1e-6 and to_cam.normalized().dot(facing(who[0])) < .26:
+            print(f'FILM over_shoulder would see {who[0]} from behind: filmed as a two-shot', flush=True)
+            return frame_shot('two_shot')
         return pos, V((sp.x, sp.y, sp.z - .1)), who[0]
     # stand on the side the subject is turned towards, for a three-quarter view of the face
     yaw = sum((PERF.actors[w].last_yaw or 0) for w in who) / len(who)
@@ -359,6 +396,8 @@ def frame_shot():
     # a wide shot is seen from standing height, even when the people in it are sitting down
     pos = V((aim.x + math.sin(ang) * dist, aim.y - math.cos(ang) * dist, max(aim.z + .12, dict(wide=2.7, two_shot=2.0).get(shot, 0))))
     pos.z += dict(low=-.75, high=1.0).get(CAM.get('height', 'eye'), 0) * (dist / 6) ** .5
+    if len(heads) > 1:
+        pos = fit(pos, aim, heads)
     return pos, aim, (CAM.get('focus') if CAM.get('focus') in PERF.actors else who[0])
 
 
