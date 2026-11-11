@@ -167,6 +167,8 @@ assembly as every other film: subtitles, cards, intro and outro, loudness, the m
 | Presets | `draft` 960x540 at 6 samples, `preview` 1280x720 at 12, `final` 1920x1080 at 24 |
 | Cadence | on twos: twelve drawings a second |
 | Reuse | each shot is stored by a hash of what can affect it; an interrupted shot resumes at its first missing drawing |
+| Watchdog | Blender is stopped if it draws nothing new for 20 minutes (`SASTUDIO_CLAY_STALL_MINUTES`) and the shot is started once more (`SASTUDIO_CLAY_RETRIES`); a drawing of one flat colour is thrown away and drawn again; no Blender outlives sastudio, even after `kill -9` on Linux |
+| Disk | `sastudio clean <project> --shots` lists filmed shots nothing uses any more (a dry run until `--yes`) |
 | Where | sculpts in `.studio/rig`, shots in `.studio/cache/clay`, voices in `.studio/cache/voices` |
 | Device | `SASTUDIO_CLAY_DEVICE=CPU` skips the GPU request; by default a GPU is asked for and the CPU is the fallback, and the log says which was used |
 | Blender | `SASTUDIO_BLENDER` names the program; on WSL2 a Windows `blender.exe` works and paths are converted |
