@@ -136,10 +136,9 @@ class KokoroProvider(Provider):
         return PreparedRequest(self.name, text, fields, characters=0)
 
     def synthesize(self, req: PreparedRequest, *, key, transport, timeout) -> Audio:
-        import numpy as np
-
         f = req.fields
-        engine = _load(self.config)
+        engine = _load(self.config)     # says what to install when the package or the model is missing
+        import numpy as np
         try:
             samples, rate, timings = engine.create_timed(req.text, voice=f["voice"], speed=f["speed"], lang=ESPEAK[f["accent"]])
         except Exception as e:  # noqa: BLE001 (any failure inside the model is a provider failure)
