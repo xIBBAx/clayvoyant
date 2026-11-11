@@ -8,8 +8,10 @@ asset, add a row (see [CONTRIBUTING.md](CONTRIBUTING.md)).
 All source code (`src/`, `tests/`, `tools/`, `examples/`, `.github/`) is under the
 [MIT License](LICENSE), Copyright (c) 2026 Ibrahim Sultan.
 
-The clay renderer's Blender engine is not included in this release, and nothing from it is in this
-repository.
+The clay engine (`src/sastudio/engine/`: the sculptor, the puppet and its rigs, acting, sets and the
+film runner) is part of that source and under the same licence. Every set, prop and character it
+makes is built by code: no third-party models, textures, photographs or sounds are bundled or loaded.
+`docs/media/brand/mark-clay-*.png` is sculpted and rendered by `tools/make_clay_mark.py`.
 
 ## Media made for this project
 

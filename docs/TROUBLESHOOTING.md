@@ -35,8 +35,24 @@ wheel from PyPI (`pip install --force-reinstall pillow`) or install `libraqm` on
 Not an error. Films render with subtitles and silence. Install espeak-ng for a robotic placeholder
 voice ([INSTALLATION.md](INSTALLATION.md#3-optional-free-placeholder-voice-espeak-ng)).
 
-**`[INFO] Clay renderer: not included in this release`**
-Expected in 0.1. Use the cards renderer ([RENDERING.md](RENDERING.md#renderers)).
+**`The clay renderer needs Blender 4.2 or newer.`**
+Install Blender and put it on `PATH`, or set `SASTUDIO_BLENDER` to the program's path. On WSL2 the
+Windows `blender.exe` works too.
+
+**`Sculpting clay characters needs numpy, scipy and scikit-image.`**
+`pip install "security-awareness-studio[clay]"` (from a clone: `pip install -e ".[clay]"`).
+
+**`The Kokoro model is not downloaded yet.`**
+`sastudio voices install kokoro` (about 350 MB, once). The package itself comes with
+`pip install "security-awareness-studio[voices]"`.
+
+**`warning: device CPU ... rendering on the CPU is much slower`**
+Blender found no usable GPU. The film is still made. Check the graphics driver, or set
+`SASTUDIO_CLAY_DEVICE=CPU` to stop asking.
+
+**A clay render was interrupted**
+Run the same command again. Finished shots are reused and the interrupted one resumes at its first
+missing drawing.
 
 ## Project files
 
@@ -69,8 +85,8 @@ Turn the required scene back on, turn this scene off, or rewrite it to stand alo
 **`characters.x,y: 2 characters share the display name ...` (warning)**
 Viewers won't know who is speaking. Give them different names.
 
-**`render.renderer: The clay renderer is not included in this release.`**
-Set `render.renderer: cards`.
+**`render.renderer: The clay engine files are missing from this installation.`**
+Reinstall the package, or set `render.renderer: cards`.
 
 ## Voices
 

@@ -1,0 +1,120 @@
+# "The Fast One": a two-scene clay stop-motion short, made entirely by the commands in README.md beside this file.
+# Everything in it is invented: Quillmere Logistics, the cafe and the three people.
+# Its characters are described here in words and colours; nobody edited a 3D model.
+schema_version: 1
+
+project:
+  title: "The Fast One"
+  subtitle: "A short film about a very generous Wi-Fi network"
+  language: en-GB
+  languages: [en-GB]
+  credits:
+    show: true
+    extra:
+      - "A sample film. The people, the cafe and the company are invented."
+
+organization:
+  name: "Quillmere Logistics"
+  short_name: "Quillmere"
+  security_email: "security@quillmere.example"
+  reporting_url: "https://quillmere.example/report"
+  security_team: "the Quillmere security team"
+  it_team: "the Quillmere IT desk"
+  logo: assets/logo.png
+  palette:
+    primary: "#23493B"
+    accent: "#D9A441"
+    background: "#F3EFE6"
+    text: "#1C1C1E"
+
+characters:
+  - id: tara
+    name: Tara
+    role: Designer
+    description: Quick, curious, talks with her hands. Reads the small print for fun.
+    pronouns: she
+    gender: feminine
+    forms: { full_name: "Tara Venn" }
+    voice: { provider: kokoro, speaker: bf_emma }
+    look:
+      style: clay
+      design:
+        skin: "#C98F66"
+        eyes: "#2A1A10"
+        hair: { style: ponytail, color: "#2A1A14" }
+        outfit: { style: jacket, color: "#D9A441", shirt: "#F4EFE6" }
+        trousers: "#2C3A4A"
+        shoes: { style: sneaker, color: "#F2EFE8" }
+        extras: [earrings]
+        body: { build: slim }
+        face: { eyes: 0.4, cheeks: 0.3 }
+      acting: { energy: 1.25, looseness: 1.15 }
+
+  - id: odile
+    name: Odile
+    role: Runs the cafe
+    description: Unhurried, dry, has heard every excuse for not paying. Proud of her cake.
+    pronouns: she
+    gender: feminine
+    forms: { full_name: "Odile Marsh" }
+    voice: { provider: kokoro, speaker: bf_isabella, settings: { speed: 0.95 } }
+    look:
+      style: clay
+      design:
+        skin: "#E2B48F"
+        eyes: "#3A4A3A"
+        hair: { style: bun, color: "#7A5A48" }
+        outfit: { style: sweater, color: "#B5553A", shirt: "#F1E6D3" }
+        trousers: "#3A3440"
+        shoes: { style: flat, color: "#5A3A2A" }
+        extras: [freckles]
+        face: { width: 0.4, nose: 0.3, lips: -0.2 }
+      acting: { energy: 0.85, looseness: 0.9, pace: 0.9 }
+
+  - id: bashir
+    name: Bashir
+    role: IT lead
+    description: Calm, exact, collects other people's near-misses. Smiles with half his mouth.
+    pronouns: he
+    gender: masculine
+    forms: { full_name: "Bashir Lund" }
+    voice: { provider: kokoro, speaker: bm_george }
+    look:
+      style: clay
+      design:
+        skin: "#8A5A3C"
+        eyes: "#1E120A"
+        hair: { style: short, color: "#16110F" }
+        outfit: { style: shirt, color: "#7FA3C4" }
+        trousers: "#2B2F3A"
+        shoes: { style: brogue, color: "#3A2A22" }
+        extras: [glasses, beard]
+        body: { build: broad, height: tall }
+        face: { jaw: 0.5, brows: 0.4 }
+      acting: { energy: 0.8, looseness: 0.8, posture: 0.6 }
+
+scenes:
+  - file: scenes/01_the_fast_one.yaml
+  - file: scenes/02_nearly.yaml
+
+voices:
+  providers:
+    offline: { engine: auto }
+  budget:
+    max_characters: 0
+
+speech:
+  gap_seconds: 0.4
+  lexicon:
+    Wi-Fi: { default: "why fy" }
+    Quillmere: { default: "Quill meer" }
+    Bashir: { default: "Ba sheer" }
+    Odile: { default: "Oh deel" }
+
+render:
+  preset: preview
+  renderer: clay
+  output: build
+  burn_subtitles: true
+  intro: true
+  outro: true

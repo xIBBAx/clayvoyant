@@ -23,7 +23,7 @@ Words used in these docs, in plain language.
 | **Budget** | The most characters (and requests) a live run may send. |
 | **Cache** | Stored results reused when nothing that affects them changed: generated speech, prepared lines, scene videos. |
 | **Ledger** | `.studio/ledger.jsonl`: a record of every speech request, for checking what was sent and billed. |
-| **Renderer** | The part that draws the pictures. `cards` is included; `clay` is not included in 0.1. |
+| **Renderer** | The part that draws the pictures. `cards` draws captioned cards with talking figures; `clay` films sculpted characters in Blender (`sastudio film`). |
 | **Preset** | A quality level: `draft` (960 x 540), `preview` (1280 x 720), `final` (1920 x 1080). |
 | **Frame** | One still picture of the film. Films here run at 24 frames per second. |
 | **Beat** | One timed piece of a scene: the title, a line, a card or the key point. |

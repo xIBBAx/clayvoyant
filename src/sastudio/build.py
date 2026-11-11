@@ -101,8 +101,10 @@ def _file_sha(path: Path) -> str:
 
 
 # --------------------------------------------------------------------------- voices for a build
-def resolve_voices(project: Project, lang: str, scene_ids, *, fallback: str | None, log) -> tuple[dict[str, Path], set[str]]:
-    plan = build_plan(project, [lang], scene_ids)
+def resolve_voices(project: Project, lang: str, scene_ids, *, fallback: str | None, log,
+                   override: str | None = None) -> tuple[dict[str, Path], set[str]]:
+    """Audio for every line. `override`: one free provider for the whole cast in this build, whatever the project says."""
+    plan = build_plan(project, [lang], scene_ids, fallback_provider=override)
     generate(project, plan, live=False, log=log)  # free/local voices only; never billable
     missing = [it for it in plan.items if not it.path.exists()]
     fallback_lines: set[str] = set()
@@ -282,7 +284,7 @@ def _render_one(tl: SceneTimeline, vis: cards.Visuals, out: Path, preset: str, t
 # --------------------------------------------------------------------------- main entry
 def build(project: Project, *, language: str | None = None, scene_ids=None, preset: str | None = None,
           fallback: str | None = None, burn: bool | None = None, jobs: int | None = None,
-          renderer: str | None = None, allow_placeholder_contacts: bool = False,
+          renderer: str | None = None, allow_placeholder_contacts: bool = False, voices: str | None = None,
           log: Callable[[str], None] = print) -> BuildResult:
     t0 = time.time()
     lang = language or project.language
@@ -319,21 +321,44 @@ def build(project: Project, *, language: str | None = None, scene_ids=None, pres
     work = project.root / STATE_DIR / "work" / lang
     log(f"Building {project.title!r} [{lang}] preset={preset} jobs={jobs}")
 
-    raw, fallback_lines = resolve_voices(project, lang, scene_ids, fallback=fallback, log=log)
+    if voices and voices not in ("kokoro", "offline", "recorded"):
+        raise ConfigError(f"--voices {voices} is not a free provider.", "Use kokoro, recorded or offline; paid providers are set per character.")
+    raw, fallback_lines = resolve_voices(project, lang, scene_ids, fallback=fallback, log=log, override=voices)
     prepared = prepare_lines(raw, project.root / STATE_DIR / "work" / "lines", jobs)
     tls = scene_timelines(project, lang, scene_ids, prepared)
     intro, outro = bookends(project, lang) if not scene_ids else (None, None)
     sequence = [t for t in [intro, *tls, outro] if t is not None]
     vis, sig = visuals(project, burn, fallback_lines)
     if renderer == "clay":
-        from .render import clay as clayr
+        from . import direction, stopmotion
 
-        clayr.build_rigs(project, log=log)
+        plans = {p.scene: p for p in direction.plan(project)}
+        scenes = {sc.id: sc for sc in project.scenes}
+        log("Filming in clay (one shot at a time; unchanged shots are reused)")
         for tl in tls:
-            for b in tl.beats:
-                if b.kind == "line":
-                    vis.clay[b.line_id] = clayr.render_line_shot(project, tl, b, preset=preset, log=log)
-        sig["clay"] = {k: str(v.parent.name) for k, v in vis.clay.items()}
+            spans = stopmotion.spans_from_timeline(scenes[tl.id], tl)
+            phonemes = {}
+            for sp in spans:        # when the voice provider reported its sounds, the mouths follow them exactly
+                meta = raw[sp.line.id].with_suffix(".json") if sp.line.id in raw else None
+                if meta is not None and meta.exists():
+                    marks = json.loads(meta.read_text("utf-8")).get("phonemes")
+                    if marks:
+                        phonemes[sp.line.id] = marks
+            opens = tl.beats[0].frames if tl.beats and tl.beats[0].kind == "title" else 0
+            filmed = stopmotion.film_scene(project, scenes[tl.id], plans[tl.id], spans, preset, lang, log=log,
+                                           phonemes=phonemes, title_frames=opens)
+            if stopmotion.TITLE_KEY + tl.id in filmed:
+                vis.clay_titles[tl.id] = filmed.pop(stopmotion.TITLE_KEY + tl.id)
+                vis.clay_fades[tl.id] = plans[tl.id].transition_in == "fade_from_black"
+            vis.clay.update(filmed)
+            seen: set[str] = set()
+            for b in tl.beats:       # a name tag the first time each person speaks in a scene
+                if b.kind == "line" and b.speaker not in seen:
+                    seen.add(b.speaker)
+                    vis.clay_names.add(b.line_id)
+        vis.clay_step = stopmotion.STEP
+        sig["clay"] = {k: v.name for k, v in vis.clay.items()}
+        sig["clay_titles"] = {k: v.name for k, v in vis.clay_titles.items()}
 
     # Scene videos: re-render only when the scene's content, the look or the tool changed.
     result = BuildResult(lang, None, None, None, None, out / "manifest.json")

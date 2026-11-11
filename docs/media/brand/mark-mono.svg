@@ -1,6 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Security Awareness Studio">
-  <rect x="4" y="10" width="56" height="44" rx="12" fill="#16191D"/>
-  <path d="M14 32 C22 20, 42 20, 50 32 C42 44, 22 44, 14 32 Z" fill="#F4EFE6"/>
-  <circle cx="32" cy="32" r="6.5" fill="#16191D"/>
-  <circle cx="34.6" cy="29.6" r="1.8" fill="#F4EFE6"/>
+  <circle cx="32" cy="32" r="29" fill="#16191D"/>
+  <circle cx="31" cy="33" r="13" fill="none" stroke="#F4EFE6" stroke-width="2.1" stroke-linecap="round" stroke-dasharray="60 8" transform="rotate(20 31 33)"/>
+  <circle cx="31" cy="33" r="18.5" fill="none" stroke="#F4EFE6" stroke-width="2.1" stroke-linecap="round" stroke-dasharray="88 10" transform="rotate(140 31 33)"/>
+  <circle cx="31" cy="33" r="24" fill="none" stroke="#F4EFE6" stroke-width="2.1" stroke-linecap="round" stroke-dasharray="118 12" transform="rotate(250 31 33)"/>
+  <circle cx="31" cy="33" r="7.6" fill="#F4EFE6"/>
+  <circle cx="31" cy="33" r="3.5" fill="#16191D"/>
+  <circle cx="32.4" cy="31.6" r="1.1" fill="#FFF4E0"/>
 </svg>

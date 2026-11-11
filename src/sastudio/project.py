@@ -26,6 +26,7 @@ from .text.speech import DEFAULT_LEXICON, SpeechRules, speak_email, speak_url
 PROJECT_FILE = "studio.yaml"
 MAX_FILE_BYTES = 1_000_000
 SCHEMA_VERSION = 1
+MODEL_EXTS = {".glb", ".gltf", ".fbx", ".obj"}
 IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp"}
 AUDIO_EXTS = {".wav", ".mp3", ".flac", ".ogg", ".m4a"}
 
@@ -152,6 +153,10 @@ class Line:
     to: str | None = None
     pause_after: float | None = None
     card: dict[str, Any] | None = None
+    act: list[str] = field(default_factory=list)  # gestures (docs/DIRECTION.md)
+    camera: str | None = None  # a camera preset for this line
+    reactions: dict[str, str] = field(default_factory=dict)  # how the listeners take it: character id -> emotion
+    go: str | None = None  # a mark of the set the speaker walks to as the line begins
 
     @property
     def is_card(self) -> bool:
@@ -186,6 +191,7 @@ class Scene:
     policy_note: str = ""
     max_seconds: float | None = None
     translations: dict[str, dict[str, str]] = field(default_factory=dict)  # field -> lang -> text
+    direction: dict[str, Any] = field(default_factory=dict)  # sets, light, shots (docs/DIRECTION.md)
 
     def field_for(self, name: str, lang: str, default_lang: str) -> str:
         base = getattr(self, name)
@@ -234,7 +240,11 @@ class Project:
         return self.data.get("render") or {}
 
     def provider_defaults(self) -> dict[str, dict]:
-        return (self.voices_cfg.get("providers") or {})
+        out = {k: dict(v) for k, v in (self.voices_cfg.get("providers") or {}).items()}
+        # what the local providers need to know about the project (never written to the cache key)
+        out.setdefault("recorded", {})["_project_root"] = str(self.root)
+        out.setdefault("kokoro", {})["_genders"] = {cid: c.gender for cid, c in self.characters.items()}
+        return out
 
     def enabled_scenes(self, only: Iterable[str] | None = None) -> list[Scene]:
         wanted = set(only) if only else None
@@ -380,14 +390,16 @@ def load_project(root: str | Path, *, check: bool = True) -> Project:
         lines = [
             Line(id=ln["id"], scene_id=s["id"], who=ln.get("who"), say=ln.get("say"),
                  translations=ln.get("translations") or {}, spoken=ln.get("spoken") or {},
-                 emotion=ln.get("emotion"), to=ln.get("to"), pause_after=ln.get("pause_after"), card=ln.get("card"))
+                 emotion=ln.get("emotion"), to=ln.get("to"), pause_after=ln.get("pause_after"), card=ln.get("card"),
+                 act=list(ln.get("act") or []), camera=ln.get("camera"),
+                 reactions=dict(ln.get("reactions") or {}), go=ln.get("go"))
             for ln in s["lines"]
         ]
         scenes.append(Scene(
             id=s["id"], title=s["title"], lines=lines, order=order, source=src, enabled=s.get("enabled", True),
             requires=list(s.get("requires") or []), topic=s.get("topic", ""), summary=s.get("summary", ""),
             setting=s.get("setting") or {}, headline=s.get("headline", ""), takeaway=s.get("takeaway", ""),
-            policy_note=s.get("policy_note", ""), max_seconds=s.get("max_seconds"),
+            policy_note=s.get("policy_note", ""), max_seconds=s.get("max_seconds"), direction=s.get("direction") or {},
             translations={
                 "title": s.get("title_translations") or {},
                 "headline": s.get("headline_translations") or {},
@@ -486,6 +498,12 @@ def validate(project: Project, *, only: Iterable[str] | None = None) -> list[Iss
     for cid, ch in project.characters.items():
         if ch.look.get("portrait"):
             _check_file(project, ch.look["portrait"], f"characters.{cid}.look.portrait", IMAGE_EXTS, issues)
+        if ch.look.get("model"):
+            _check_file(project, ch.look["model"], f"characters.{cid}.look.model", MODEL_EXTS, issues, 300_000_000)
+            if not str(ch.look.get("model_license") or "").strip():
+                issues.append(Issue("error", f"characters.{cid}.look.model_license",
+                                    "A 3D model needs its licence recorded.",
+                                    'Add `model_license: "..."` (for example "CC BY 4.0, author, link" or "made by me").'))
     if project.render_cfg.get("music"):
         _check_file(project, project.render_cfg["music"], "render.music", AUDIO_EXTS, issues)
     for s in project.scenes:
@@ -500,7 +518,7 @@ def validate(project: Project, *, only: Iterable[str] | None = None) -> list[Iss
         from .render.clay import engine_included
 
         if not engine_included():
-            issues.append(Issue("error", "render.renderer", "The clay renderer is not included in this release.",
+            issues.append(Issue("error", "render.renderer", "The clay engine files are missing from this installation.",
                                 "Set render.renderer to cards (docs/RENDERING.md)."))
 
     # scene dependencies, against what will actually be built
@@ -560,6 +578,10 @@ def validate(project: Project, *, only: Iterable[str] | None = None) -> list[Iss
                         voice_checked.add(key)
                         for msg, hint in validate_voice(spec, lang):
                             issues.append(Issue("error", f"characters.{ln.who}.voice ({lang})", msg, hint))
+    from . import direction
+
+    for pr in direction.validate(project):
+        issues.append(Issue(pr.level, pr.where, pr.message, pr.hint))
     return issues
 
 
@@ -570,7 +592,8 @@ def _check_tokens(text: str, ctx: tpl.TextContext, lang: str, where: str, issues
         issues.append(Issue("error", where, e.message, e.hint))
 
 
-def _check_file(project: Project, raw: str, where: str, exts: set[str], issues: list[Issue]) -> None:
+def _check_file(project: Project, raw: str, where: str, exts: set[str], issues: list[Issue],
+                max_bytes: int = 50_000_000) -> None:
     try:
         p = resolve_inside(project.root, raw, what=where, must_exist=True)
     except UnsafePathError as e:
@@ -578,8 +601,8 @@ def _check_file(project: Project, raw: str, where: str, exts: set[str], issues: 
         return
     if p.suffix.lower() not in exts:
         issues.append(Issue("error", where, f"'{raw}' must be one of: {', '.join(sorted(exts))}."))
-    elif p.stat().st_size > 50_000_000:
-        issues.append(Issue("error", where, f"'{raw}' is larger than 50 MB."))
+    elif p.stat().st_size > max_bytes:
+        issues.append(Issue("error", where, f"'{raw}' is larger than {max_bytes // 1_000_000} MB."))
     elif exts is IMAGE_EXTS:
         from .render.style import load_image  # decode it now, so a broken image fails here, not mid-render
 

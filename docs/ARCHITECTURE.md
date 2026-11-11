@@ -62,7 +62,12 @@ flowchart TD
 | `timeline.py` | Beats, frame counts and audio placement. |
 | `subtitles.py` | Cues, wrapping, SRT, WebVTT, transcripts and timing checks. |
 | `render/cards.py`, `render/style.py` | The cards renderer, fonts, colours, contrast and text fitting. |
-| `render/clay.py` | Orchestration for the clay renderer, whose engine is not included in 0.1. |
+| `render/clay.py` | Sculpting the clay characters (cached per look) and what the clay renderer needs to know about this machine. |
+| `claydesign.py` | From a character's `look.design` to sculpt parameters. |
+| `stopmotion/` | Writes a job per shot (set, light, cast, lines, acting keys, camera) and films it in Blender; shot cache. |
+| `lipsync.py` | Mouth shapes from phoneme timings, or from the words and the loudness of the voice. |
+| `engine/sculpt/` | The sculptor: signed-distance forms and marching cubes (numpy, scipy, scikit-image). |
+| `engine/clay/` | What Blender runs: the puppet, the hand and face rigs, acting, sets, light, the film runner, guest models. |
 | `build.py` | The pipeline above, incremental keys and the manifest. |
 | `doctor.py` | Environment checks. |
 | `safepath.py` | Keeps every path inside its folder; atomic writes. |

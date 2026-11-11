@@ -55,7 +55,7 @@ These rules protect everyone who uses the project. A pull request that breaks on
 - **A character:** add a portrait (PNG with a transparent background) that you made or have the
   right to share, record its licence in [ASSET_LICENSES.md](ASSET_LICENSES.md), and describe it in
   [docs/CHARACTERS.md](docs/CHARACTERS.md). New clay appearance presets need the clay renderer,
-  which is not included in 0.1.
+  (`pip install -e ".[clay,voices]"` and Blender 4.2 or newer).
 - **A voice provider:** subclass `Provider` in `src/sastudio/voices/`, register it in
   `registry.py`, add it to the schema enum, and test it with a fake transport (see
   `tests/test_voices.py`). Never add live network calls to the default test run.

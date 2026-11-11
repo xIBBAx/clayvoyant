@@ -33,7 +33,7 @@ STYLES = {"v1": "sketch", "v2": "flat", "v3": "cutout", "v4": "clay"}
 STYLE_ALIASES = {name: code for code, name in STYLES.items()} | {code: code for code in STYLES}
 DRAWN_STYLES = ("v1", "v2", "v3")
 HAIR_STYLES = ("short", "side_sweep", "swept_back", "curls", "bob", "bun", "long", "ponytail", "headscarf", "bald")
-OUTFITS = ("blazer", "suit", "jacket", "shirt", "sweater", "kurta")
+OUTFITS = ("blazer", "suit", "jacket", "shirt", "sweater", "kurta", "hoodie", "vest")
 SHOES = ("flat", "sneaker", "brogue", "heel", "boot")
 EXTRAS = ("glasses", "necklace", "lapel_pin", "freckles", "earrings", "beard", "moustache", "bindi")
 VARIANTS = ("rest", "talk1", "talk2", "blink", "talk1_blink", "talk2_blink")
@@ -173,6 +173,7 @@ def _seed(*parts) -> int:
 def build(d: dict, variant: str = "rest", seed: int = 0) -> list[Piece]:
     skin, hair = d["skin"], d["hair"]["color"]
     hs, outfit = d["hair"]["style"], d["outfit"]["style"]
+    outfit = {"hoodie": "sweater", "vest": "sweater"}.get(outfit, outfit)  # drawn like the nearest outfit these styles know
     top, shirt = d["outfit"]["color"], d["outfit"].get("shirt", "#F1ECE4")
     extras = set(d.get("extras") or [])
     talk = 2 if "talk2" in variant else 1 if "talk1" in variant else 0

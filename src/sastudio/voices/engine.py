@@ -318,6 +318,8 @@ def _one(project, it: PlanItem, key, transport, timeout, retry: RetryPolicy, rep
         meta = {"line": it.utt.line_id, "language": it.utt.language, "provider": it.req.provider,
                 "text": it.req.text, "fields": it.req.fields, "request_id": audio.request_id,
                 "seconds": round(audio.duration(), 3), "created": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
+        if audio.marks:
+            meta["phonemes"] = audio.marks
         atomic_write_text(it.path.with_suffix(".json"), json.dumps(meta, ensure_ascii=False, indent=1))
         if billable:
             report.characters_billed += it.req.characters

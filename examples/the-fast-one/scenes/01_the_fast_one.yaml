@@ -1,0 +1,54 @@
+id: the_fast_one
+title: The Fast One
+topic: public Wi-Fi
+summary: Tara finds two networks with the cafe's name on them. One of them is very keen to help.
+headline: Two networks, one cafe
+setting: { backdrop: cafe, time_of_day: evening }
+takeaway: "A network that asks who you are is a person asking. Use the one you can check."
+direction:
+  set: cafe
+  lighting: warm_interior
+  transition_in: fade_from_black
+  blocking: { tara: table_left, odile: counter }
+  business: { tara: typing }
+lines:
+  - id: fo_01
+    who: tara
+    to: odile
+    emotion: think
+    say: "{odile}, which Wi-Fi is yours? There seem to be two of you."
+  - id: fo_02
+    who: odile
+    to: tara
+    emotion: warm
+    act: [point]
+    say: "Mine is the slow one. The password is up on the board."
+  - id: fo_03
+    who: tara
+    to: odile
+    emotion: suspicious
+    camera: close_up
+    act: [typing]
+    reactions: { odile: concern }
+    say: "The other one is called Free and Fast. No password. It only wants my work email. And my login."
+  - id: fo_04
+    who: odile
+    to: tara
+    go: table_left_2
+    emotion: concern
+    act: [hold_mug]
+    reactions: { tara: worried }
+    say: "Then somebody in here is fishing. And not for coffee."
+  - id: fo_05
+    who: tara
+    to: odile
+    emotion: relieved
+    act: [shake_head]
+    say: "Slow it is. And tomorrow morning, {bashir} hears all about it."
+  - id: fo_06
+    who: odile
+    to: tara
+    emotion: smug
+    act: [sip]
+    reactions: { tara: grin }
+    say: "Slow, with cake. The best security I sell."

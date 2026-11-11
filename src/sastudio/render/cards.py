@@ -42,6 +42,9 @@ class Visuals:
     backdrop_images: dict[str, Image.Image] = field(default_factory=dict)  # scene id -> image
     clay: dict[str, Path] = field(default_factory=dict)  # line id -> folder of rendered clay frames
     clay_step: int = 2
+    clay_names: set[str] = field(default_factory=set)  # lines that open with the speaker's name tag
+    clay_titles: dict[str, Path] = field(default_factory=dict)  # scene id -> frames of its opening shot
+    clay_fades: dict[str, bool] = field(default_factory=dict)  # scene id -> the opening fades up from black
     figures: dict[str, dict[str, Image.Image]] = field(default_factory=dict)  # drawn styles: variant -> image
 
 
@@ -219,8 +222,10 @@ class SceneRenderer:
         clay = self.clay_frame(beat, f)
         if clay is not None:
             im = clay.copy()
-            self.top_bar_shaded(im)
-            self.name_pill(im, beat.speaker_name or beat.speaker, self.S(220), self.H - self.S(250), ease(f / 6.0))
+            if beat.line_id in self.vis.clay_names and f < 66:
+                # a film frame is left alone: only a name tag, the first time someone speaks, and it leaves again
+                self.name_pill(im, beat.speaker_name or beat.speaker, self.S(220), self.H - self.S(250),
+                               min(ease(f / 6.0), ease((66 - f) / 8.0)))
             return self._overlays(im, beat, f)
         im = self.line_base(beat, beat.speaker).copy()
         slot = next((s for s in self.cast_layout(self.tl.cast) if s[0] == beat.speaker), None)
@@ -241,7 +246,7 @@ class SceneRenderer:
 
         Drawn characters are animated on twos (12 changes a second), like stop motion. With real
         audio the mouth follows its loudness; with the silent placeholder voice it follows the
-        letters of the subtitle being spoken, so vowels open the mouth. Clay portraits never change.
+        letters of the subtitle being spoken, so vowels open the mouth. A clay still does not change (clay films are filmed, not drawn here).
         """
         if not self.vis.figures.get(beat.speaker or ""):
             return "rest"
@@ -317,7 +322,49 @@ class SceneRenderer:
         plate.alpha_composite(lg, (pad, pad))
         im.alpha_composite(plate, (x, y))
 
+    def frame_title_clay(self, beat: Beat, f: int) -> Image.Image:
+        """The scene's title over its opening shot: the film keeps moving while the words arrive and leave."""
+        idx = f - f % self.vis.clay_step + 1
+        path = Path(self.vis.clay_titles[self.tl.id]) / f"{idx:05d}.png"
+        key = ("clay", str(path))
+        if key not in self._base_cache:
+            if not path.exists():
+                raise RenderError(f"Missing frame {path.name} of the opening shot of {self.tl.id}.")
+            self._base_cache = {k: v for k, v in self._base_cache.items() if k[0] != "clay"}
+            with Image.open(path) as src:
+                self._base_cache[key] = src.convert("RGB").resize((self.W, self.H), Image.LANCZOS).convert("RGBA")
+        im = self._base_cache[key].copy()
+        a = min(ease((f - 6) / 9.0), ease((beat.frames - 4 - f) / 9.0))
+        if a > 0.01:
+            layer = Image.new("RGBA", im.size, (0, 0, 0, 0))
+            d = ImageDraw.Draw(layer)
+            topic = beat.extra.get("topic", "")
+            ft, lines, size = fit_text(d, beat.text, int(self.W * 0.62), self.S(220), start=self.S(84), minimum=self.S(46),
+                                       weight="bold", max_lines=2)
+            block = int(size * 1.12) * len(lines) + (self.S(50) if topic else 0)
+            x, y = self.S(96), self.H - self.S(110) - block
+            # a soft shade behind the words, so they read on any picture
+            shade = Image.new("L", (self.W, self.H), 0)
+            ImageDraw.Draw(shade).rectangle((0, y - self.S(120), int(self.W * 0.78), self.H), fill=150)
+            shade = shade.filter(ImageFilter.GaussianBlur(self.S(90)))
+            layer.paste((10, 12, 16, 255), (0, 0), shade)
+            d = ImageDraw.Draw(layer)
+            slide = int(self.S(26) * (1 - ease((f - 6) / 12.0)))
+            if topic:
+                d.text((x + slide, y), topic.upper(), font=font_for(topic, self.S(30), "bold"), fill=self.pal.accent)
+                y += self.S(50)
+            for ln in lines:
+                d.text((x + slide, y), ln, font=ft, fill="#FFFFFF")
+                y += int(size * 1.12)
+            layer.putalpha(layer.getchannel("A").point(lambda v: int(v * a)))
+            im.alpha_composite(layer)
+        if self.vis.clay_fades.get(self.tl.id) and f < 18:
+            im = Image.blend(Image.new("RGBA", im.size, (0, 0, 0, 255)), im, ease((f + 1) / 18.0))
+        return im
+
     def frame_title(self, beat: Beat, f: int) -> Image.Image:
+        if self.tl.id in self.vis.clay_titles:
+            return self.frame_title_clay(beat, f)
         key = ("title", beat.text)
         if key not in self._base_cache:
             im = self.background().convert("RGBA")
@@ -423,7 +470,8 @@ class SceneRenderer:
                     t = f / self.tl.fps
                     cue = next((c[2] for c in beat.cues if c[0] <= t < c[1]), None) if self.vis.burn_subtitles else None
                     clay_idx = f - f % self.vis.clay_step if beat.line_id in self.vis.clay else None
-                    key = ("line", round(env * 6), min(f, 6), cue, clay_idx, self.speaker_variant(beat, f))
+                    tag = min(f, 66) if clay_idx is not None and beat.line_id in self.vis.clay_names and (f < 8 or 56 < f < 68) else 0
+                    key = ("line", round(env * 6), min(f, 6), cue, clay_idx, self.speaker_variant(beat, f), tag)
                     if key != last_key or last is None:
                         last = seen.get(key)
                         if last is None:
@@ -435,6 +483,8 @@ class SceneRenderer:
                     yield last
                     continue
                 key = (beat.kind, min(f, 8))
+                if beat.kind == "title" and self.tl.id in self.vis.clay_titles:
+                    key = ("title", f)      # a filmed opening changes every frame
                 if key != last_key or last is None:
                     if beat.kind == "title":
                         im = self.frame_title(beat, f)

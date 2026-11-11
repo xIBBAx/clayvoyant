@@ -128,6 +128,102 @@ def cmd_init(a) -> int:
     return 0
 
 
+def cmd_direct(a) -> int:
+    """Print the shot list: how each scene will be filmed, before anything is rendered."""
+    from . import direction
+
+    p = _load(a.project)
+    problems = direction.validate(p)
+    for pr in problems:
+        print(f"[{pr.level}] {pr.where}: {pr.message}" + (f"\n    {pr.hint}" if pr.hint else ""))
+    if any(pr.level == "error" for pr in problems):
+        return 2
+    plans = direction.plan(p)
+    if a.scenes:
+        keep = set(_scenes(a.scenes))
+        plans = [x for x in plans if x.scene in keep]
+    if a.json:
+        from dataclasses import asdict
+
+        print(json.dumps([asdict(x) for x in plans], indent=1, ensure_ascii=False))
+    else:
+        print(direction.describe(plans))
+        print(f"\n{sum(len(x.shots) for x in plans)} shot(s) in {len(plans)} scene(s). Change any of them in the "
+              "scene's `direction:` block (docs/DIRECTION.md).")
+    return 0
+
+
+def cmd_motion(a) -> int:
+    """Film a scene (or one shot) in clay without voices: a quick look at the direction."""
+    from . import stopmotion
+
+    p = _load(a.project)
+    preset = a.preset or "draft"
+    if preset not in stopmotion.PRESETS:
+        raise StudioError(f"Unknown preset '{preset}'.", f"Use one of {', '.join(stopmotion.PRESETS)}.")
+    out = Path(a.out) if a.out else p.root / "build" / "motion" / (
+        f"{a.scene}_shot{a.shot}_{preset}.mp4" if a.shot else f"{a.scene}_{preset}.mp4")
+    print("A silent preview, timed from the words. For the finished film with voices: sastudio film <project>")
+    if a.shot:
+        stopmotion.render_shot(p, a.scene, a.shot - 1, preset, out)
+    else:
+        stopmotion.render_scene(p, a.scene, preset, out)
+    return 0
+
+
+def cmd_film(a) -> int:
+    """The whole film in clay stop motion: voices, sculpted characters, sets, cameras, subtitles, one command."""
+    from .build import build
+
+    p = _load(a.project)
+    res = build(p, language=a.lang, scene_ids=_scenes(a.scenes), preset=a.preset, fallback=a.voice_fallback,
+                burn=True if a.burn_subtitles else None, jobs=a.jobs, renderer="clay",
+                allow_placeholder_contacts=a.allow_placeholder_contacts, voices=a.voices)
+    for w in res.warnings:
+        print(f"warning: {w}")
+    print(json.dumps({"video": str(res.video), "srt": str(res.srt), "vtt": str(res.vtt),
+                      "transcript": str(res.transcript), "rendered": res.rendered, "reused": res.reused}, indent=1))
+    return 0
+
+
+def cmd_model(a) -> int:
+    """Bring a 3D model in (inspect, import) or take one of the cast out (export)."""
+    from . import models
+
+    if a.action == "inspect":
+        print(models.describe(models.inspect(a.target)))
+        return 0
+    if a.action == "import":
+        if not a.file or not a.character:
+            raise StudioError("Usage: sastudio model import <project> <file> --as <character id> --license \"...\"")
+        p = _load(a.target)
+        dest, info = models.import_model(p.root, a.file, a.character, a.license or "", a.yaw)
+        print(models.describe(info))
+        print(f"Copied to {dest.relative_to(p.root)} and set as {a.character}'s model in studio.yaml.")
+        if not a.no_portrait:
+            from . import stopmotion
+
+            try:
+                png = stopmotion.render_portrait(_load(a.target), a.character)
+                rel = png.relative_to(p.root).as_posix()
+                yml = p.root / "studio.yaml"
+                yml.write_text(models._set_look(yml.read_text("utf-8"), a.character, {"portrait": rel}), "utf-8")
+                print(f"Portrait for the cards styles: {rel}")
+            except StudioError as e:
+                print(f"No portrait made ({e.message}). The model is still used by `sastudio film`.")
+        print(f"Film it: sastudio film {a.target}")
+        return 0
+    if a.action == "export":
+        if not a.character or not a.out:
+            raise StudioError("Usage: sastudio model export <project> --as <character id> --out <file.glb|.fbx|.obj|.blend>")
+        from . import stopmotion
+
+        out = stopmotion.export_character(_load(a.target), a.character, Path(a.out))
+        print(f"Wrote {out}")
+        return 0
+    raise StudioError(f"Unknown action '{a.action}'.", "Use inspect, import or export.")
+
+
 def cmd_doctor(a) -> int:
     from .doctor import format_checks, run_checks
 
@@ -251,6 +347,15 @@ def _print_plan(p, plan) -> None:
 def cmd_voices(a) -> int:
     from .voices.engine import build_plan, generate
 
+    if a.action == "install":
+        if a.project != "kokoro":
+            raise StudioError(f"Nothing to install for '{a.project}'.", "Use: sastudio voices install kokoro")
+        from .voices import kokoro
+
+        print("Kokoro-82M: a free neural voice that runs on this computer (model weights: Apache-2.0).")
+        d = kokoro.install()
+        print(f"Ready in {d}. Give a character  voice: {{ provider: kokoro }}  or render with --voice-fallback kokoro.")
+        return 0
     p = _load(a.project)
     langs = [a.lang] if a.lang else p.languages
     plan = build_plan(p, langs, _scenes(a.scenes))
@@ -293,7 +398,7 @@ def cmd_render(a) -> int:
     p = _load(a.project)
     res = build(p, language=a.lang, scene_ids=_scenes(a.scenes), preset=a.preset, fallback=a.voice_fallback,
                 burn=True if a.burn_subtitles else None, jobs=a.jobs, renderer=a.renderer,
-                allow_placeholder_contacts=a.allow_placeholder_contacts)
+                allow_placeholder_contacts=a.allow_placeholder_contacts, voices=a.voices)
     for w in res.warnings:
         print(f"warning: {w}")
     print(json.dumps({"video": str(res.video), "srt": str(res.srt), "vtt": str(res.vtt),
@@ -355,6 +460,46 @@ def parser() -> argparse.ArgumentParser:
             s.add_argument("--styles", metavar="v1,v2,v3,v4", help="which styles the sheet shows (default: all four)")
         s.set_defaults(fn=fn)
 
+    s = sub.add_parser("direct", help="print the shot list: cameras, lighting, gestures and transitions per scene")
+    s.add_argument("project")
+    s.add_argument("--scenes")
+    s.add_argument("--json", action="store_true", help="the plan as JSON, for tools")
+    s.set_defaults(fn=cmd_direct)
+
+    s = sub.add_parser("model", help="3D models: inspect a file, import it as a character, or export one")
+    s.add_argument("action", choices=["inspect", "import", "export"])
+    s.add_argument("target", help="a model file (inspect) or a project folder (import, export)")
+    s.add_argument("file", nargs="?", help="the model to import (.glb, .gltf, .fbx, .obj)")
+    s.add_argument("--as", dest="character", help="the character id it becomes or comes from")
+    s.add_argument("--license", help="the licence you have for the model (required to import)")
+    s.add_argument("--yaw", type=float, help="turn the model by this many degrees if it faces the wrong way")
+    s.add_argument("--no-portrait", action="store_true", help="don't render a portrait for the cards styles")
+    s.add_argument("--out", help="where to write the export (.glb, .fbx, .obj or .blend)")
+    s.set_defaults(fn=cmd_model)
+
+    s = sub.add_parser("film", help="make the film in clay stop motion (needs Blender): voices, sets, cameras, subtitles")
+    s.add_argument("project")
+    s.add_argument("--scenes", help="comma-separated scene ids")
+    s.add_argument("--lang")
+    s.add_argument("--preset", choices=["draft", "preview", "final"], help="960x540, 1280x720 or 1920x1080")
+    s.add_argument("--voice-fallback", choices=["offline", "kokoro"],
+                   help="for lines with no generated audio yet: kokoro (free neural voice) or offline (placeholder)")
+    s.add_argument("--voices", choices=["kokoro", "recorded", "offline"],
+                   help="one free voice provider for the whole cast in this render, whatever the project says")
+    s.add_argument("--burn-subtitles", action="store_true")
+    s.add_argument("--allow-placeholder-contacts", action="store_true",
+                   help="render a final film that still shows placeholder reporting contacts")
+    s.add_argument("--jobs", type=int)
+    s.set_defaults(fn=cmd_film)
+
+    s = sub.add_parser("motion", help="a silent clay preview of one scene or shot, to check the direction")
+    s.add_argument("project")
+    s.add_argument("--scene", required=True)
+    s.add_argument("--shot", type=int, help="film only this shot (numbers as in `sastudio direct`)")
+    s.add_argument("--preset", choices=["draft", "preview", "final"], help="960x540 (default), 1280x720 or 1920x1080")
+    s.add_argument("--out", help="where to write the clip (default: build/motion/ in the project)")
+    s.set_defaults(fn=cmd_motion)
+
     s = sub.add_parser("script", help="print the resolved script (what is shown and what is spoken)")
     s.add_argument("project")
     s.add_argument("--lang")
@@ -362,7 +507,7 @@ def parser() -> argparse.ArgumentParser:
     s.set_defaults(fn=cmd_script)
 
     s = sub.add_parser("voices", help="plan or generate dialogue audio")
-    s.add_argument("action", choices=["plan", "generate", "lexicon"])
+    s.add_argument("action", choices=["plan", "generate", "lexicon", "install"])
     s.add_argument("project")
     s.add_argument("--lang")
     s.add_argument("--scenes")
@@ -382,7 +527,10 @@ def parser() -> argparse.ArgumentParser:
     s.add_argument("--scenes", help="comma-separated scene ids")
     s.add_argument("--lang")
     s.add_argument("--preset", choices=["draft", "preview", "final"])
-    s.add_argument("--voice-fallback", choices=["offline"], help="use free placeholder voices for lines not generated yet")
+    s.add_argument("--voice-fallback", choices=["offline", "kokoro"],
+                   help="for lines with no generated audio yet: kokoro (free neural voice) or offline (placeholder)")
+    s.add_argument("--voices", choices=["kokoro", "recorded", "offline"],
+                   help="one free voice provider for the whole cast in this render, whatever the project says")
     s.add_argument("--burn-subtitles", action="store_true")
     s.add_argument("--allow-placeholder-contacts", action="store_true",
                    help="allow a final film whose reporting address is an example placeholder (demos only)")
@@ -392,11 +540,11 @@ def parser() -> argparse.ArgumentParser:
     clay_in = engine_included()
     s.add_argument("--renderer", choices=["cards", "clay"],
                    help="cards (any computer) or clay (Blender, GPU recommended)" if clay_in
-                   else "cards (the default). clay is not included in this release")
+                   else "cards (the default). The clay engine files are missing from this installation")
     s.set_defaults(fn=cmd_render)
 
     s = sub.add_parser("clay", help="build clay characters or render their portraits (needs Blender)" if clay_in
-                       else "clay renderer tools (not included in this release)")
+                       else "clay tools (the engine files are missing from this installation)")
     s.add_argument("action", choices=["build", "portraits"])
     s.add_argument("project")
     s.add_argument("--force", action="store_true", help="replace existing portraits")
@@ -418,6 +566,11 @@ def _utf8_output() -> None:
             try:
                 stream.reconfigure(encoding="utf-8", errors="replace")
             except (ValueError, OSError):  # pragma: no cover - stream already written to in an odd state
+                pass
+        if hasattr(stream, "reconfigure"):
+            try:
+                stream.reconfigure(line_buffering=True)  # progress of a long render shows up in a log as it happens
+            except (ValueError, OSError):  # pragma: no cover
                 pass
 
 

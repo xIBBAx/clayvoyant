@@ -33,6 +33,13 @@ dependencies = [
   "Pillow>=13.0,<14",  # 13.0 fixes known vulnerabilities in image decoding; project images are untrusted input
 ]
 
+[project.optional-dependencies]
+# Sculpting clay characters (sastudio film, sastudio clay): the signed-distance kit and marching cubes.
+clay = ["numpy>=1.26", "scipy>=1.11", "scikit-image>=0.22"]
+# The free neural voice (voice provider "kokoro"). kokoro-onnx brings phonemizer and espeak-ng (GPL-3.0) with it.
+voices = ["kokoro-onnx>=0.6", "numpy>=1.26"]
+all = ["security-awareness-studio[clay,voices]"]
+
 [dependency-groups]
 dev = ["pytest>=8", "ruff>=0.6"]
 
