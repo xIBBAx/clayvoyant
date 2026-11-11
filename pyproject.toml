@@ -68,6 +68,7 @@ markers = [
   "ffmpeg: needs FFmpeg on PATH",
   "blender: needs Blender (skipped unless SASTUDIO_BLENDER or blender is available)",
   "live: calls a real paid API; never runs unless SASTUDIO_LIVE_TESTS=1 and keys are set",
+  "network: allowed to open internet connections (every other test fails if it tries)",
 ]
 
 [tool.ruff]

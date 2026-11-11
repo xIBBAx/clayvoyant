@@ -93,3 +93,57 @@ def wav_bytes(seconds=0.5, rate=24000):
 
 def ok_wav(seconds=0.5):
     return HttpResponse(200, {"content-type": "audio/wav", "request-id": "req-1"}, wav_bytes(seconds))
+
+
+# ----------------------------------------------------------------------------------- markers and the network guard
+import os  # noqa: E402
+import socket  # noqa: E402
+
+HAS_BLENDER = bool(os.environ.get("SASTUDIO_BLENDER")) or shutil.which("blender") is not None
+
+
+def pytest_collection_modifyitems(config, items):
+    """`ffmpeg` and `blender` tests skip, with a reason, on a computer that lacks the program."""
+    for item in items:
+        if "ffmpeg" in item.keywords and not HAS_FFMPEG:
+            item.add_marker(pytest.mark.skip(reason="needs FFmpeg on PATH"))
+        if "blender" in item.keywords and not HAS_BLENDER:
+            item.add_marker(pytest.mark.skip(reason="needs Blender (set SASTUDIO_BLENDER or put blender on PATH)"))
+
+
+class NetworkBlocked(RuntimeError):
+    pass
+
+
+@pytest.fixture(autouse=True)
+def _no_network(request, monkeypatch):
+    """The suite promises it never touches the network: any internet connection from the test process fails the
+    test. Local IPC (Unix sockets, socket pairs) is untouched. A test that truly needs the network says so with
+    @pytest.mark.network; none does today."""
+    if "network" in request.keywords:
+        yield
+        return
+    real_connect, real_connect_ex, real_sendto = socket.socket.connect, socket.socket.connect_ex, socket.socket.sendto
+
+    def _inet(sock):
+        return sock.family in (socket.AF_INET, socket.AF_INET6)
+
+    def connect(self, address):
+        if _inet(self):
+            raise NetworkBlocked(f"test tried to connect to {address!r}; tests run offline")
+        return real_connect(self, address)
+
+    def connect_ex(self, address):
+        if _inet(self):
+            raise NetworkBlocked(f"test tried to connect to {address!r}; tests run offline")
+        return real_connect_ex(self, address)
+
+    def sendto(self, *args):
+        if _inet(self):
+            raise NetworkBlocked("test tried to send a datagram; tests run offline")
+        return real_sendto(self, *args)
+
+    monkeypatch.setattr(socket.socket, "connect", connect)
+    monkeypatch.setattr(socket.socket, "connect_ex", connect_ex)
+    monkeypatch.setattr(socket.socket, "sendto", sendto)
+    yield
