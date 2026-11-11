@@ -19,6 +19,26 @@ fake transport (`tests/conftest.py`).
 | CI ([ci.yml](../.github/workflows/ci.yml)): Ubuntu (FFmpeg 6.1) and Windows (FFmpeg 9.0.2), Python 3.11-3.13 | all six jobs pass, including a render from the built wheel on each (2026-11-09) |
 | Ubuntu 24.04 (WSL2), Python 3.13, FFmpeg **9.0.2** on PATH | the FFmpeg end-to-end tests pass (15 passed, 1 skipped) |
 
+## Clay films: what was run, and where
+
+Clay films need Blender and a few minutes of rendering, so they are checked by hand on a real
+machine as well as by the test suite. On 2026-11-11, on an Intel Core i7-10750H with a GeForce
+GTX 1660 Ti (6 GB), Blender 5.2.2 under WSL2:
+
+| Check | Result |
+|---|---|
+| The test suite (jobs, timing, caching, design mapping, sculpting kit, lip sync, free voices, engine contracts) | 280 passed, 1 skipped (the opt-in paid-API test) |
+| CI: lint, tests, package build and a render from the wheel, Ubuntu and Windows, Python 3.11 to 3.13 | PASS |
+| Wheel contains every engine script; installed into a fresh Python 3.12 environment with the `clay` extra | PASS: `init`, `validate`, `direct`, sculpting a character (19 s) |
+| Filming a shot from that fresh installation (`sastudio motion`, 80 drawings, 960x540) | PASS: valid H.264, 159 frames |
+| The sample film end to end with `sastudio film --preset draft`: 13 Kokoro lines, 3 sculpts, 14 shots, assembly | PASS: 82.25 s, 1,974 frames, -16.0 LUFS, subtitles and manifest written |
+| Every set as an establishing shot; six described characters with every new garment and hair style | rendered and looked at |
+| An imported rigged glTF model as a character: fitted, grounded, portrait rendered | PASS |
+| Blender for Windows from WSL2 (OptiX) on the same job | PASS for an eight-drawing shot |
+
+Not run: a clay film on native Windows or macOS; the `final` (1920x1080) preset for a whole film;
+Hindi dialogue in a clay film judged by a native listener.
+
 ## Edge cases
 
 **PASS** = covered by an automated test or a command run for this release. **UNVERIFIED** = not
