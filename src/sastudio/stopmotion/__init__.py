@@ -31,6 +31,7 @@ STEP = 2
 ENGINE_VERSION = "6"  # bump when the engine changes what it draws: every cached shot is filmed again
 PRESETS = {"draft": (960, 540, 6), "preview": (1280, 720, 12), "final": (1920, 1080, 24)}
 LEAD = 3              # frames of breath before a line when there is no recorded audio to time it
+SPEAKER_UNTIL = "speaker_until"   # in a line's folder: the first frame of the line that does not show its speaker
 TITLE_KEY = "title:"  # the opening shot of a scene, in the dict film_scene returns
 # Gestures of the direction vocabulary and the engine's gesture each one plays.
 HANDS = {"shrug": "shrug", "point": "point", "wave": "wave", "open_palms": "present", "thumbs_up": "thumb",
@@ -591,10 +592,13 @@ def film_scene(project, scene, plan: D.ScenePlan, spans: list[Span], preset: str
         frames = shot_frames(shot, spans, cues)
         folder = film_shot(project, part, shot, frames, preset, f"{scene.id}_s{i + 1:02d}_{preset}", log)
         for lid in ids:
-            sources.setdefault(lid, []).append((folder, set(frames)))
+            sources.setdefault(lid, []).append((folder, set(frames), by_line[lid].line.who in shot.who))
     for lid, src in sources.items():
         sp = by_line[lid]
-        out[lid] = _line_folder(project, src, f"{scene.id}.{lid}.{preset}", sp.beat, sp.frames)
+        out[lid] = _line_folder(project, [(d, held) for d, held, _ in src], f"{scene.id}.{lid}.{preset}", sp.beat, sp.frames)
+        # the speaker's name tag may only be on screen while the speaker is: a cut to the listener ends it
+        away = [fr - sp.beat for _, held, shows in src if not shows for fr in held]
+        (out[lid] / SPEAKER_UNTIL).write_text(str(min(away) if away else sp.frames))
     return out
 
 

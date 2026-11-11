@@ -195,7 +195,7 @@ def test_phoneme_marks_drive_the_mouth_when_a_voice_reports_them(film):
     assert cues[0][0] == pytest.approx(0.03, abs=0.01)   # the provider's leading silence is trimmed off, as in the audio
 
 
-def test_a_prop_insert_is_filmed_and_a_card_is_left_to_the_compositor(monkeypatch):
+def test_a_prop_insert_is_filmed_and_a_card_is_left_to_the_compositor(monkeypatch, tmp_path):
     """A line under `camera: insert, who: [laptop]` used to be skipped silently, so a clay film fell back to the
     drawn style for it. Now the prop is filmed and the line is heard over it; a `card:` line is still drawn as a card."""
     from types import SimpleNamespace as NS
@@ -203,12 +203,17 @@ def test_a_prop_insert_is_filmed_and_a_card_is_left_to_the_compositor(monkeypatc
     filmed: list[str] = []
     monkeypatch.setattr(SM.clay, "build_rigs", lambda *a, **k: None)
     monkeypatch.setattr(SM, "scene_job", lambda *a, **k: {})
-    monkeypatch.setattr(SM, "film_shot", lambda project, part, shot, frames, preset, label, log: filmed.append(label) or Path(label))
+    def fake_film(project, part, shot, frames, preset, label, log):
+        filmed.append(label)
+        (tmp_path / label).mkdir(exist_ok=True)
+        return tmp_path / label
+
+    monkeypatch.setattr(SM, "film_shot", fake_film)
     monkeypatch.setattr(SM, "_line_folder", lambda project, src, name, beat, frames: src[0][0])
     card = D.Shot(lines=["c1"], camera="insert", who=[], focus=None)
     prop = D.Shot(lines=["l2"], camera="insert", who=["laptop"], focus=None)
     talk = D.Shot(lines=["l3"], camera="medium", who=["ana"], focus="ana")
-    spans = [NS(line=NS(id=i), beat=b, frames=24, start=b, end=b + 24) for i, b in (("c1", 0), ("l2", 24), ("l3", 48))]
+    spans = [NS(line=NS(id=i, who="ana"), beat=b, frames=24, start=b, end=b + 24) for i, b in (("c1", 0), ("l2", 24), ("l3", 48))]
     plan = NS(sides={"ana": "left"}, shots=[card, prop, talk])
     monkeypatch.setattr(SM, "shot_frames", lambda shot, sp, cues=None: [0, 2])
     out = SM.film_scene(NS(), NS(id="s"), plan, spans, "draft", log=lambda *_: None)
@@ -291,3 +296,32 @@ def test_an_over_the_shoulder_next_to_a_two_shot_of_the_same_pair_falls_back_to_
     spans = SM.spans_estimated(load_project(root), scene)
     part = SM.scene_job(load_project(root), scene, plan, spans)
     assert SM.shot_job(part, ots, SM.shot_frames(ots, spans), "draft")["camera"]["fallback"] == "medium"
+
+
+def test_a_name_tag_never_sits_on_the_listener_s_face(monkeypatch, tmp_path):
+    """A line cut to the listener records where the cut lands; the compositor ends the speaker's name tag there."""
+    from types import SimpleNamespace as NS
+
+    from sastudio.render.cards import SceneRenderer
+
+    monkeypatch.setattr(SM.clay, "build_rigs", lambda *a, **k: None)
+    monkeypatch.setattr(SM, "scene_job", lambda *a, **k: {"lines": []})
+
+    def fake_film(project, part, shot, frames, preset, label, log):
+        d = tmp_path / label
+        d.mkdir(exist_ok=True)
+        for f in frames:
+            (d / f"{f:06d}.png").write_bytes(b"x")
+        return d
+
+    monkeypatch.setattr(SM, "film_shot", fake_film)
+    speak = D.Shot(lines=["l1"], camera="medium", who=["ana"], focus="ana", part=[0, .5])
+    react = D.Shot(lines=["l1"], camera="reaction", who=["dev"], focus="dev", part=[.5, 1])
+    sp = SM.Span(line=NS(id="l1", who="ana"), beat=0, frames=40, lead=0, speech=40)
+    plan = NS(sides={"ana": "left", "dev": "right"}, shots=[speak, react])
+    out = SM.film_scene(NS(root=tmp_path), NS(id="s"), plan, [sp], "draft", log=lambda *_: None)
+    until = int((out["l1"] / SM.SPEAKER_UNTIL).read_text())
+    assert until == 20
+    r = SceneRenderer.__new__(SceneRenderer)
+    r.vis = NS(clay_name_until={"l1": until})
+    assert r.name_end(NS(line_id="l1")) == 20 and r.name_end(NS(line_id="other")) == 66

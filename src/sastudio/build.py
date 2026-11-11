@@ -356,8 +356,12 @@ def build(project: Project, *, language: str | None = None, scene_ids=None, pres
                 if b.kind == "line" and b.speaker not in seen:
                     seen.add(b.speaker)
                     vis.clay_names.add(b.line_id)
+                    mark = vis.clay.get(b.line_id)
+                    if mark is not None and (mark / stopmotion.SPEAKER_UNTIL).exists():
+                        vis.clay_name_until[b.line_id] = int((mark / stopmotion.SPEAKER_UNTIL).read_text())
         vis.clay_step = stopmotion.STEP
         sig["clay"] = {k: v.name for k, v in vis.clay.items()}
+        sig["clay_name_until"] = dict(sorted(vis.clay_name_until.items()))
         sig["clay_titles"] = {k: v.name for k, v in vis.clay_titles.items()}
 
     # Scene videos: re-render only when the scene's content, the look or the tool changed.
