@@ -226,7 +226,8 @@ from mathutils.bvhtree import BVHTree as _BVH  # noqa: E402
 
 
 def _solid_tree():
-    verts, polys, n0 = [], [], 0
+    global SOLID_OBJ
+    verts, polys, n0, owner_ = [], [], 0, []
     door = STG.get('door')
     skip = {o.name for a in PERF.actors.values() for o in getattr(a.P, 'parts', [])}      # the cast is not the set
     for a in PERF.actors.values():
@@ -245,20 +246,29 @@ def _solid_tree():
         co = co.reshape(-1, 3) @ M[:3, :3].T + M[:3, 3]
         verts.extend(map(tuple, co))
         polys.extend(tuple(v + n0 for v in p.vertices) for p in me.polygons)
+        owner_.extend([o.name] * len(me.polygons))
         n0 += len(me.vertices)
+    SOLID_OBJ = _np.array(owner_, dtype=object)
+    global SOLID_C
+    vv = _np.asarray(verts, _np.float32) if verts else _np.zeros((0, 3), _np.float32)
+    SOLID_C = _np.array([vv[list(p)].mean(axis=0) for p in polys], _np.float32) if polys else _np.zeros((0, 3), _np.float32)
     return _BVH.FromPolygons(verts, polys) if polys else None
 
 
+SOLID_C = SOLID_OBJ = None
 bpy.context.view_layer.update()
 SOLID = _solid_tree()
 
 
-def surface_under(x, y, z_from, reach):
-    """The top of the first solid surface straight under (x, y, z_from), no further down than reach."""
+def surface_under(x, y, z_from, reach, which=False):
+    """The top of the first solid surface straight under (x, y, z_from), no further down than reach (with which=True,
+    also the name of the object it belongs to)."""
     if SOLID is None:
-        return None
+        return (None, None) if which else None
     hit = SOLID.ray_cast(V((x, y, z_from)), V((0, 0, -1)), reach)
-    return hit[0].z if hit[0] is not None else None
+    if hit[0] is None:
+        return (None, None) if which else None
+    return (hit[0].z, SOLID_OBJ[hit[2]]) if which else hit[0].z
 
 
 def _ground(x, y):
@@ -286,6 +296,35 @@ def _lowest(o):
     return V(co[int(_np.argmin(co[:, 2]))])
 
 
+def _part_tree(o):
+    ev = o.evaluated_get(bpy.context.evaluated_depsgraph_get())
+    me = ev.to_mesh()
+    try:
+        co = _np.empty(len(me.vertices) * 3, _np.float32)
+        me.vertices.foreach_get('co', co)
+        polys = [tuple(p.vertices) for p in me.polygons]
+    finally:
+        ev.to_mesh_clear()
+    M = _np.array(o.matrix_world, dtype=_np.float32)
+    co = co.reshape(-1, 3) @ M[:3, :3].T + M[:3, 3]
+    return (_BVH.FromPolygons(list(map(tuple, co)), polys) if polys else None), co
+
+
+def _inside(o, zmin=-9.0, zmax=99.0, only=None):
+    """Where a part passes into the set: the centres of the set's faces it intersects (optionally within a height band),
+    and the part's own vertices."""
+    if o is None or SOLID is None:
+        return _np.zeros((0, 3), _np.float32), None
+    t, co = _part_tree(o)
+    if t is None:
+        return _np.zeros((0, 3), _np.float32), co
+    idx = sorted({j for _, j in t.overlap(SOLID) if only is None or SOLID_OBJ[j] == only})
+    pts = SOLID_C[idx] if idx else _np.zeros((0, 3), _np.float32)
+    if len(pts):
+        pts = pts[(pts[:, 2] >= zmin) & (pts[:, 2] <= zmax)]
+    return pts, co
+
+
 def _part(a, suffix):
     return next((o for o in getattr(a.P, 'parts', []) if o.type == 'MESH' and o.name.endswith(suffix)), None)
 
@@ -311,7 +350,7 @@ def _seated_for(a, f):
     return (f - since) if on and since is not None else 0
 
 
-def settle(f):
+def settle(f, depth=0):
     """After everyone is posed: a seated body rests on its seat (not in it, not above it) and a hand laid on a table rests
     on the top. What is measured is kept (seat_lift, hand_lift), so the next frames start right and seldom pose twice."""
     bpy.context.view_layer.update()
@@ -322,10 +361,20 @@ def settle(f):
         cur = a.state(f)[1][1]
         moved = False
         if cur.get('seat'):
+            # the thighs rest on the seat too: while either is in it, the body comes up a centimetre at a time
+            rx, ry = a.P.root.matrix_world.translation.xy
+            top, seat_o = surface_under(rx, ry, 1.2, 1.2, which=True)     # from under a table top, down to the seat
+            top = top or 0.0
+            legs = [_inside(_part(a, '_l' + sd), top - .3, top + .1, only=seat_o)[0] for sd in ('L', 'R')]
+            # a thigh in the top of the seat: the body comes up a centimetre at a time
+            thighs_in = any(len(p_) and (p_[:, 2] >= top - .02).any() for p_ in legs)
             g_ = _gap(_part(a, '_torso'), .3)
+            if thighs_in and getattr(a, 'seat_lift', 0.0) < .3:
+                a.seat_lift = getattr(a, 'seat_lift', 0.0) + .01
+                moved = True
             # up out of the seat at any time; down onto it only once they have been sitting a second (sitting down
-            # passes above the seat, and that is not hovering)
-            if g_ is not None and (g_ < -.002 or (g_ > .003 and _seated_for(a, f) > 24)):
+            # passes above the seat, and that is not hovering) and only while the thighs are clear of it
+            elif g_ is not None and (g_ < -.002 or (g_ > .003 and not thighs_in and _seated_for(a, f) > 24)):
                 a.seat_lift = getattr(a, 'seat_lift', 0.0) - g_
                 moved = True
         if cur.get('hL') is not None or cur.get('hR') is not None:
@@ -335,13 +384,41 @@ def settle(f):
                 if g_ is not None and g_ < -.002:
                     lifts[side] = lifts.get(side, 0.0) - g_
                     moved = True
+                # a forearm lying across the table's edge goes through it: the hands come up until it clears
+                elif len(_inside(_part(a, '_a' + side), .9, 2.2)[0]) and lifts.get(side, 0.0) < .25:
+                    lifts[side] = lifts.get(side, 0.0) + .01
+                    moved = True
             a.hand_lift = lifts
+        # feet are pushed sideways out of whatever they stand in (a chair's base, a table's foot), remembered for the
+        # spot the person stands or sits at, and never mid-stride
+        if not a.walking(f):
+            here = getattr(a, 'spot', None)
+            push = getattr(a, 'foot_push', {})
+            for side in ('L', 'R'):
+                shoe = _part(a, '_s' + side)
+                pts, co = _inside(shoe, -1.0, .6)
+                if not len(pts):
+                    # a shin through a chair's leg or a table's foot: the foot moves, and the shin with it
+                    pts, _ = _inside(_part(a, '_l' + side), -1.0, .55)
+                if len(pts) and co is not None:
+                    d = co[:, :2].mean(axis=0) - pts[:, :2].mean(axis=0)
+                    n = float(_np.hypot(*d))
+                    if n < 1e-4:
+                        yw = a.last_yaw or 0.0
+                        d, n = _np.array([math.sin(yw), -math.cos(yw)]), 1.0
+                    px, py = push.get((here, side), (0.0, 0.0))
+                    if math.hypot(px, py) < .45:
+                        push[(here, side)] = (px + .05 * d[0] / n, py + .05 * d[1] / n)
+                        moved = True
+            a.foot_push = push
         if moved:
             again.append(a)
     for a in again:
         PERF.pose_one(a, f)
     if again:
         bpy.context.view_layer.update()
+        if depth < 8:
+            settle(f, depth + 1)     # measure again: one correction can need a few small steps
 
 
 PERF.settle = settle

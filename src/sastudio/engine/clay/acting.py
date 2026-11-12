@@ -345,6 +345,10 @@ class Actor:
                 yaw = yaw + (face - yaw) * wo
         return yaw
 
+    def walking(a, f):
+        """True while a walk is under way at frame f."""
+        return any(w[0] <= f <= w[1] and w[1] > w[0] for w in a.walks)
+
     def state(a, f):
         cur = prev = a.keys[0]
         for k in a.keys:
@@ -454,7 +458,8 @@ class Performance:
         if s.ground is None:
             return s.floor
         fx, fy = math.sin(yaw), -math.cos(yaw)
-        return max(s.ground(x + fx * d, y + fy * d) for d in (-.12, 0.0, .2))
+        rx, ry = -fy, fx
+        return max(s.ground(x + fx * d + rx * w, y + fy * d + ry * w) for d in (-.12, 0.0, .2) for w in (-.07, .07))
 
     def pose(s, f):
         # two passes on the first frame, so that everyone knows where everyone's head is before they look at each other
@@ -540,6 +545,7 @@ def pose_actor(S_, a, f):
     sides += .006 * noise(f / 30, seed + 2) * S * st_['amp'] - .3 * sway
     twist = .05 * noise(f / 26, seed + 3) * S * st_['amp']
     x, y, z = pos
+    a.spot = (round(x, 1), round(y, 1))     # where they stand or sit, for remembered corrections
     wtw_ = 0.
     fz = S_.floor
     if feet:
@@ -592,6 +598,14 @@ def pose_actor(S_, a, f):
         fR = tuple(lerp(p_, q_, seatA) for p_, q_ in zip(fR, sR))
         z = z - seatA * max(0, (hip + .09) - (seat_h + .15)) + seatA * getattr(a, 'seat_lift', 0.0)
         bendf += .03 * seatA
+    # a foot that was found standing in a chair's base or a table's foot is moved clear of it, at this spot only
+    here_ = a.spot
+    if walk_amt < .05 and getattr(a, 'foot_push', None):
+        pl_, pr_ = a.foot_push.get((here_, 'L')), a.foot_push.get((here_, 'R'))
+        if pl_:
+            fL = (fL[0] + pl_[0], fL[1] + pl_[1], fL[2])
+        if pr_:
+            fR = (fR[0] + pr_[0], fR[1] + pr_[1], fR[2])
     # each foot comes down on the solid surface under it (floor, rug, a table's base), not through it
     fL = (fL[0], fL[1], fL[2] + S_.ground_foot(fL[0], fL[1], yaw) - S_.floor + fz + SOLE)
     fR = (fR[0], fR[1], fR[2] + S_.ground_foot(fR[0], fR[1], yaw) - S_.floor + fz + SOLE)

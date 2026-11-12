@@ -521,8 +521,10 @@ def table_round(x, y, r=1.0, h=1.45, top='#e9dcc3', leg='#2b2d31'):
 def chair(x, y, rz=0, seat=.82, hex_='#d9583f', leg='#3a2a22', back=True):
     """A plain chair. The sitter faces local -y; rz turns it (rz=pi faces +y, away from the camera)."""
     g = group('chair', (x, y, 0), rot=(0, 0, rz))
-    boxy('seat', (0, 0, seat - .07), (.52, .5, .075), hex_, g, bevel=.05, lumps=.01)
-    for X, Y in ((-.42, -.4), (.42, -.4), (-.42, .4), (.42, .4)):
+    # the seat is shallower than a thigh is long, front edge ahead of where the sitter's weight is: the knees clear it
+    # and the shins hang in front of the legs instead of through them
+    boxy('seat', (0, .12, seat - .07), (.52, .38, .075), hex_, g, bevel=.05, lumps=.01)
+    for X, Y in ((-.42, -.18), (.42, -.18), (-.42, .4), (.42, .4)):
         boxy('cl', (X, Y, (seat - .14) / 2), (.05, .05, (seat - .14) / 2), leg, g, bevel=.02, lumps=.004)
     if back:
         for X in (-.42, .42):
@@ -534,7 +536,7 @@ def chair(x, y, rz=0, seat=.82, hex_='#d9583f', leg='#3a2a22', back=True):
 def task_chair(x, y, rz=0, seat=.82, hex_='#2f6f73'):
     """An office chair on a five-star base."""
     g = group('taskchair', (x, y, 0), rot=(0, 0, rz))
-    boxy('seat', (0, 0, seat - .08), (.56, .52, .085), hex_, g, bevel=.07, lumps=.012)
+    boxy('seat', (0, .12, seat - .08), (.56, .4, .085), hex_, g, bevel=.07, lumps=.012)     # knees clear its edge
     boxy('back', (0, .5, seat + .78), (.5, .07, .52), hex_, g, bevel=.07, lumps=.012)
     slab('spine', (0, .56, seat + .28), (.06, .04, .34), STEEL(), g)
     cyl('post', (0, 0, (seat - .16) / 2 + .1), .06, seat - .3, STEEL(), g)
