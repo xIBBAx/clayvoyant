@@ -14,6 +14,7 @@
 <p align="center">
   <a href="#make-a-film">Make a film</a> ·
   <a href="examples/the-fast-one/">The sample film</a> ·
+  <a href="docs/INDIA.md">For India</a> ·
   <a href="docs/CLAY_MOTION.md">How the clay works</a> ·
   <a href="#documentation">Documentation</a> ·
   <a href="docs/ROADMAP.md">Roadmap</a>
@@ -150,6 +151,23 @@ sastudio render my-film --preset draft
   <img src="docs/media/characters/styles.png" width="640" alt="The five bundled characters in four styles, one row each: sketch, flat, paper cut-out and clay.">
 </p>
 
+## For India
+
+Five everyday scams, each a short scene in English and Hindi, in your organisation's name:
+"digital arrest" on a video call, a UPI request that wants your PIN, a caller who needs your OTP,
+an electricity-bill message with an app to install, and a customer-care number from the top of a
+search. Every line of advice follows an advisory from I4C, the RBI or the Department of
+Telecommunications, and each scene names its source.
+
+```bash
+sastudio init my-film --template india --org "Sunrise Senior Citizens Forum" --email help@sunrise-forum.org
+sastudio film my-film --preset draft --lang hi-IN
+```
+
+[Films for India](docs/INDIA.md) has the sources, the languages (Hindi free and offline; nine more
+with recorded or Sarvam voices, lip-synced from their own scripts) and a checklist for showing it.
+[Nineteen Thirty](examples/nineteen-thirty/) is the first scene on its own.
+
 ## How it works
 
 ```mermaid
@@ -203,6 +221,9 @@ Measured on one laptop on 2026-11-11 (Intel Core i7-10750H, 12 threads, GeForce 
 | Guide | |
 |---|---|
 | [Quickstart](docs/QUICKSTART.md) | a first film in ten minutes |
+| [Why it exists](docs/WHY.md) | who it is for, what it costs, how it compares |
+| [Films for India](docs/INDIA.md) | the `india` template, its sources, Indian languages |
+| [Writing with an assistant](docs/WRITING_WITH_AN_ASSISTANT.md) | `sastudio brief`: a script from any chat assistant |
 | [Installation](docs/INSTALLATION.md) and [requirements](docs/REQUIREMENTS.md) | Ubuntu, WSL2, Windows, Blender, GPUs |
 | [Clay films](docs/CLAY_MOTION.md) | the engine: sculpting, acting, sets, light, caching |
 | [Characters](docs/CHARACTERS.md) | describing people; every choice and slider |

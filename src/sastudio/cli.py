@@ -15,7 +15,7 @@ from . import __version__
 from .errors import StudioError
 from .safepath import atomic_write_text
 
-TEMPLATES = ("starter", "short", "education")
+TEMPLATES = ("starter", "short", "education", "india")
 
 
 def _scenes(arg: str | None) -> list[str] | None:
@@ -90,8 +90,10 @@ def cmd_init(a) -> int:
         raise StudioError(f"Unknown template '{a.template}'.", f"Templates: {', '.join(TEMPLATES)}")
     opts = _init_options(a)
     skip = shutil.ignore_patterns("__pycache__", "__init__.py")
-    # Every template shares the starter's scenes and artwork; a template folder only overrides studio.yaml.
-    for name in dict.fromkeys(["starter", a.template]):
+    # A template with its own scenes stands alone; any other shares the starter's scenes and artwork and only
+    # overrides studio.yaml.
+    own = resources.files("sastudio.templates").joinpath(a.template).joinpath("scenes").is_dir()
+    for name in dict.fromkeys(([] if own else ["starter"]) + [a.template]):
         with resources.as_file(resources.files("sastudio.templates").joinpath(name)) as s:
             shutil.copytree(s, dest, dirs_exist_ok=True, ignore=skip)
     if opts:
@@ -113,8 +115,14 @@ def cmd_init(a) -> int:
                               count=1, flags=re.M)
             if n != 1:
                 raise StudioError(f"The {a.template} template has no character_style line to set.")
+        if "--logo" in opts and not re.search(r"^  logo: ", text, flags=re.M):
+            # a template without a logo line gets one, under the organisation's reporting address
+            text, n = re.subn(r'^(  reporting_url: [^\n]*\n)', r'\1  logo: assets/logo.png\n', text, count=1, flags=re.M)
+            if n != 1:
+                raise StudioError(f"The {a.template} template has no organization.reporting_url line to put a logo under.")
         atomic_write_text(yml, text)
         if "--logo" in opts:
+            (dest / "assets").mkdir(exist_ok=True)
             opts["--logo"].save(dest / "assets" / "logo.png")
     print(f"Created {dest}.")
     from .project import load_project, placeholder_contacts

@@ -25,6 +25,10 @@ no quota and no account.
   needed.
 - **People who cannot send their material anywhere.** Nothing leaves the computer. No upload, no
   telemetry, no key. After one download of the free voice it works with the network unplugged.
+- **People who need it in their own language.** One script makes one film per language. English
+  and Hindi are free and offline, with Devanagari subtitles; other Indian languages work with
+  recorded lines or a paid Indian voice service. The `india` template is five scenes about the
+  scams that reach Indian phones every day ([films for India](INDIA.md)).
 - **People who need the same film next year.** The film is a folder of text files. Change a name,
   a line or a language and film it again; only the shots that changed are redrawn.
 

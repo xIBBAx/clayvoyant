@@ -1,0 +1,85 @@
+id: the_light_bill
+title: The Light Bill
+title_translations: { hi-IN: "बिजली का बिल" }
+topic: fake app
+summary: The electricity will be cut at half past nine tonight unless Gopal installs the app in the message.
+headline: Never install an app sent in a message
+headline_translations: { hi-IN: "मैसेज में आया ऐप कभी इंस्टॉल न करें" }
+takeaway: "Never install an app sent in a message. Check bills on the company's own app or website. Report the message on sancharsaathi.gov.in (Chakshu)."
+takeaway_translations:
+  hi-IN: "मैसेज में आया ऐप कभी इंस्टॉल न करें। बिल कंपनी के अपने ऐप या वेबसाइट पर जाँचें। मैसेज की रिपोर्ट sancharsaathi.gov.in (चक्षु) पर करें।"
+setting: { backdrop: corridor, time_of_day: evening }
+policy_note: >
+  Source: Department of Telecommunications, 17 June 2024: the "electricity KYC update" scam sends SMS and
+  WhatsApp messages with malicious app files that take control of the phone; it was traced through
+  reports on Chakshu. Links in docs/INDIA.md.
+direction:
+  set: corridor
+  lighting: warm_interior
+  blocking: { gopal: left, arjun: right }
+lines:
+  - id: lb_01
+    who: gopal
+    to: arjun
+    emotion: worried
+    act: [check_phone]
+    say: "{arjun}, look. The electricity will be cut tonight at nine thirty. KYC not updated. Download this app to update."
+    translations: { hi-IN: "{arjun}, देखो। आज रात साढ़े नौ बजे बिजली कट जाएगी। केवाईसी अपडेट नहीं है। ये ऐप डाउनलोड करके अपडेट करो।" }
+
+  - id: lb_02
+    who: arjun
+    to: gopal
+    emotion: suspicious
+    act: [tilt_head]
+    say: "An app, sent in a message? Uncle, that app is the whole trick. It lets them into your phone."
+    translations: { hi-IN: "मैसेज में ऐप? अंकल, वही ऐप तो पूरी चाल है। उससे वो आपके फ़ोन में घुस जाते हैं।" }
+
+  - id: lb_03
+    who: gopal
+    to: arjun
+    emotion: hesitate
+    say: "But it says tonight. The whole building will be in the dark."
+    translations: { hi-IN: "पर लिखा है आज रात। पूरी बिल्डिंग अँधेरे में होगी।" }
+
+  - id: lb_04
+    who: arjun
+    to: gopal
+    emotion: deadpan
+    say: "That is why it says tonight. The hurry is what stops you checking."
+    translations: { hi-IN: "इसीलिए तो आज रात लिखा है। जल्दबाज़ी ही आपको जाँचने से रोकती है।" }
+
+  - id: lb_05
+    who: gopal
+    to: arjun
+    emotion: think
+    act: [hand_on_chin]
+    say: "Then how do I check?"
+    translations: { hi-IN: "तो फिर जाँचूँ कैसे?" }
+
+  - id: lb_06
+    who: arjun
+    to: gopal
+    emotion: confident
+    act: [point]
+    say: "On the electricity company's own app or website, or at its office. Never from a link in a message."
+    translations: { hi-IN: "बिजली कंपनी के अपने ऐप या वेबसाइट पर, या उसके दफ़्तर में। मैसेज में आए लिंक से कभी नहीं।" }
+
+  - id: lb_07
+    who: gopal
+    to: arjun
+    emotion: relieved
+    act: [nod]
+    say: "And this message?"
+    translations: { hi-IN: "और ये मैसेज?" }
+
+  - id: lb_08
+    who: arjun
+    to: gopal
+    emotion: warm
+    act: [thumbs_up]
+    reactions: { gopal: grin }
+    say: "We report it on sancharsaathi.gov.in. Chakshu is there for exactly this. Then we delete it."
+    spoken:
+      en-IN: "We report it on Sanchar Saathi dot gov dot in. Chakshu is there for exactly this. Then we delete it."
+      hi-IN: "इसे संचार साथी डॉट गव डॉट इन पर रिपोर्ट करेंगे। चक्षु इसी काम के लिए है। फिर डिलीट।"
+    translations: { hi-IN: "इसे sancharsaathi.gov.in पर रिपोर्ट करेंगे। चक्षु इसी काम के लिए है। फिर डिलीट।" }

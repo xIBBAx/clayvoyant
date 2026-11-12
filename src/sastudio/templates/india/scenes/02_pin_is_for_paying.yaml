@@ -1,0 +1,87 @@
+id: pin_is_for_paying
+title: The PIN Is for Paying
+title_translations: { hi-IN: "पिन पैसे भेजने के लिए है" }
+topic: UPI PIN
+summary: Farhan has a buyer for his old fridge who has "already paid". The app only wants his PIN.
+headline: Receiving money never needs your PIN
+headline_translations: { hi-IN: "पैसे लेने के लिए कभी पिन नहीं लगता" }
+takeaway: "Your UPI PIN is only for paying. Receiving money never needs it. Decline any request you did not expect."
+takeaway_translations:
+  hi-IN: "यूपीआई पिन सिर्फ़ पैसे भेजने के लिए है। पैसे लेने के लिए कभी नहीं लगता। जिस रिक्वेस्ट की उम्मीद नहीं थी, उसे डिक्लाइन करें।"
+setting: { backdrop: street, time_of_day: day }
+policy_note: >
+  Source: RBI consumer awareness on UPI "collect request" fraud, and the RBI Ombudsman booklet: entering a
+  PIN means money is being sent, not received. Links in docs/INDIA.md.
+direction:
+  set: street
+  lighting: daylight
+  blocking: { farhan: shop_door, arjun: pavement_right }
+  business: { farhan: check_phone }
+  dressing: [birds]
+lines:
+  - id: pp_01
+    who: farhan
+    to: arjun
+    emotion: happy
+    act: [check_phone]
+    say: "{arjun}, a buyer for my old fridge! He says he has already sent the money. I only have to enter my PIN."
+    translations: { hi-IN: "{arjun}, पुराने फ़्रिज का ख़रीदार मिल गया! कहता है पैसे भेज दिए हैं। बस मुझे अपना पिन डालना है।" }
+
+  - id: pp_02
+    who: arjun
+    to: farhan
+    emotion: suspicious
+    act: [tilt_head]
+    say: "Read me the screen, bhaiya. Word for word."
+    translations: { hi-IN: "स्क्रीन पढ़कर सुनाइए, भैया। एक-एक शब्द।" }
+
+  - id: pp_03
+    who: farhan
+    to: arjun
+    emotion: think
+    act: [check_phone]
+    say: "'Pay ₹4,500. Enter UPI PIN.'"
+    spoken:
+      en-IN: "Pay four thousand five hundred rupees. Enter U P I PIN."
+      hi-IN: "पे, चार हज़ार पाँच सौ रुपये। एंटर यूपीआई पिन।"
+    translations: { hi-IN: "'Pay ₹4,500. Enter UPI PIN.'" }
+
+  - id: pp_04
+    who: arjun
+    to: farhan
+    emotion: confident
+    act: [point]
+    reactions: { farhan: shock }
+    say: "Pay. Not receive. Your PIN only ever sends money out of your account."
+    translations: { hi-IN: "पे। रिसीव नहीं। पिन डालने से पैसा हमेशा आपके खाते से जाता है, आता नहीं।" }
+
+  - id: pp_05
+    who: farhan
+    to: arjun
+    emotion: worried
+    say: "So if I had typed it in..."
+    translations: { hi-IN: "यानी अगर मैंने पिन डाल दिया होता..." }
+
+  - id: pp_06
+    who: arjun
+    to: farhan
+    emotion: deadpan
+    say: "Four thousand five hundred to him, and you would still have the fridge."
+    translations: { hi-IN: "साढ़े चार हज़ार उसके खाते में, और फ़्रिज फिर भी आपके पास।" }
+
+  - id: pp_07
+    who: farhan
+    to: arjun
+    emotion: relieved
+    act: [shake_head]
+    say: "Decline. Block. And no more buyers who pay in a hurry."
+    translations: { hi-IN: "डिक्लाइन। ब्लॉक। और जल्दी में पैसे भेजने वाले ख़रीदारों को अब ना।" }
+
+  - id: pp_08
+    who: arjun
+    to: farhan
+    emotion: warm
+    act: [thumbs_up]
+    reactions: { farhan: grin }
+    say: "Money coming to you never needs your PIN. Remember that, and this trick is dead."
+    translations: { hi-IN: "आपके पास आने वाले पैसे के लिए कभी पिन नहीं लगता। ये याद रखिए, ये चाल ख़त्म।" }

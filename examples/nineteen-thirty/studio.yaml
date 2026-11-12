@@ -1,0 +1,104 @@
+# Nineteen Thirty: a one-scene clay film about the "digital arrest" scam, in English and Hindi.
+# The family, the flat and the residents' association are invented. The advice is not: it follows
+# the public advisories listed in this folder's README, with links, so anyone can check it.
+schema_version: 1
+
+project:
+  title: "Nineteen Thirty"
+  subtitle: "A short film about an arrest that cannot happen"
+  language: en-IN
+  languages: [en-IN, hi-IN]           # one script, two films: build/en-IN/ and build/hi-IN/
+  labels:
+    topics:
+      "digital arrest": { hi-IN: "डिजिटल अरेस्ट" }
+  credits:
+    show: true
+    extra:
+      - "A sample film. The family and the association are invented; the helpline and the portals are real."
+
+organization:
+  name: "Neem Tree Residents' Association"
+  short_name: "Neem Tree"
+  security_email: "safety@neemtree.example"       # placeholder: a real association puts its own address here
+  reporting_url: "https://cybercrime.gov.in"      # the national cyber crime reporting portal
+  translations:
+    hi-IN: { name: "नीम ट्री रेज़िडेंट्स एसोसिएशन", short_name: "नीम ट्री" }
+
+characters:
+  - id: gopal
+    name: Gopal
+    role: Retired schoolteacher
+    description: Courteous, proud, believes anyone who speaks with authority. Keeps his passbook in a biscuit tin.
+    pronouns: he
+    gender: masculine
+    forms: { full_name: "Gopal Rao", hi-IN.name: "गोपाल" }
+    spoken: { hi-IN: "गोपाल" }
+    voice:
+      provider: kokoro
+      speaker: bm_george
+      settings: { speed: 0.92 }
+      languages:
+        hi-IN: { provider: kokoro, speaker: hm_omega, settings: { speed: 0.92 } }
+    look:
+      style: clay
+      design:
+        skin: "#9A6845"
+        eyes: "#24160E"
+        hair: { style: short, color: "#BDB8B0" }
+        outfit: { style: vest, color: "#7B5A3A", shirt: "#ECE5D4" }
+        trousers: "#6E6457"
+        shoes: { style: flat, color: "#4A3424" }
+        extras: [glasses, moustache]
+        body: { build: average, height: short }
+        face: { width: 0.3, cheeks: 0.2, nose: 0.3, brows: 0.3 }
+      acting: { energy: 0.8, looseness: 0.85, pace: 0.85 }
+
+  - id: ira
+    name: Ira
+    role: Software tester, his daughter
+    description: Checks everything twice for a living. Gentle with her father, merciless with liars.
+    pronouns: she
+    gender: feminine
+    forms: { full_name: "Ira Rao", hi-IN.name: "इरा" }
+    spoken: { hi-IN: "इरा" }
+    voice:
+      provider: kokoro
+      speaker: bf_emma
+      languages:
+        hi-IN: { provider: kokoro, speaker: hf_alpha }
+    look:
+      style: clay
+      design:
+        skin: "#B47C56"
+        eyes: "#1E120A"
+        hair: { style: long, color: "#1C120D" }
+        outfit: { style: kurta, color: "#2F7F7A" }        # a hip-length kurti, worn with jeans
+        trousers: "#34466A"
+        shoes: { style: flat, color: "#8A5A3A" }
+        extras: [bindi, earrings]
+        body: { build: slim }
+        face: { eyes: 0.3, cheeks: 0.2, lips: 0.1 }
+      acting: { energy: 1.1, looseness: 1.05 }
+
+scenes:
+  - file: scenes/01_the_call.yaml
+
+voices:
+  providers:
+    offline: { engine: auto }
+  budget:
+    max_characters: 0
+
+speech:
+  gap_seconds: 0.4
+  lexicon:
+    Gopal: { default: "Go paal" }
+    CBI: { default: "C B I" }
+
+render:
+  preset: preview
+  renderer: clay
+  output: build
+  burn_subtitles: true
+  intro: true
+  outro: true

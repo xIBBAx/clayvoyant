@@ -1,0 +1,143 @@
+id: the_call
+title: The Call
+title_translations: { hi-IN: "वो कॉल" }
+topic: digital arrest
+summary: >
+  Gopal has been kept on a video call for two hours by a man in a uniform who says he is under
+  "digital arrest". His daughter walks in before any money goes.
+headline: Nobody is arrested on a video call
+headline_translations: { hi-IN: "वीडियो कॉल पर किसी की गिरफ़्तारी नहीं होती" }
+takeaway: "Nobody is arrested on a video call. Report the caller on sancharsaathi.gov.in. If money has gone, call 1930 at once."
+takeaway_translations:
+  hi-IN: "वीडियो कॉल पर किसी की गिरफ़्तारी नहीं होती। कॉल करने वाले की रिपोर्ट sancharsaathi.gov.in पर करें। पैसे गए हों तो तुरंत 1930 पर कॉल करें।"
+setting: { backdrop: home, time_of_day: evening }
+policy_note: >
+  The advice follows the public advisories linked in this example's README (I4C on digital arrest,
+  DoT on Chakshu, the 1930 helpline). Check them again before you show the film: numbers and
+  portals can change.
+direction:
+  set: home_desk
+  lighting: warm_interior
+  transition_in: fade_from_black
+  blocking: { gopal: sofa, ira: sofa_side }
+  dressing: [steam]
+lines:
+  - id: nt_01
+    who: gopal
+    emotion: worried
+    act: [phone_to_ear]
+    say: "Yes, sir, this is {gopal}. A parcel in my name? With drugs inside? Sir, I have never sent a parcel."
+    translations: { hi-IN: "जी सर, मैं {gopal} बोल रहा हूँ। मेरे नाम से पार्सल? उसमें ड्रग्स? सर, मैंने कभी कोई पार्सल नहीं भेजा।" }
+
+  - id: nt_02
+    who: gopal
+    emotion: shock
+    act: [phone_to_ear]
+    say: "Arrested? Right now, on this video call? Please, sir, I am a retired teacher. Which account do I send it to?"
+    translations: { hi-IN: "गिरफ़्तार? अभी, इसी वीडियो कॉल पर? सर, मैं एक रिटायर्ड टीचर हूँ। पैसे किस खाते में भेजूँ?" }
+
+  - id: nt_03
+    who: ira
+    to: gopal
+    emotion: surprised
+    act: [walk_in]
+    reactions: { gopal: hesitate }
+    say: "Papa? Who are you sending money to? Put the phone down for one minute. Just one."
+    translations: { hi-IN: "पापा? किसको पैसे भेज रहे हैं? एक मिनट के लिए फ़ोन नीचे रखिए। बस एक मिनट।" }
+
+  - id: nt_04
+    who: gopal
+    to: ira
+    emotion: worried
+    say: "It is the police, beta. A digital arrest. He says I must stay on camera and tell nobody."
+    translations: { hi-IN: "पुलिस है, बेटा। डिजिटल अरेस्ट। कह रहे हैं कैमरे के सामने बैठे रहो और किसी को मत बताओ।" }
+
+  - id: nt_05
+    who: ira
+    to: gopal
+    emotion: confident
+    camera: close_up
+    act: [shake_head]
+    say: "There is no such thing. Police, CBI, customs, judges: nobody arrests anyone on a video call. Nobody."
+    translations: { hi-IN: "ऐसा कुछ होता ही नहीं, पापा। पुलिस, सीबीआई, कस्टम, जज, कोई भी वीडियो कॉल पर गिरफ़्तार नहीं करता। कोई नहीं।" }
+
+  - id: nt_06
+    who: gopal
+    to: ira
+    emotion: hesitate
+    act: [open_palms]
+    say: "But he had a uniform. A badge. Flags behind him, like a real police station."
+    translations: { hi-IN: "पर उसने वर्दी पहनी थी। बैज भी था। पीछे झंडे लगे थे, बिल्कुल असली थाने जैसा।" }
+
+  - id: nt_07
+    who: ira
+    to: gopal
+    emotion: deadpan
+    act: [point]
+    reactions: { gopal: embarrassed }
+    say: "Anyone can buy a uniform. That police station is a painted wall behind a desk. Cut the call, Papa."
+    translations: { hi-IN: "वर्दी कोई भी ख़रीद सकता है। वो थाना एक मेज़ के पीछे पेंट की हुई दीवार है। कॉल काटिए, पापा।" }
+
+  - id: nt_08
+    who: gopal
+    to: ira
+    emotion: sad
+    say: "Two hours I sat here, sweating. I did not even tell your mother."
+    translations: { hi-IN: "दो घंटे से यहाँ बैठा पसीने में भीग रहा हूँ। तुम्हारी माँ को भी नहीं बताया।" }
+
+  - id: nt_09
+    who: ira
+    to: gopal
+    emotion: tender
+    act: [lean_in]
+    say: "That is the trick. Fear, hurry, and keep it secret. Did any money go?"
+    translations: { hi-IN: "यही तो चाल है। डर, जल्दबाज़ी, और किसी को मत बताना। कोई पैसा गया क्या?" }
+
+  - id: nt_10
+    who: gopal
+    to: ira
+    emotion: relieved
+    act: [shake_head]
+    say: "Not one rupee. I was looking for my passbook when you walked in."
+    translations: { hi-IN: "एक रुपया भी नहीं। तुम आईं, तब मैं पासबुक ढूँढ रहा था।" }
+
+  - id: nt_11
+    who: ira
+    to: gopal
+    emotion: warm
+    act: [nod]
+    say: "Good. Now we report that number on sancharsaathi.gov.in, so it cannot frighten anyone else."
+    spoken:
+      en-IN: "Good. Now we report that number on Sanchar Saathi dot gov dot in, so it cannot frighten anyone else."
+      hi-IN: "बढ़िया। अब वो नंबर संचार साथी डॉट गव डॉट इन पर रिपोर्ट करेंगे, ताकि वो किसी और को न डराए।"
+    translations: { hi-IN: "बढ़िया। अब वो नंबर sancharsaathi.gov.in पर रिपोर्ट करेंगे, ताकि वो किसी और को न डराए।" }
+
+  - id: nt_12
+    who: gopal
+    to: ira
+    emotion: think
+    say: "And if the money had gone?"
+    translations: { hi-IN: "और अगर पैसे चले जाते तो?" }
+
+  - id: nt_13
+    who: ira
+    to: gopal
+    emotion: confident
+    act: [point]
+    say: "Then 1930 at once, the cyber crime helpline, or cybercrime.gov.in. The sooner, the better the chance of stopping it."
+    spoken:
+      en-IN: "Then nineteen thirty at once, the cyber crime helpline, or cyber crime dot gov dot in. The sooner, the better the chance of stopping it."
+      hi-IN: "तो तुरंत उन्नीस तीस, साइबर क्राइम हेल्पलाइन, या साइबर क्राइम डॉट गव डॉट इन। जितनी जल्दी, पैसा रुकने की उतनी ज़्यादा उम्मीद।"
+    translations: { hi-IN: "तो तुरंत 1930, साइबर क्राइम हेल्पलाइन, या cybercrime.gov.in। जितनी जल्दी, पैसा रुकने की उतनी ज़्यादा उम्मीद।" }
+
+  - id: nt_14
+    who: gopal
+    to: ira
+    emotion: warm
+    act: [thumbs_up]
+    reactions: { ira: grin }
+    say: "No arrest on a video call. 1930. I am telling the whole society tonight."
+    spoken:
+      en-IN: "No arrest on a video call. Nineteen thirty. I am telling the whole society tonight."
+      hi-IN: "वीडियो कॉल पर कोई गिरफ़्तारी नहीं। उन्नीस तीस। आज रात पूरी सोसाइटी को बताता हूँ।"
+    translations: { hi-IN: "वीडियो कॉल पर कोई गिरफ़्तारी नहीं। 1930। आज रात पूरी सोसाइटी को बताता हूँ।" }

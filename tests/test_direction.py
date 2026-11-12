@@ -1,5 +1,7 @@
 """Scene direction: presets, automatic shot planning and validation (no rendering)."""
 
+from pathlib import Path
+
 import pytest
 
 from sastudio import direction as D
@@ -328,3 +330,15 @@ def test_props_move_on_a_line_s_clock_and_are_checked(tmp_path):
     msgs = [p.message for p in _errors(bad)]
     assert any("'mug' cannot move" in m for m in msgs) and any("Only a laptop can close" in m for m in msgs)
     assert any("No line 'l9'" in m for m in msgs) and any("A turn needs `deg`" in m for m in msgs)
+
+
+def test_nobody_is_framed_before_they_walk_in():
+    """Nineteen Thirty: Gopal is on the phone for two lines before Ira walks in. Until her entrance no shot frames her
+    (an over-the-shoulder past her would show an empty room), and from it on she is in the conversation."""
+    root = Path(__file__).resolve().parents[1] / "examples" / "nineteen-thirty"
+    proj = load_project(root)
+    assert _errors(proj) == []
+    shots = D.plan(proj)[0].shots
+    before = [s for s in shots if set(s.lines) <= {"nt_01", "nt_02"}]
+    assert before and all(s.who == ["gopal"] for s in before)
+    assert any("ira" in s.who for s in shots if "nt_03" in s.lines)

@@ -1,0 +1,81 @@
+id: the_first_number
+title: The First Number
+title_translations: { hi-IN: "सबसे पहला नंबर" }
+topic: fake helpline
+summary: Farhan searched for his bank's customer care, called the first number, and was asked to install a screen-sharing app.
+headline: Customer care is never a mobile number
+headline_translations: { hi-IN: "कस्टमर केयर कभी मोबाइल नंबर नहीं होता" }
+takeaway: "Customer care numbers are never mobile numbers. Take them from the company's own website. Never install a screen-sharing app for a caller."
+takeaway_translations:
+  hi-IN: "कस्टमर केयर के नंबर कभी मोबाइल नंबर नहीं होते। नंबर कंपनी की अपनी वेबसाइट से लें। किसी कॉल करने वाले के कहने पर स्क्रीन शेयर करने वाला ऐप कभी इंस्टॉल न करें।"
+setting: { backdrop: bank branch, time_of_day: day }
+policy_note: >
+  Source: RBI, BE(A)WARE booklet (March 2022): fraudsters put their numbers in search results as a bank's or
+  company's helpline, customer care numbers are never mobile numbers, and screen-sharing and remote-access
+  apps are used to take over accounts. Links in docs/INDIA.md.
+direction:
+  set: reception
+  lighting: office
+  blocking: { lakshmi: counter, farhan: visitor }
+lines:
+  - id: fn_01
+    who: farhan
+    to: lakshmi
+    emotion: annoyed
+    say: "Madam, my refund is stuck. Your customer care told me to install an app so they could fix it."
+    translations: { hi-IN: "मैडम, मेरा रिफ़ंड अटका है। आपके कस्टमर केयर ने कहा एक ऐप इंस्टॉल करो, वो ठीक कर देंगे।" }
+
+  - id: fn_02
+    who: lakshmi
+    to: farhan
+    emotion: suspicious
+    act: [tilt_head]
+    say: "Which number did you call?"
+    translations: { hi-IN: "आपने कौन सा नंबर मिलाया था?" }
+
+  - id: fn_03
+    who: farhan
+    to: lakshmi
+    emotion: confident
+    act: [check_phone]
+    say: "The first one on the internet. A mobile number. Very polite man."
+    translations: { hi-IN: "इंटरनेट पर सबसे पहला वाला। एक मोबाइल नंबर। बहुत तमीज़ से बात करता था।" }
+
+  - id: fn_04
+    who: lakshmi
+    to: farhan
+    emotion: concern
+    camera: close_up
+    say: "A bank's customer care is never a mobile number. Anyone can put a number at the top of a search."
+    translations: { hi-IN: "बैंक का कस्टमर केयर कभी मोबाइल नंबर नहीं होता। सर्च में सबसे ऊपर कोई भी अपना नंबर डाल सकता है।" }
+
+  - id: fn_05
+    who: farhan
+    to: lakshmi
+    emotion: worried
+    say: "And the app? It only shares my screen."
+    translations: { hi-IN: "और वो ऐप? वो तो बस मेरी स्क्रीन दिखाता है।" }
+
+  - id: fn_06
+    who: lakshmi
+    to: farhan
+    emotion: confident
+    act: [shake_head]
+    say: "Only your screen. Your messages, your OTPs, your bank app. Everything you see, he sees."
+    translations: { hi-IN: "बस आपकी स्क्रीन। आपके मैसेज, आपके ओटीपी, आपका बैंक ऐप। जो आप देखते हैं, वो भी देखता है।" }
+
+  - id: fn_07
+    who: farhan
+    to: lakshmi
+    emotion: shock
+    say: "I have not installed it yet. Thank God."
+    translations: { hi-IN: "मैंने अभी तक इंस्टॉल नहीं किया। शुक्र है।" }
+
+  - id: fn_08
+    who: lakshmi
+    to: farhan
+    emotion: warm
+    act: [open_palms]
+    reactions: { farhan: relieved }
+    say: "Then let us fix the refund here. Take numbers only from the bank's own website, or the back of your card."
+    translations: { hi-IN: "तो रिफ़ंड यहीं ठीक करते हैं। नंबर सिर्फ़ बैंक की अपनी वेबसाइट से लीजिए, या कार्ड के पीछे से।" }

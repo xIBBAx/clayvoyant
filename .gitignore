@@ -66,3 +66,5 @@ CLAUDE.local.md
 .hermes/
 .mcp.json
 
+# clay portraits the examples make for themselves (sastudio clay portraits)
+examples/*/assets/characters/*_clay.png

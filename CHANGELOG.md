@@ -20,6 +20,29 @@
   character, frame by frame, and fails if there is one. The sample film: 0 in 116 sampled drawings.
 - The sample film is filmed again with all of it ([watch](https://cdn.jsdelivr.net/gh/xIBBAx/clayvoyant@8cb3c0a/docs/media/the-fast-one.mp4)).
 
+### For India
+
+- **`sastudio init --template india`**: five scenes, six characters, English and Hindi. "Digital arrest" on a
+  video call, a UPI collect request that wants a PIN, a caller who needs an OTP, an electricity-bill message with an
+  app to install, a customer-care number from the top of a search. Every scene names the I4C, RBI or DoT advisory its
+  advice follows. A template that brings its own scenes no longer receives the starter's.
+- **Nineteen Thirty** (`examples/nineteen-thirty`): the digital-arrest scene as a film of its own, in both languages.
+- **Lip sync reads nine Indian scripts.** Bengali, Gurmukhi, Gujarati, Odia, Tamil, Telugu, Kannada and Malayalam
+  are read through the Devanagari table they share a layout with, so recorded or Sarvam lines in those languages
+  move the mouth. A vowel sign or virama no longer splits a word (it closed the mouth mid-word in Hindi too).
+- **Subtitles and cards in those scripts** use bundled Noto Sans fonts (SIL OFL), which also carry Latin.
+- [Films for India](docs/INDIA.md): the template, its sources with links, the languages, a checklist.
+
+### Characters, sets and planning
+
+- Nobody is framed before they walk in: shots before an entrance line leave that person out (an over-the-shoulder
+  past someone not yet in the room showed an empty spot).
+- `home_desk` has a `sofa_side` mark, to stand and talk to whoever is on the sofa.
+- The knit vest's ID card and lanyard are an extra (`extras: [lanyard]`), not part of every vest.
+- The clay kurta ends straight above the tops of the legs; it used to curve between them like a bodysuit, with the
+  thighs showing through its front.
+- A `shirt` outfit is drawn in `outfit.color` by the drawn styles too, as the clay sculptor makes it.
+
 ### Writing
 
 - **`sastudio brief PROJECT "idea"`** prints a writing brief for a person or any chat assistant: the cast, the
