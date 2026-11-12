@@ -221,6 +221,9 @@ Measured on one laptop on 2026-11-11 (Intel Core i7-10750H, 12 threads, GeForce 
 - The `final` preset (1920x1080) has not yet been run for a whole film; the sample was built with
   `preview`. CI has no Blender, so the clay smoke test runs only where Blender is installed.
 - The starter scenes are general guidance, not policy. Replace each procedure with your own.
+- Solid contact is measured, and it is not yet true everywhere. The sample film is clean (0 intersections), on the
+  cafe and office sets. On the sofa of the `home_desk` set a seated person's legs still pass into the cushion:
+  Nineteen Thirty shows it, and the checker counts it ([#28](https://github.com/xIBBAx/clayvoyant/issues/28)).
 - The `india` template's Hindi was written for it and has not yet been reviewed by fluent speakers
   from its audience. Read every line aloud with someone who will watch it before you show it.
 

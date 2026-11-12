@@ -36,6 +36,14 @@ Hindi:
 The sample film [Nineteen Thirty](../examples/nineteen-thirty/) is the first scene on its own,
 filmed in clay in both languages.
 
+![Twelve frames from Nineteen Thirty, in clay, in a warm living room at evening. Gopal, grey-haired with round glasses and a white moustache, sits alone on a green sofa with a phone at his ear ("A parcel in my name?"), then in close-up ("Right now, on this video call?"); his daughter Ira, in a green kurti, arrives beside him ("Papa? Who are you sending money to?"); he spreads his hands ("He says I must stay on camera and tell nobody"); Ira in close-up, pointing ("Police, CBI, customs, judges: nobody arrests anyone on a video call"); Gopal protesting that the man had a uniform and a badge; Gopal admitting he sat there two hours; Ira leaning in ("That is the trick. Fear, hurry, and keep it secret"); Gopal saying not one rupee went; and the key point card: Nobody is arrested on a video call. Report the caller on sancharsaathi.gov.in. If money has gone, call 1930 at once.](media/film/nineteen-thirty-sheet.jpg)
+
+**Watch Nineteen Thirty** (about two minutes; each opens and plays in the browser):
+[in English](https://cdn.jsdelivr.net/gh/xIBBAx/clayvoyant@4f9cbbc/docs/media/nineteen-thirty.en-IN.mp4) ·
+[in Hindi, words in Roman letters](https://cdn.jsdelivr.net/gh/xIBBAx/clayvoyant@4f9cbbc/docs/media/nineteen-thirty.hi-Latn.mp4) ·
+in Hindi with Devanagari subtitles, as a phone film and with subtitle files: on the
+[latest release](https://github.com/xIBBAx/clayvoyant/releases/latest).
+
 This is the template exactly as `init` makes it, rendered in Hindi with drawn characters on a
 laptop processor (5 minutes 53 seconds of film in under four minutes, no graphics card):
 
@@ -48,6 +56,16 @@ The same film from `sastudio share`, for a phone held upright, and two pages fro
 <p>
   <img src="media/india/poster-the-call.hi-IN.jpg" width="49%" alt="An A4 poster in Hindi: the association's name on a teal band, the topic डिजिटल अरेस्ट, the headline वीडियो कॉल पर किसी की गिरफ़्तारी नहीं होती, the key point telling people to report the caller on sancharsaathi.gov.in and to call 1930 at once if money has gone, Gopal and Ira drawn below, and cybercrime.gov.in along the foot.">
   <img src="media/india/poster-pin.en-IN.jpg" width="49%" alt="An A4 poster in English: the topic UPI PIN, the headline Receiving money never needs your PIN, the key point that a UPI PIN is only for paying, Farhan and Arjun drawn below, and cybercrime.gov.in along the foot.">
+</p>
+
+And the Hindi film with its words in Roman letters (`--lang hi-Latn`): the same voices, the same
+pictures, spelled the way people type Hindi on a phone. The phone film, and the first scene's
+poster:
+
+![Four frames of the upright phone film in Roman-letter Hindi: the association's name and the title "Zara Thehriye" at the top, the film across the middle with its headline ("Video call par kisi ki giraftaari nahin hoti", "Koi bank OTP nahin maangta"), the line being said in large type below it ("Kisko paise bhej rahe hain?", "Kyonki usne aapke card se payment shuru kiya hai."), and "Kuchh sandigdh dikha? Yahan report kijiye" above "cybercrime.gov.in" along the foot.](media/india/phone-film.hi-Latn.jpg)
+
+<p>
+  <img src="media/india/poster-the-call.hi-Latn.jpg" width="49%" alt="An A4 poster in Roman-letter Hindi: the association's name on a teal band, the topic DIGITAL ARREST, the headline Video call par kisi ki giraftaari nahin hoti, under MUKHYA BAAT the key point telling people to report the caller on sancharsaathi.gov.in and to call 1930 at once if money has gone, Gopal and Ira drawn below, and cybercrime.gov.in along the foot.">
 </p>
 
 ## Where the advice comes from

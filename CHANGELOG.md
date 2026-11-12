@@ -14,6 +14,9 @@ Films for India, ready to forward.
   spelled out (`text/romanize.py`), borrowed English words come back as English from a list anyone can extend
   (`data/romanize_hi.json`), and a line can carry its own Roman text (`translations: { hi-Latn: "..." }`). The
   `india` template and Nineteen Thirty now make three films: English, Hindi, and Hindi in Roman letters.
+- Nineteen Thirty is filmed in its three languages (`docs/media/nineteen-thirty.*`, and on the release). Known and
+  measured: on the `home_desk` sofa the seated character's legs pass into the cushion (`tools/check_contacts.py`: 1,559
+  intersections in 208 sampled drawings; The Fast One: 0). Issue #28.
 - `tools/make_showcase_media.py` takes `--lang`, `--name` and `--no-gif`, so any sample film gets a sheet.
 - `sastudio share --each` makes one phone clip per scene (the india template's Hindi clips are 4.5 to 7.3 MB each);
   `--scenes a,b` only the scenes named.
