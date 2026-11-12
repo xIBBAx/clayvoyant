@@ -128,10 +128,21 @@ Every character is solid, and so is every piece of the set. Nothing is placed by
   learnt is kept for that seat, that table or that spot, so the next drawings start right.
 - Chairs are shallower than a thigh is long, so a sitter's knees clear the front edge and the shins
   hang in front of the legs.
+- A chair is a thing people move. Somebody coming to sit finds it pulled back, comes to it from its
+  side and is drawn in under the table as they sit; somebody standing up pushes it back first and
+  stands a little behind where they sat, so their thighs never cross the table's edge.
+- Walks are routed on a top-down map of the set that keeps a body's width clear of every table,
+  chair and counter wherever there is that much room, and never less than the body itself, so
+  there is always a way round instead of through.
+- Hands hold things from the outside: a mug in a cupped hand, fingers on its wall and the thumb over
+  the rim; a phone being read lying along the palm. A hand on its way between two poses goes round
+  what it meets.
 
 `python tools/check_contacts.py PROJECT` checks a filmed project: Blender poses every shot exactly as
 the film does and intersects every triangle of every character with the set and with each other.
-Touching is allowed; any intersection is listed with its frame, and the command fails.
+Touching is allowed; any intersection is listed with its frame, and the command fails. On the sample
+film, sampling every sixth drawing of all seventeen shots (116 drawings): 0 intersections, against 192
+in the render before the last round of fixes and over two thousand before this work began.
 
 ## Guests
 

@@ -33,6 +33,7 @@ Blender 5.2.2 under WSL2:
 | CI: lint, tests, package build and a render from the wheel, Ubuntu and Windows, Python 3.11 to 3.13 | PASS |
 | The sample film at `preview`, every shot filmed from nothing (17 shots, 666 drawings) | PASS: 82.25 s, 1,974 frames, -16.0 LUFS, 55 min 11 s (2026-11-12, after the eyeline fix); frames looked at shot by shot |
 | Eyelines in the office scene, where Bashir's desk is behind Tara | PASS: her body turns -0.68 rad towards him (it stood at 0 before the fix); the projected eyeball axes and the rendered irises in the reaction close-up both point his way |
+| Solid contact on the sample, `tools/check_contacts.py` sampling every sixth drawing of all 17 shots (116 drawings) | PASS: 0 intersections (192 in the render before the chair, route and grip fixes); the sample filmed again from nothing with them, 82.25 s, 1,974 frames (2026-11-12, sharing the machine with a second film, so not timed) |
 | The same film after a change to its last shot | 16 shots reused by content, 1 filmed, 3 min 17 s |
 | `sastudio` killed with SIGKILL while Blender was at drawing 14 of 21 of a new shot | PASS: no Blender left running; the next run said "21 drawings (14 already done)" and finished the shot |
 | A shot renumbered by an edit to the plan | PASS: reused from its old folder ("filmed as ..."); a half-filmed one carried on ("28 already done") |

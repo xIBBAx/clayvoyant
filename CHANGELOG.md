@@ -12,8 +12,20 @@
 - Chairs are shallower than a thigh is long, so knees clear the front edge.
 - People walk around furniture: each walk is routed on a top-down map of the set (a body's width kept clear of
   every table, chair and counter), and an entrance starts early enough for the longer way round.
+- Chairs move: pulled back for somebody about to sit, drawn in as they sit, pushed back as they stand. People come
+  to a chair from its side and stand up a little behind where they sat.
+- Walks keep a body's width from everything solid where there is room, and never less than the body itself.
+- A carried mug is held in a cupped hand and a phone being read lies along the palm; neither passes through the hand.
 - `tools/check_contacts.py PROJECT` reports any character triangle inside the set or another
-  character, frame by frame, and fails if there is one.
+  character, frame by frame, and fails if there is one. The sample film: 0 in 116 sampled drawings.
+- The sample film is filmed again with all of it ([watch](https://cdn.jsdelivr.net/gh/xIBBAx/clayvoyant@8cb3c0a/docs/media/the-fast-one.mp4)).
+
+### Writing
+
+- **`sastudio brief PROJECT "idea"`** prints a writing brief for a person or any chat assistant: the cast, the
+  places and their marks, the acting vocabulary, the format with a complete example, and the rules the validator
+  applies, all read from the validator's own tables. [Writing with an assistant](docs/WRITING_WITH_AN_ASSISTANT.md).
+- [Why Clayvoyant exists](docs/WHY.md): who it is for, what it costs, how it compares.
 
 ## 0.3.0 (2026-11-12)
 
