@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.0 (2026-11-12)
 
 ### Solid contact
 
@@ -49,8 +49,6 @@
   places and their marks, the acting vocabulary, the format with a complete example, and the rules the validator
   applies, all read from the validator's own tables. [Writing with an assistant](docs/WRITING_WITH_AN_ASSISTANT.md).
 - [Why Clayvoyant exists](docs/WHY.md): who it is for, what it costs, how it compares.
-
-## 0.3.0 (2026-11-12)
 
 ### Clay films
 
