@@ -36,7 +36,7 @@ times faster. Measured on the same laptop with a GeForce GTX 1660 Ti (6 GB), on 
 |---|---|---|
 | Sculpt the sample's three characters | 46 s | 0.9 GB |
 | Voice its 13 lines with Kokoro (47 s of speech) | 26 s | 0.6 GB |
-| Film and assemble the 82-second sample at `preview`, every shot from nothing | 54 min 57 s | 1.95 GB |
+| Film and assemble the 82-second sample at `preview`, every shot from nothing | 55 min 11 s | 1.97 GB |
 | The same when only its last shot changed (16 reused, 1 filmed) | 3 min 17 s | 1.8 GB |
 
 Filming runs one Blender at a time. Leave about 2 GB of memory for it, and about 1 GB of disk for
