@@ -19,6 +19,7 @@ sastudio validate my-film
 sastudio render my-film --preset draft              # drawn characters: no Blender, no graphics card
 sastudio film my-film --preset draft                # clay stop motion
 sastudio film my-film --preset draft --lang hi-IN   # the same film in Hindi
+sastudio film my-film --preset draft --lang hi-Latn # Hindi voices, words on screen in Roman letters
 ```
 
 The `india` template is five short scenes with six invented characters, each scene in English and
@@ -81,6 +82,25 @@ touches are filmed again.
   Malayalam) and lays the shapes over the parts of the recording where someone is speaking.
   Subtitles and cards are set in each script with bundled Noto Sans fonts, which also carry Latin
   for the web addresses and numbers inside a line.
+- **Hindi in Roman letters (`hi-Latn`).** A great many people who speak Hindi read it, type it and
+  forward it in Roman letters: "Papa, ek minute ke liye phone neeche rakhiye." The template lists
+  `hi-Latn` next to `hi-IN`, and that film is the Hindi film (the same lines, the same voices, the
+  same filmed shots) with every word on screen in Roman letters: subtitles, titles, key points,
+  posters and phone captions. You write nothing twice. The Hindi lines stay in Devanagari, which
+  is what a voice reads best, and the film spells them out:
+
+  | The line, as written | On screen in `hi-IN` | On screen in `hi-Latn` |
+  |---|---|---|
+  | `पापा? किसको पैसे भेज रहे हैं?` | पापा? किसको पैसे भेज रहे हैं? | Papa? Kisko paise bhej rahe hain? |
+  | `वीडियो कॉल पर किसी की गिरफ़्तारी नहीं होती` | वीडियो कॉल पर किसी की गिरफ़्तारी नहीं होती | Video call par kisi ki giraftaari nahin hoti |
+
+  English words Hindi has borrowed come back as English (वीडियो कॉल is "video call", ओटीपी is "OTP"),
+  from a list anyone can add to: [`romanize_hi.json`](../src/sastudio/data/romanize_hi.json). The
+  rest is spelled letter by letter the everyday way (करना is "karna", में is "mein", नहीं is "nahin").
+  To word a line yourself, give it its own text and it is used as written:
+  `translations: { hi-IN: "वो कॉल", hi-Latn: "Woh Call" }`. Want only Devanagari, or only Roman
+  letters? Keep the one you want in `project.languages`. It is everyday spelling, not a scholar's
+  transliteration, and it exists for Hindi so far.
 - **Hinglish.** Write lines the way people talk. Kokoro's Hindi voices read Devanagari, so write the
   English words people use the way they say them (कॉल, ऐप, ओटीपी). Show a web address or a number one
   way and say it another with `spoken:` (the template shows "1930" and says "उन्नीस तीस").

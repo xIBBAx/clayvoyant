@@ -33,6 +33,7 @@ from .render.style import Palette, load_image
 from .safepath import atomic_write_text, ensure_output_dir, safe_name
 from .subtitles import check as check_subs
 from .subtitles import to_srt, to_transcript, to_vtt
+from .text.romanize import spoken_language
 from .timeline import (
     INTRO_S,
     OUTRO_S,
@@ -328,7 +329,8 @@ def build(project: Project, *, language: str | None = None, scene_ids=None, pres
 
     if voices and voices not in ("kokoro", "offline", "recorded"):
         raise ConfigError(f"--voices {voices} is not a free provider.", "Use kokoro, recorded or offline; paid providers are set per character.")
-    raw, fallback_lines = resolve_voices(project, lang, scene_ids, fallback=fallback, log=log, override=voices)
+    speak = spoken_language(lang)       # hi-Latn is the hi-IN film with its words in Roman letters: same voices, same shots
+    raw, fallback_lines = resolve_voices(project, speak, scene_ids, fallback=fallback, log=log, override=voices)
     prepared = prepare_lines(raw, project.root / STATE_DIR / "work" / "lines", jobs)
     tls = scene_timelines(project, lang, scene_ids, prepared)
     intro, outro = bookends(project, lang) if not scene_ids else (None, None)
@@ -350,7 +352,7 @@ def build(project: Project, *, language: str | None = None, scene_ids=None, pres
                     if marks:
                         phonemes[sp.line.id] = marks
             opens = tl.beats[0].frames if tl.beats and tl.beats[0].kind == "title" else 0
-            filmed = stopmotion.film_scene(project, scenes[tl.id], plans[tl.id], spans, preset, lang, log=log,
+            filmed = stopmotion.film_scene(project, scenes[tl.id], plans[tl.id], spans, preset, speak, log=log,
                                            phonemes=phonemes, title_frames=opens)
             if stopmotion.TITLE_KEY + tl.id in filmed:
                 vis.clay_titles[tl.id] = filmed.pop(stopmotion.TITLE_KEY + tl.id)

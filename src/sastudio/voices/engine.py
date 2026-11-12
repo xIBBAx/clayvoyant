@@ -24,6 +24,7 @@ from pathlib import Path
 
 from ..errors import BudgetExceeded, MissingCredential, ProviderError, StudioError
 from ..safepath import atomic_write_bytes, atomic_write_text
+from ..text.romanize import spoken_language
 from .base import Audio, PreparedRequest, RetryPolicy, Transport, Utterance, check_wav, urllib_transport
 from .registry import get_provider, set_provider_configs
 
@@ -146,7 +147,8 @@ def cached_ok(path: Path) -> bool:
 
 
 def iter_utterances(project, langs: Iterable[str], scene_ids: Iterable[str] | None):
-    for lang in langs:
+    # a Roman-letter language (hi-Latn) is spoken in the language it spells (hi-IN): one voice, generated once
+    for lang in dict.fromkeys(spoken_language(lang) for lang in langs):
         for scene in project.enabled_scenes(scene_ids):
             for ln in scene.lines:
                 if ln.is_card or not ln.who:

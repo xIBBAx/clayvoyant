@@ -167,6 +167,9 @@ sastudio film my-film --preset draft --lang hi-IN
 `sastudio posters my-film` prints each scene's lesson as an A4 poster in both languages, for a
 notice board. `sastudio share my-film --each` makes one upright phone clip per scam, with large
 captions, about a minute and 5 MB each: small enough to forward.
+The Hindi film also comes with its words in Roman letters, the way people type Hindi on a phone
+("Papa, ek minute ke liye phone neeche rakhiye"): add `--lang hi-Latn`. The voices stay Hindi and
+nothing is written twice.
 [Films for India](docs/INDIA.md) has the sources, the languages (Hindi free and offline; nine more
 with recorded or Sarvam voices, lip-synced from their own scripts) and a checklist for showing it.
 [Nineteen Thirty](examples/nineteen-thirty/) is the first scene on its own, filmed in clay.
@@ -252,6 +255,8 @@ Sets, garments, hair, gestures, scene templates, translations, voice adapters, f
 documentation are welcome. [CONTRIBUTING.md](CONTRIBUTING.md) explains how changes are tested and
 how secrets and unlicensed material are kept out. Please follow the
 [code of conduct](CODE_OF_CONDUCT.md) and report vulnerabilities privately ([SECURITY.md](SECURITY.md)).
+Working with a coding assistant? [AGENTS.md](AGENTS.md) tells it how to make a film here and what
+never to do.
 
 ## License
 

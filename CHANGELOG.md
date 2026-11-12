@@ -8,6 +8,12 @@ Films for India, ready to forward.
   the top, the film across the middle over a blurred copy of itself, each line's words below it in large type in its
   own script, and where to report along the foot; encoded under `--max-mb` (15 MB by default). It also leaves the
   film without subtitles in the picture, with its `.srt`, in `build/clean/`. Every voice and filmed shot is reused.
+- **Hindi in Roman letters (`hi-Latn`).** List `hi-Latn` in `project.languages` and that film is the Hindi film (same
+  lines, same voices, same filmed shots) with every word on screen in Roman letters, the way people type Hindi on a
+  phone: subtitles, titles, key points, posters, phone captions. Nothing is written twice: the Devanagari lines are
+  spelled out (`text/romanize.py`), borrowed English words come back as English from a list anyone can extend
+  (`data/romanize_hi.json`), and a line can carry its own Roman text (`translations: { hi-Latn: "..." }`). The
+  `india` template and Nineteen Thirty now make three films: English, Hindi, and Hindi in Roman letters.
 - `tools/make_showcase_media.py` takes `--lang`, `--name` and `--no-gif`, so any sample film gets a sheet.
 - `sastudio share --each` makes one phone clip per scene (the india template's Hindi clips are 4.5 to 7.3 MB each);
   `--scenes a,b` only the scenes named.
