@@ -51,7 +51,7 @@ sastudio = "sastudio.cli:main"
 Homepage = "https://github.com/xIBBAx/clayvoyant"
 Repository = "https://github.com/xIBBAx/clayvoyant"
 Documentation = "https://github.com/xIBBAx/clayvoyant/tree/main/docs"
-Changelog = "https://github.com/xIBBAx/clayvoyant/blob/main/CHANGELOG.md"
+Changelog = "https://github.com/xIBBAx/clayvoyant/blob/main/docs/CHANGELOG.md"
 Issues = "https://github.com/xIBBAx/clayvoyant/issues"
 Security = "https://github.com/xIBBAx/clayvoyant/security/policy"
 
@@ -59,8 +59,7 @@ Security = "https://github.com/xIBBAx/clayvoyant/security/policy"
 packages = ["src/sastudio"]
 
 [tool.hatch.build.targets.sdist]
-include = ["src/sastudio", "examples", "docs", "tests", "tools", "README.md", "LICENSE", "ASSET_LICENSES.md", "CHANGELOG.md",
-           "CONTRIBUTING.md", "SECURITY.md", "CODE_OF_CONDUCT.md", ".env.example"]
+include = ["src/sastudio", "examples", "docs", "tests", "tools", "README.md", "LICENSE", "SECURITY.md", ".env.example"]
 exclude = ["docs/media/*.mp4"]   # the sample film plays on the repository page; packages stay small
 
 [tool.pytest.ini_options]

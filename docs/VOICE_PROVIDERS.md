@@ -282,5 +282,5 @@ your dialogue.
 ## Who owns the audio
 
 Speech you generate is governed by your provider's terms, not by this project. See
-[ASSET_LICENSES.md](../ASSET_LICENSES.md#speech-you-generate). Never clone a real person's voice
+[ASSET_LICENSES.md](ASSET_LICENSES.md#speech-you-generate). Never clone a real person's voice
 without their written consent.

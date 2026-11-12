@@ -149,4 +149,4 @@ names. The portraits in `assets/characters/` are stills of those sculpts.
 
 All five were designed for this project and are not based on real people. If you add
 characters, do not use a real person's likeness without their written consent, and record the
-licence of every image you add in [ASSET_LICENSES.md](../ASSET_LICENSES.md).
+licence of every image you add in [ASSET_LICENSES.md](ASSET_LICENSES.md).

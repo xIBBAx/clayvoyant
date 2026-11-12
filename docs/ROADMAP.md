@@ -142,4 +142,4 @@ on that contract rather than on any particular engine.
 Learner tracking, phishing-simulation sending, collecting anyone's credentials or personal data,
 and anything presented as a compliance certificate.
 
-Suggestions and contributions are welcome; see [CONTRIBUTING.md](../CONTRIBUTING.md).
+Suggestions and contributions are welcome; see [CONTRIBUTING.md](../.github/CONTRIBUTING.md).
