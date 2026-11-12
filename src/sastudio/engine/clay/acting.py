@@ -637,7 +637,12 @@ def pose_actor(S_, a, f):
         if A_ is not None:
             # a hand laid on a table rests on it: lifted by what the last measurement found inside the top
             return Mi_ @ (V(A_) + V((0, 0, getattr(a, 'hand_lift', {}).get(side, 0.0)))) - V((0, 0, sz))
-        return V(P.place(k_['g'], side, GEST[k_['g']][side]))
+        base_ = V(P.place(k_['g'], side, GEST[k_['g']][side]))
+        nd_ = getattr(a, 'hand_nudge', {}).get((side, K_[m_][0]))
+        if nd_ is not None:
+            # this gesture's hand was found inside something on the set: it ends clear of it
+            base_ = base_ + Mi_.to_3x3() @ V(nd_)
+        return base_
 
     def durh(side, m_):
         return 10 + (tgt(side, m_) - tgt(side, max(m_ - 1, 0))).length * 9

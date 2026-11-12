@@ -389,6 +389,23 @@ def settle(f, depth=0):
                     lifts[side] = lifts.get(side, 0.0) + .01
                     moved = True
             a.hand_lift = lifts
+        # a hand in a gesture that ends inside something on the set (a mug, a machine, a screen) is nudged clear of it,
+        # for that gesture only
+        nudges = getattr(a, 'hand_nudge', {})
+        for side in ('L', 'R'):
+            if cur.get('h' + side) is not None:
+                continue
+            pts, co = _inside(_part(a, '_h' + side), .3, 9.0)
+            if len(pts) and co is not None:
+                d = co.mean(axis=0) - pts.mean(axis=0)
+                n = float(_np.linalg.norm(d))
+                d, n = (d, n) if n > 1e-4 else (_np.array([0.0, 0.0, 1.0]), 1.0)
+                key = (side, a.state(f)[1][0])
+                nx, ny, nz = nudges.get(key, (0.0, 0.0, 0.0))
+                if math.sqrt(nx * nx + ny * ny + nz * nz) < .4:
+                    nudges[key] = (nx + .04 * d[0] / n, ny + .04 * d[1] / n, nz + .04 * d[2] / n)
+                    moved = True
+        a.hand_nudge = nudges
         # feet are pushed sideways out of whatever they stand in (a chair's base, a table's foot), remembered for the
         # spot the person stands or sits at, and never mid-stride
         if not a.walking(f):
