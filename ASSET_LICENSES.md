@@ -53,7 +53,7 @@ organisation's rules before you use them.
 
 ## Fonts (bundled)
 
-Both are under the [SIL Open Font License 1.1](https://openfontlicense.org). The licence text
+All are under the [SIL Open Font License 1.1](https://openfontlicense.org). The licence text
 is next to each font. You may use them in your films and redistribute them with their licence,
 but not sell the font files on their own.
 
@@ -61,6 +61,7 @@ but not sell the font files on their own.
 |---|---|---|---|
 | Atkinson Hyperlegible Next | `src/sastudio/data/fonts/AtkinsonHyperlegibleNext[wght].ttf` | 2020-2024 The Atkinson Hyperlegible Next Project Authors | `google/fonts` commit `5bb28733cec313b63fbd415b574b5ae35c8aa8b8`, unmodified, SHA-256 `5a455d1c…31745` |
 | Mukta (Regular, Bold) | `src/sastudio/data/fonts/Mukta-*.ttf` | 2014 Girish Dalvi, Ek Type | same commit, unmodified, SHA-256 `2958e4af…9688` (Regular), `7d22891c…0a12` (Bold) |
+| Noto Sans Bengali, Gurmukhi, Gujarati, Oriya, Tamil, Telugu, Kannada, Malayalam (variable) | `src/sastudio/data/fonts/NotoSans*[wdth,wght].ttf`, licence `OFL-NotoSans-Indic.txt` | 2022 (Bengali 2025) The Noto Project Authors | `google/fonts` main, 12 November 2026, unmodified; versions Bengali 3.011, Gurmukhi 2.004, Gujarati 2.106, Oriya 2.007, Tamil 2.004, Telugu 2.005, Kannada 2.006, Malayalam 2.104; SHA-256 `dcd42978…3a05a` (Bengali), `1e6f728f…dc5f2` (Gurmukhi), `9901d855…ac428` (Gujarati), `91034227…3ba82` (Oriya), `aa3a9b32…7cf88` (Tamil), `e618af7b…7334d` (Telugu), `cca4f3b3…97ec9` (Kannada), `312e0e7c…6fb56` (Malayalam) |
 
 ## Tools you install yourself (not included)
 
