@@ -165,10 +165,11 @@ sastudio film my-film --preset draft --lang hi-IN
 ```
 
 `sastudio posters my-film` prints each scene's lesson as an A4 poster in both languages, for a
-notice board. `sastudio share my-film` makes an upright phone film with large captions, small
-enough to forward. [Films for India](docs/INDIA.md) has the sources, the languages (Hindi free and offline; nine more
+notice board. `sastudio share my-film --each` makes one upright phone clip per scam, with large
+captions, about a minute and 5 MB each: small enough to forward.
+[Films for India](docs/INDIA.md) has the sources, the languages (Hindi free and offline; nine more
 with recorded or Sarvam voices, lip-synced from their own scripts) and a checklist for showing it.
-[Nineteen Thirty](examples/nineteen-thirty/) is the first scene on its own.
+[Nineteen Thirty](examples/nineteen-thirty/) is the first scene on its own, filmed in clay.
 
 ## How it works
 
@@ -217,6 +218,8 @@ Measured on one laptop on 2026-11-11 (Intel Core i7-10750H, 12 threads, GeForce 
 - The `final` preset (1920x1080) has not yet been run for a whole film; the sample was built with
   `preview`. CI has no Blender, so the clay smoke test runs only where Blender is installed.
 - The starter scenes are general guidance, not policy. Replace each procedure with your own.
+- The `india` template's Hindi was written for it and has not yet been reviewed by fluent speakers
+  from its audience. Read every line aloud with someone who will watch it before you show it.
 
 ## Documentation
 
