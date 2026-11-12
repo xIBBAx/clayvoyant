@@ -56,7 +56,7 @@ Films for India, ready to forward.
   are read through the Devanagari table they share a layout with, so recorded or Sarvam lines in those languages
   move the mouth. A vowel sign or virama no longer splits a word (it closed the mouth mid-word in Hindi too).
 - **Subtitles and cards in those scripts** use bundled Noto Sans fonts (SIL OFL), which also carry Latin.
-- [Films for India](docs/INDIA.md): the template, its sources with links, the languages, a checklist.
+- [Films for India](INDIA.md): the template, its sources with links, the languages, a checklist.
 - **`sastudio posters PROJECT`**: each scene's lesson as a printed page (A4 or Letter, 300 dpi PNG) and one PDF per
   language: the organisation's name and colours, the topic, the headline, the key point, the scene's people, and
   where to report. For notice boards, classrooms and WhatsApp forwards. Drawn figures are drawn again once
@@ -76,8 +76,8 @@ Films for India, ready to forward.
 
 - **`sastudio brief PROJECT "idea"`** prints a writing brief for a person or any chat assistant: the cast, the
   places and their marks, the acting vocabulary, the format with a complete example, and the rules the validator
-  applies, all read from the validator's own tables. [Writing with an assistant](docs/WRITING_WITH_AN_ASSISTANT.md).
-- [Why Clayvoyant exists](docs/WHY.md): who it is for, what it costs, how it compares.
+  applies, all read from the validator's own tables. [Writing with an assistant](WRITING_WITH_AN_ASSISTANT.md).
+- [Why Clayvoyant exists](WHY.md): who it is for, what it costs, how it compares.
 
 ### Clay films
 

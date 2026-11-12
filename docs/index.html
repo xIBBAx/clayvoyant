@@ -21,6 +21,11 @@
   figure img { width: 100%; height: auto; display: block; border-radius: 8px; }
   figcaption { font-size: 15px; color: var(--muted); margin-top: 8px; }
   code { font-size: 15px; }
+  details { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--rule); }
+  summary { cursor: pointer; color: var(--accent); font-weight: 600; }
+  details p, details ul { color: var(--muted); }
+  ul { margin: 8px 0; padding-left: 20px; }
+  li { margin: 4px 0; }
   footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--rule); font-size: 15px; color: var(--muted); }
 </style>
 </head>
@@ -35,6 +40,26 @@
     Your browser cannot play this video. <a href="media/the-fast-one.mp4">Download it</a> (6.6 MB).
   </video>
   <p class="specs">Seventeen filmed shots, thirteen voiced lines. Made with <code>sastudio film examples/the-fast-one --preset preview</code> in 55 minutes on a laptop GeForce GTX 1660 Ti.</p>
+
+  <h2 id="where-clayvoyant-began">Where Clayvoyant began</h2>
+  <p>I first made a 29-minute clay stop-motion film to teach information security at my father's workplace. It was hard to build: I had to join many tools together, work around the limits of my hardware, and write my own pipeline to sculpt, animate, voice, light and film every scene.</p>
+  <p>Nobody making an awareness or classroom film should have to rebuild all of that, or spend a paid video-generation quota on every scene. So I turned what I built into Clayvoyant and made it open source. You write the people, their lines and the places in a few text files; it sculpts the cast, builds the set, directs the cameras, voices the lines and puts the film together on your own computer.</p>
+  <p>It still needs Python, FFmpeg and, for clay, Blender, and rendering takes time: this film took 55 minutes on a laptop graphics card. What it saves you is the patchwork of tools, and with the free voices there is nothing to pay per film. The original film stays private, as it carries the workplace's name and people.</p>
+
+  <details>
+    <summary>What went into the original, and what Clayvoyant does now</summary>
+    <p><strong>The original:</strong> Blender for the clay; Remotion and FFmpeg for compositing and the edit; Sarvam Bulbul and ElevenLabs for the voices; Mixkit music and sound effects; Poly Haven models and textures and Pexels footage for the rain; lettering from an alphabet I drew in code; Earshot to check the sound; and AI-assisted engineering throughout. I also tried Tripo3D and BlenderKit for models, but neither made it into the final film.</p>
+    <p><strong>Clayvoyant:</strong></p>
+    <ul>
+      <li>Clay characters sculpted from a short description, no two alike.</li>
+      <li>Faces that act, hands with fingers, and gestures.</li>
+      <li>Eight reusable sets, lighting moods, and a planner that directs the cameras.</li>
+      <li>Lip sync, subtitles, and one film per language.</li>
+      <li>Kokoro voices, free and local; Sarvam or ElevenLabs with your own key.</li>
+      <li>Only what you change is filmed again, and a stopped render picks up where it left off.</li>
+      <li>Quicker drawn films without Blender, phone videos and printable posters.</li>
+    </ul>
+  </details>
 
   <h2>What changed, frame by frame</h2>
   <p>Each pair is two real renders of the same moment: on the left before a fix, on the right after it.</p>

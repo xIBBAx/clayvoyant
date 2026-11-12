@@ -44,7 +44,7 @@ Look at frames before saying a film is finished: `ffmpeg -ss 12 -i FILM.mp4 -fra
   comes from a public advisory, linked in the scene's `policy_note` or the docs. Do not write a
   number, a portal or a rule from memory.
 - **No real people, no real organisations' material, no assets without a recorded licence**
-  ([CONTRIBUTING.md](CONTRIBUTING.md), [ASSET_LICENSES.md](ASSET_LICENSES.md)). Sets and props
+  ([CONTRIBUTING.md](.github/CONTRIBUTING.md), [ASSET_LICENSES.md](docs/ASSET_LICENSES.md)). Sets and props
   are built by code.
 - **Dialogue names are tokens** (`{leo}`, `{org.name}`), never plain text, so a rename changes
   every line.

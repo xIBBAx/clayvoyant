@@ -4,7 +4,7 @@ name: Release
 # This workflow tests, checks the tag against the package version, builds the wheel and sdist and
 # writes SHA256SUMS, then keeps them as the run's `dist` artifact. It never creates or changes a
 # release: the maintainer creates the release under their own name from these files (see
-# CONTRIBUTING.md, "Releasing"). It has read-only permissions. PyPI upload is a separate, manual
+# .github/CONTRIBUTING.md, "Releasing"). It has read-only permissions. PyPI upload is a separate, manual
 # workflow (publish-pypi.yml).
 
 on:

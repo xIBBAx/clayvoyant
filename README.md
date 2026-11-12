@@ -26,11 +26,13 @@
   <a href="docs/SHOWCASE.md"><b>Before and after, frame by frame</b></a>
 </p>
 
-It began as a way to make security-awareness films: twelve short stories about phishing, passwords,
-phone scams and reporting, in your organisation's name, words and language. It grew into a small
-film studio. Every figure is sculpted from signed-distance clay and rigged with real hands and a
-face that acts; every room is built by code; every shot is planned like a film and can be changed
-in a line of YAML.
+I built Clayvoyant after making a 29-minute clay film to teach information security at my father's
+workplace ([where it began](https://xibbax.github.io/clayvoyant/#where-clayvoyant-began)). It is
+that work, opened up so anyone can make their own films: every figure is sculpted from
+signed-distance clay and rigged with real hands and a face that acts; every room is built by code;
+every shot is planned like a film and can be changed in a line of YAML. Twelve short
+security-awareness stories come with it, ready to make in your organisation's name, words and
+language.
 
 ## Make a film
 
@@ -248,15 +250,15 @@ yours to use; the studio records the licence you give for each imported model.
 ## Contributing
 
 Sets, garments, hair, gestures, scene templates, translations, voice adapters, fixes and
-documentation are welcome. [CONTRIBUTING.md](CONTRIBUTING.md) explains how changes are tested and
+documentation are welcome. [CONTRIBUTING.md](.github/CONTRIBUTING.md) explains how changes are tested and
 how secrets and unlicensed material are kept out. Please follow the
-[code of conduct](CODE_OF_CONDUCT.md) and report vulnerabilities privately ([SECURITY.md](SECURITY.md)).
+[code of conduct](.github/CODE_OF_CONDUCT.md) and report vulnerabilities privately ([SECURITY.md](SECURITY.md)).
 Working with a coding assistant? [AGENTS.md](AGENTS.md) tells it how to make a film here and what
 never to do.
 
 ## License
 
 Code, sculpts, sets and sample scripts: [MIT](LICENSE). Bundled fonts: SIL Open Font License.
-Every bundled file is listed in [ASSET_LICENSES.md](ASSET_LICENSES.md). Optional voice software
+Every bundled file is listed in [ASSET_LICENSES.md](docs/ASSET_LICENSES.md). Optional voice software
 keeps its own licences ([details](docs/VOICE_PROVIDERS.md#kokoro)). Films you make are yours, and
 you do not need to credit this project in them.

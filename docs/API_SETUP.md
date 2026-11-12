@@ -19,7 +19,7 @@ You need an API key for one thing only: generating real voices with Sarvam or El
 
 Use a key for this project only. If your provider lets you restrict a key (for example to
 text-to-speech, or to a credit limit), restrict it. Check what each plan allows you to do with the
-audio before you publish a film ([ASSET_LICENSES.md](../ASSET_LICENSES.md#speech-you-generate)).
+audio before you publish a film ([ASSET_LICENSES.md](ASSET_LICENSES.md#speech-you-generate)).
 
 ## 2. Give the key to sastudio
 

@@ -131,7 +131,7 @@ my-film/
 ## Extending
 
 - **A voice provider**: subclass `Provider` in `voices/`, register it in `registry.py`, add it to
-  the schema's provider list, and test it with a fake transport. See [CONTRIBUTING.md](../CONTRIBUTING.md).
+  the schema's provider list, and test it with a fake transport. See [CONTRIBUTING.md](../.github/CONTRIBUTING.md).
 - **A scene template**: YAML only. See [SCENES.md](SCENES.md).
 - **A language**: translations in the scene files, `project.labels` for the renderer's own words,
   and a font that covers the script (Latin and Devanagari are bundled).

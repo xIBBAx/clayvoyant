@@ -1,12 +1,12 @@
 # Licences
 
 Everything in this repository is listed here with the terms it is shared under. If you add an
-asset, add a row (see [CONTRIBUTING.md](CONTRIBUTING.md)).
+asset, add a row (see [CONTRIBUTING.md](../.github/CONTRIBUTING.md)).
 
 ## Code
 
 All source code (`src/`, `tests/`, `tools/`, `examples/`, `.github/`) is under the
-[MIT License](LICENSE), Copyright (c) 2026 Ibrahim Sultan.
+[MIT License](../LICENSE), Copyright (c) 2026 Ibrahim Sultan.
 
 The clay engine (`src/sastudio/engine/`: the sculptor, the puppet and its rigs, acting, sets and the
 film runner) is part of that source and under the same licence. Its core (the sculptor, the clay
