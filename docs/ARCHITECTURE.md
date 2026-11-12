@@ -48,6 +48,7 @@ flowchart TD
 | Module | Responsibility |
 |---|---|
 | `cli.py` | The `sastudio` commands. Each one calls the modules below; none contain logic of their own. |
+| `share.py` | `sastudio share`: the film without subtitles in the picture, then laid out upright for a phone with large captions, under a size limit. |
 | `posters.py` | `sastudio posters`: each scene's lesson as an A4 or Letter page (PNG) and one PDF per language. |
 | `brief.py` | `sastudio brief`: a writing brief read from the validator's own tables, for a person or a chat assistant. |
 | `project.py` | The project model, loading, validation, display/spoken text resolution. |
