@@ -295,7 +295,7 @@ def cmd_share(a) -> int:
     if not 1 <= a.max_mb <= 500:
         raise StudioError("--max-mb must be between 1 and 500.")
     for lang in ([a.lang] if a.lang else p.languages):
-        share(p, lang, a.max_mb)
+        share(p, lang, a.max_mb, a.jobs)
     return 0
 
 
@@ -545,6 +545,7 @@ def parser() -> argparse.ArgumentParser:
     s.add_argument("project")
     s.add_argument("--lang", help="one language (default: every language of the project)")
     s.add_argument("--max-mb", type=float, default=15.0, help="the largest the phone film may be (default 15 MB)")
+    s.add_argument("--jobs", type=int, help="scenes assembled at once (default: half the processor's threads, up to 6)")
     s.set_defaults(fn=cmd_share)
 
     s = sub.add_parser("posters", help="print each scene's lesson as a poster (A4 or Letter PNG, and a PDF) for a "

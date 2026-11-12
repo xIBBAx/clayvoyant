@@ -137,14 +137,14 @@ def compose(project, lang: str, film: Path, srt: Path, out: Path, max_mb: float 
     return out
 
 
-def share(project, lang: str | None = None, max_mb: float = 15.0, log=print) -> Path:
+def share(project, lang: str | None = None, max_mb: float = 15.0, jobs: int | None = None, log=print) -> Path:
     """Build the film without subtitles in the picture (reusing everything already made), then lay it out for a phone."""
     lang = lang or project.language
     rc = project.data.setdefault("render", {})
     own = rc.get("output", "build")
     rc["output"] = f"{own}/clean"
     try:
-        res = build(project, language=lang, burn=False, log=log)
+        res = build(project, language=lang, burn=False, jobs=jobs, log=log)
     finally:
         rc["output"] = own
     if res.video is None or res.srt is None:
