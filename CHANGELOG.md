@@ -8,6 +8,8 @@
   film without subtitles in the picture, with its `.srt`, in `build/clean/`. Every voice and filmed shot is reused.
 - `tools/make_showcase_media.py` takes `--lang`, `--name` and `--no-gif`, so any sample film gets a sheet.
 - `--version` prints the project's name; the command's description says what it makes.
+- The closing card ends on the reporting portal in large type when the reporting address is still a placeholder
+  and the portal is real (the `india` template ends on cybercrime.gov.in, never on help@example.com).
 
 ## 0.3.0 (2026-11-12)
 

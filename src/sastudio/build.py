@@ -19,13 +19,14 @@ from collections.abc import Callable
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from PIL import Image, ImageDraw
 
 from . import __version__
 from .audio import ffmpeg as ff
 from .errors import ConfigError, RenderError
-from .project import Project, placeholder_contacts, validate
+from .project import Project, is_placeholder_host, placeholder_contacts, validate
 from .project import errors as only_errors
 from .render import cards, figures
 from .render.style import Palette, load_image
@@ -201,9 +202,13 @@ def bookends(project: Project, lang: str) -> tuple[SceneTimeline | None, SceneTi
             if credits.get("creator"):
                 lines.append(credits["creator"])
             lines += [project.display(x, lang) for x in credits.get("extra") or []]
+        contact, url = org["security_email"], org.get("reporting_url", "")
+        if url and is_placeholder_host(contact.rsplit("@", 1)[-1]) and not is_placeholder_host(urlsplit(url).hostname or ""):
+            # a real portal and a placeholder address: the film's last word is the portal, never an address nobody reads
+            contact, url = url.removeprefix("https://").removeprefix("http://").rstrip("/"), ""
         beat = Beat("outro", frames_for(OUTRO_S, FPS), "",
-                    extra={"ask": ui_label(project, "report_prompt", lang),
-                           "contact": org["security_email"], "url": org.get("reporting_url", ""), "credits": lines})
+                    extra={"ask": ui_label(project, "report_prompt", lang), "contact": contact, "url": url,
+                           "credits": lines})
         outro = SceneTimeline("_outro", "", lang, FPS, [beat], [])
     return intro, outro
 
