@@ -18,7 +18,7 @@
     },
     "lang": {
       "type": "string",
-      "pattern": "^[a-z]{2,3}(-[A-Z]{2})?$"
+      "pattern": "^[a-z]{2,3}(-[A-Z]{2}|-Latn)?$"
     },
     "relpath": {
       "type": "string",
@@ -1105,7 +1105,7 @@
           "forms": {
             "type": "object",
             "propertyNames": {
-              "pattern": "^([a-z]{2,3}(-[A-Z]{2})?\\.|spoken\\.([a-z]{2,3}(-[A-Z]{2})?\\.)?)?[a-z][a-z0-9_]{0,29}$"
+              "pattern": "^([a-z]{2,3}(-[A-Z]{2}|-Latn)?\\.|spoken\\.([a-z]{2,3}(-[A-Z]{2})?\\.)?)?[a-z][a-z0-9_]{0,29}$"
             },
             "additionalProperties": {
               "type": "string",

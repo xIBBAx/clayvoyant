@@ -11,11 +11,11 @@ schema_version: 1
 
 project:
   title: "Not So Fast"
-  title_translations: { hi-IN: "ज़रा ठहरिए" }
+  title_translations: { hi-IN: "ज़रा ठहरिए", hi-Latn: "Zara Thehriye" }
   subtitle: "Five scams, five minutes, five ways to stop them"
   subtitle_translations: { hi-IN: "पाँच ठगी, पाँच मिनट, बचने के पाँच तरीके" }
   language: en-IN
-  languages: [en-IN, hi-IN]
+  languages: [en-IN, hi-IN, hi-Latn]  # hi-Latn: the Hindi film with its words in Roman letters ("Papa, phone neeche rakhiye")
   labels:
     topics:
       "digital arrest": { hi-IN: "डिजिटल अरेस्ट" }

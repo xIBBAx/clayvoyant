@@ -64,4 +64,4 @@ def test_each_scene_can_be_its_own_clip(tmp_path, monkeypatch):
                                               "the_first_number")]
     calls.clear()
     assert main(["share", str(tmp_path / "film"), "--scenes", "six_numbers"]) == 0
-    assert calls == [("en-IN", ["six_numbers"]), ("hi-IN", ["six_numbers"])]
+    assert calls == [(lang, ["six_numbers"]) for lang in ("en-IN", "hi-IN", "hi-Latn")]      # every language it has

@@ -21,6 +21,7 @@ from jsonschema import Draft202012Validator
 from .errors import ConfigError, TemplateError, UnsafePathError
 from .safepath import resolve_inside
 from .text import template as tpl
+from .text.romanize import ROMAN_OF, romanize, spoken_language
 from .text.speech import DEFAULT_LEXICON, SpeechRules, speak_email, speak_url
 
 PROJECT_FILE = "studio.yaml"
@@ -117,7 +118,7 @@ class Character:
 
     def voice_for(self, lang: str, defaults: dict[str, dict]) -> VoiceSpec:
         base = {k: v for k, v in self.voice.items() if k != "languages"}
-        override = (self.voice.get("languages") or {}).get(lang)
+        override = (self.voice.get("languages") or {}).get(spoken_language(lang))
         if override:
             if override.get("provider", base.get("provider")) != base.get("provider"):
                 base = {}
@@ -168,10 +169,14 @@ class Line:
             if lang == default_lang:
                 return self.card["text"]
             t = (self.card.get("translations") or {}).get(lang)
+            if t is None and lang in ROMAN_OF:
+                return self.template_for(ROMAN_OF[lang], default_lang, fallback)
             return t if t is not None else (self.card["text"] if fallback else None)
         if lang == default_lang:
             return self.say
         t = self.translations.get(lang)
+        if t is None and lang in ROMAN_OF:      # no Roman text of its own: the Hindi line, spelled out when shown
+            return self.template_for(ROMAN_OF[lang], default_lang, fallback)
         return t if t is not None else (self.say if fallback else None)
 
 
@@ -198,7 +203,16 @@ class Scene:
         base = getattr(self, name)
         if lang == default_lang or not base:
             return base
-        return self.translations.get(name, {}).get(lang, base)
+        own = self.translations.get(name, {})
+        if lang not in own and lang in ROMAN_OF:
+            return self.field_for(name, ROMAN_OF[lang], default_lang)
+        return own.get(lang, base)
+
+
+def _in_language(table: dict | None, lang: str) -> str | None:
+    """A translation table's entry for `lang`; a Roman-letter language without one reads the language it spells."""
+    table = table or {}
+    return table.get(lang) or table.get(spoken_language(lang))
 
 
 @dataclass
@@ -217,11 +231,11 @@ class Project:
 
     def title_for(self, lang: str) -> str:
         """The film's title as people of `lang` read it (`project.title_translations`), tokens resolved."""
-        return self.display((self.data["project"].get("title_translations") or {}).get(lang) or self.title, lang)
+        return self.display(_in_language(self.data["project"].get("title_translations"), lang) or self.title, lang)
 
     def subtitle_for(self, lang: str) -> str:
         p = self.data["project"]
-        return self.display((p.get("subtitle_translations") or {}).get(lang) or p.get("subtitle", ""), lang)
+        return self.display(_in_language(p.get("subtitle_translations"), lang) or p.get("subtitle", ""), lang)
 
     @property
     def language(self) -> str:
@@ -304,7 +318,8 @@ class Project:
         return tpl.resolve(text, self.text_context(), lang)
 
     def display(self, text: str, lang: str) -> str:
-        return self.resolve(text, lang).display if text else ""
+        """`text` as it appears on screen in `lang`: tokens resolved, and Hindi spelled in Roman letters for hi-Latn."""
+        return romanize(self.resolve(text, lang).display, lang) if text else ""
 
 
 # --------------------------------------------------------------------------- loading
@@ -474,6 +489,16 @@ def validate(project: Project, *, only: Iterable[str] | None = None) -> list[Iss
     issues: list[Issue] = []
     data = project.data
 
+    # Roman-letter languages: shown from the lines of the language they spell
+    for lang in project.languages:
+        if lang.endswith("-Latn") and lang not in ROMAN_OF:
+            issues.append(Issue("error", "project.languages", f"{lang} is not a language this version can spell in Roman letters.",
+                                f"Roman letters are available for: {', '.join(ROMAN_OF)}."))
+    if project.language in ROMAN_OF:
+        issues.append(Issue("error", "project.language",
+                            f"{project.language} is shown from {ROMAN_OF[project.language]} lines; it cannot be the language the lines are written in.",
+                            f"Set language: {ROMAN_OF[project.language]} and keep {project.language} in languages."))
+
     # duplicates
     seen: dict[str, str] = {}
     for c in data["characters"]:
@@ -574,7 +599,8 @@ def validate(project: Project, *, only: Iterable[str] | None = None) -> list[Iss
                 t = ln.template_for(lang, project.language, project.fallback)
                 if t is None:
                     issues.append(Issue("error", where, f"No {lang} text.",
-                                        f"Add translations.{lang}, or set project.missing_translation: fallback."))
+                                        f"Add translations.{spoken_language(lang)}, or set "
+                                        "project.missing_translation: fallback."))
                     continue
                 if lang != project.language and ln.template_for(lang, project.language, False) is None:
                     issues.append(Issue("warning", where, f"No {lang} text; the {project.language} text is used."))

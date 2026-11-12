@@ -56,6 +56,7 @@ flowchart TD
 | `migrate.py` | Upgrades older project files when the format changes (none yet). |
 | `text/template.py` | Dialogue tokens: names, forms, pronouns, gendered choices, organisation fields. |
 | `text/speech.py` | Spoken-text rules: lexicon, abbreviations, emails and URLs read as words. |
+| `text/romanize.py` | Hindi in Roman letters (`hi-Latn`): the Hindi film's words spelled the everyday way, with `data/romanize_hi.json` for borrowed and settled words. |
 | `voices/base.py` | The provider interface, request and audio types, WAV checks, retry policy. |
 | `voices/kokoro.py`, `recorded.py`, `offline.py`, `sarvam.py`, `elevenlabs.py` | One adapter per provider: validation against its catalogue, request building, error mapping. Kokoro (free, on this computer) also reports phoneme timings; recorded reads your own files. |
 | `voices/registry.py` | Looks providers up by name. |

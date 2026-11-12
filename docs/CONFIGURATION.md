@@ -25,7 +25,8 @@ project:
   title_translations: { hi-IN: "..." }       # optional: the title and subtitle in each other language
   subtitle_translations: { hi-IN: "..." }    # (file names always use `title`)
   language: en-IN                 # the language scenes are written in
-  languages: [en-IN, hi-IN]       # languages to build (each one is a separate film)
+  languages: [en-IN, hi-IN]       # languages to build (each one is a separate film); add hi-Latn for the
+                                  # Hindi film with its words in Roman letters (docs/INDIA.md)
   missing_translation: error      # or `fallback` to use the main language where a line has no translation
   labels:                         # optional: words the renderer adds itself (English and Hindi built in)
     key_point: { default: "Key point", hi-IN: "मुख्य बात" }

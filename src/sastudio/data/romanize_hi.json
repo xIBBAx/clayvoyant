@@ -1,0 +1,33 @@
+{
+  "_about": "How `hi-Latn` films spell particular Hindi words in Roman letters (src/sastudio/text/romanize.py). Words not listed here are spelled letter by letter. Add a word when the letter-by-letter spelling reads wrong; keep each group in alphabetical order of its Roman spelling.",
+  "words": {
+    "borrowed from English: spelled as English spells them": {
+      "एक्सेस": "access", "अकाउंट": "account", "एडवांस": "advance", "एजेंट": "agent", "ऐप": "app", "एप": "app",
+      "अरेस्ट": "arrest", "एटीएम": "ATM", "आंटी": "aunty", "बैज": "badge", "बैंक": "bank", "बिल": "bill", "ब्लॉक": "block",
+      "ब्रांच": "branch", "बिल्डिंग": "building", "बटन": "button", "कॉल": "call", "कैमरा": "camera", "कैमरे": "camera", "कार्ड": "card",
+      "केयर": "care", "कैश": "cash", "सीबीआई": "CBI", "चार्ज": "charge", "चेक": "check", "क्लिक": "click",
+      "कोड": "code", "कंपनी": "company", "कंप्यूटर": "computer", "कनेक्शन": "connection", "काउंटर": "counter", "कूरियर": "courier",
+      "क्राइम": "crime", "कस्टमर": "customer", "कस्टम": "customs", "साइबर": "cyber", "डिक्लाइन": "decline", "डिलीट": "delete", "डिलीवरी": "delivery",
+      "डिजिटल": "digital", "डाउनलोड": "download", "ड्रग्स": "drugs", "ईमेल": "email", "फ़ॉर्म": "form",
+      "फ़ॉरवर्ड": "forward", "फ़्रॉड": "fraud", "फ्रॉड": "fraud", "फ्रिज": "fridge", "फ़्रिज": "fridge", "गिफ़्ट": "gift", "गूगल": "Google",
+      "ग्रुप": "group", "हेल्पलाइन": "helpline", "इंस्टॉल": "install", "इंटरनेट": "internet", "जज": "judge",
+      "केवाईसी": "KYC", "लैपटॉप": "laptop", "लिंक": "link", "लॉटरी": "lottery", "मैडम": "madam",
+      "मैनेजर": "manager", "मैसेज": "message", "मिनट": "minute", "मोबाइल": "mobile", "नंबर": "number",
+      "ऑफ़र": "offer", "ऑफ़िस": "office", "ऑफिस": "office", "ऑफ़िसर": "officer", "ऑनलाइन": "online",
+      "ओटीपी": "OTP", "पेंट": "paint", "पैन": "PAN", "पार्सल": "parcel", "पासबुक": "passbook",
+      "पासवर्ड": "password", "पे": "pay", "पेमेंट": "payment", "फ़ोन": "phone", "फोन": "phone", "पिन": "PIN",
+      "पुलिस": "police", "पोर्टल": "portal", "क्यूआर": "QR", "रिसीव": "receive", "रिचार्ज": "recharge", "रिफंड": "refund", "रिफ़ंड": "refund",
+      "रिमोट": "remote", "रिपोर्ट": "report", "रिक्वेस्ट": "request", "रिटायर्ड": "retired", "स्कैम": "scam",
+      "स्कैन": "scan", "स्क्रीन": "screen", "सर्च": "search", "सेकंड": "second", "शेयर": "share", "सिम": "SIM",
+      "सर": "sir", "एसएमएस": "SMS", "सोसाइटी": "society", "टीचर": "teacher", "टीम": "team", "टिकट": "ticket",
+      "ट्रांसफर": "transfer", "अंकल": "uncle", "अपडेट": "update", "यूपीआई": "UPI", "वीडियो": "video", "वेबसाइट": "website",
+      "व्हाट्सऐप": "WhatsApp", "वाई-फ़ाई": "Wi-Fi"
+    },
+    "Hindi words that everybody spells one way": {
+      "आधार": "Aadhaar", "बेटा": "beta", "बेटी": "beti", "दीजिए": "dijiye", "हाँ": "haan", "हम": "hum", "इसीलिए": "isiliye", "जल्दबाज़ी": "jaldbaazi", "कह": "keh", "कीजिए": "kijiye", "लीजिए": "lijiye",
+      "माँ": "maa", "मैंने": "maine", "मम्मी": "mummy", "पापा": "papa", "रुपया": "rupaya", "रुपये": "rupaye",
+      "रुपए": "rupaye", "वहाँ": "wahan", "वाला": "wala", "वाले": "wale", "वाली": "wali", "वापस": "wapas",
+      "वक़्त": "waqt", "वो": "wo", "वह": "woh", "यह": "yeh"
+    }
+  }
+}

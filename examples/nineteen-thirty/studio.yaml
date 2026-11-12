@@ -9,7 +9,7 @@ project:
   subtitle: "A short film about an arrest that cannot happen"
   subtitle_translations: { hi-IN: "एक ऐसी गिरफ़्तारी की कहानी, जो हो ही नहीं सकती" }
   language: en-IN
-  languages: [en-IN, hi-IN]           # one script, two films: build/en-IN/ and build/hi-IN/
+  languages: [en-IN, hi-IN, hi-Latn]  # one script, three films: English, Hindi, and Hindi in Roman letters (hi-Latn)
   labels:
     topics:
       "digital arrest": { hi-IN: "डिजिटल अरेस्ट" }
