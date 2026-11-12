@@ -48,6 +48,7 @@ flowchart TD
 | Module | Responsibility |
 |---|---|
 | `cli.py` | The `sastudio` commands. Each one calls the modules below; none contain logic of their own. |
+| `posters.py` | `sastudio posters`: each scene's lesson as an A4 or Letter page (PNG) and one PDF per language. |
 | `brief.py` | `sastudio brief`: a writing brief read from the validator's own tables, for a person or a chat assistant. |
 | `project.py` | The project model, loading, validation, display/spoken text resolution. |
 | `schema/project.schema.json` | The project file format, version 1. |

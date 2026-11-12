@@ -24,7 +24,7 @@ from dataclasses import dataclass, field
 
 from PIL import Image, ImageChops, ImageDraw, ImageFilter
 
-FIGURES_VERSION = "1"
+FIGURES_VERSION = "2"  # bump when a drawn figure changes: every figure is drawn again (2: shirts in outfit.color)
 W, H, CX = 34.0, 100.0, 17.0
 TOP = 8.0  # headroom above y = 0 for tall hair
 SUPERSAMPLE = 3

@@ -288,6 +288,19 @@ def cmd_brief(a) -> int:
     return 0
 
 
+def cmd_posters(a) -> int:
+    from .posters import make
+
+    p = _load(a.project)
+    for lang in ([a.lang] if a.lang else p.languages):
+        files = make(p, lang, a.size, Path(a.out) / lang if a.out else None)
+        if not files:
+            print(f"[{lang}] no scene has a headline or a key point to put on a poster.")
+            continue
+        print(f"[{lang}] {len(files) - 1} poster(s) and one PDF in {files[0].parent}")
+    return 0
+
+
 def cmd_characters(a) -> int:
     p = _load(a.project)
     used: dict[str, list[str]] = {}
@@ -515,6 +528,14 @@ def parser() -> argparse.ArgumentParser:
     s.add_argument("--seconds", type=int, default=40, help="about how long each scene runs (default 40)")
     s.add_argument("--out", metavar="FILE.md", help="write the brief to a file instead of printing it")
     s.set_defaults(fn=cmd_brief)
+
+    s = sub.add_parser("posters", help="print each scene's lesson as a poster (A4 or Letter PNG, and a PDF) for a "
+                                       "notice board or a phone")
+    s.add_argument("project")
+    s.add_argument("--lang", help="one language (default: every language of the project)")
+    s.add_argument("--size", choices=("a4", "letter"), default="a4")
+    s.add_argument("--out", metavar="FOLDER", help="where to write them (default: build/<lang>/posters)")
+    s.set_defaults(fn=cmd_posters)
 
     s = sub.add_parser("direct", help="print the shot list: cameras, lighting, gestures and transitions per scene")
     s.add_argument("project")

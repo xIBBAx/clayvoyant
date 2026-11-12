@@ -32,6 +32,10 @@
   move the mouth. A vowel sign or virama no longer splits a word (it closed the mouth mid-word in Hindi too).
 - **Subtitles and cards in those scripts** use bundled Noto Sans fonts (SIL OFL), which also carry Latin.
 - [Films for India](docs/INDIA.md): the template, its sources with links, the languages, a checklist.
+- **`sastudio posters PROJECT`**: each scene's lesson as a printed page (A4 or Letter, 300 dpi PNG) and one PDF per
+  language: the organisation's name and colours, the topic, the headline, the key point, the scene's people, and
+  where to report. For notice boards, classrooms and WhatsApp forwards. Drawn figures are drawn again once
+  (`FIGURES_VERSION` 2) so shirts take their colour.
 
 ### Characters, sets and planning
 
