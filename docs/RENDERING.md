@@ -101,7 +101,8 @@ with its `.srt`, for players that show their own captions), then lays it out at 
 phone held upright: the organisation and the title at the top, the film across the middle, each
 line's words below it in large type set in the font its script needs, and where to report along
 the foot. The encode is sized to stay under `--max-mb` (15 MB by default). `posters` prints each
-scene's headline and key point as an A4 or Letter page at 300 dpi.
+scene's headline and key point as an A4 or Letter page at 300 dpi. `share --each` makes one phone clip
+per scene, and `share --scenes a,b` only the scenes named.
 
 ## Only what changed is rendered again
 

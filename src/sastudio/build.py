@@ -19,13 +19,14 @@ from collections.abc import Callable
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from PIL import Image, ImageDraw
 
 from . import __version__
 from .audio import ffmpeg as ff
 from .errors import ConfigError, RenderError
-from .project import Project, placeholder_contacts, validate
+from .project import Project, is_placeholder_host, placeholder_contacts, validate
 from .project import errors as only_errors
 from .render import cards, figures
 from .render.style import Palette, load_image
@@ -189,10 +190,10 @@ def bookends(project: Project, lang: str) -> tuple[SceneTimeline | None, SceneTi
     org = project.org
     intro = outro = None
     if rc.get("intro", True):
-        title = project.display(project.title, lang)
-        sub = project.display(project.data["project"].get("subtitle", ""), lang)
+        title, sub = project.title_for(lang), project.subtitle_for(lang)
         beat = Beat("intro", frames_for(INTRO_S, FPS), title,
-                    extra={"org": org["name"], "subtitle": sub, "announcement": project.display(org.get("announcement", ""), lang)})
+                    extra={"org": project.display("{org.name}", lang), "subtitle": sub,
+                           "announcement": project.display(org.get("announcement", ""), lang)})
         intro = SceneTimeline("_intro", title, lang, FPS, [beat], [])
     if rc.get("outro", True):
         credits = project.data["project"].get("credits") or {}
@@ -201,9 +202,13 @@ def bookends(project: Project, lang: str) -> tuple[SceneTimeline | None, SceneTi
             if credits.get("creator"):
                 lines.append(credits["creator"])
             lines += [project.display(x, lang) for x in credits.get("extra") or []]
+        contact, url = org["security_email"], org.get("reporting_url", "")
+        if url and is_placeholder_host(contact.rsplit("@", 1)[-1]) and not is_placeholder_host(urlsplit(url).hostname or ""):
+            # a real portal and a placeholder address: the film's last word is the portal, never an address nobody reads
+            contact, url = url.removeprefix("https://").removeprefix("http://").rstrip("/"), ""
         beat = Beat("outro", frames_for(OUTRO_S, FPS), "",
-                    extra={"ask": ui_label(project, "report_prompt", lang),
-                           "contact": org["security_email"], "url": org.get("reporting_url", ""), "credits": lines})
+                    extra={"ask": ui_label(project, "report_prompt", lang), "contact": contact, "url": url,
+                           "credits": lines})
         outro = SceneTimeline("_outro", "", lang, FPS, [beat], [])
     return intro, outro
 
@@ -409,7 +414,7 @@ def build(project: Project, *, language: str | None = None, scene_ids=None, pres
             str(listing), "-c", "copy", str(video_only)], what="Joining scenes")
     final = out / f"{base}.{lang}.mp4"
     tmp = out / f".{base}.{lang}.part.mp4"
-    meta_title = project.display(project.title, lang)
+    meta_title = project.title_for(lang)
     ff.run([ff.ffmpeg_exe(), "-hide_banner", "-loglevel", "error", "-y", "-i", str(video_only), "-i", str(mixed),
             "-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-ar", "48000",
             "-map_metadata", "-1", "-metadata", f"title={meta_title}", "-metadata:s:a:0", f"language={_iso639_2(lang)}",

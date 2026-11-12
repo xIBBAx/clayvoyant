@@ -84,7 +84,7 @@ boards, in every language of the project. *Done when:* the starter prints twelve
 the same contrast checks as the film.
 
 **C. Vertical clips for messaging apps.** *(Done after 0.3: `sastudio share` makes one upright film
-per language with large captions under a size limit. Still open: one clip per scene.)* Small organisations often share video through
+per language with large captions under a size limit, and `--each` one clip per scene.)* Small organisations often share video through
 messaging apps on phones. One short 9:16 clip per scene, with large subtitles, would fit how such films are
 actually passed around. *Done when:* each starter scene exports as a vertical clip under 16 MB.
 

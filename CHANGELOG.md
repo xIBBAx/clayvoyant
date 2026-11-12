@@ -1,13 +1,21 @@
 # Changelog
 
-## Unreleased
+## 0.3.1 (2026-11-12)
+
+Films for India, ready to forward.
 
 - **`sastudio share PROJECT`**: the film laid out for a phone held upright (720x1280): the organisation and title at
   the top, the film across the middle over a blurred copy of itself, each line's words below it in large type in its
   own script, and where to report along the foot; encoded under `--max-mb` (15 MB by default). It also leaves the
   film without subtitles in the picture, with its `.srt`, in `build/clean/`. Every voice and filmed shot is reused.
 - `tools/make_showcase_media.py` takes `--lang`, `--name` and `--no-gif`, so any sample film gets a sheet.
+- `sastudio share --each` makes one phone clip per scene (the india template's Hindi clips are 4.5 to 7.3 MB each);
+  `--scenes a,b` only the scenes named.
 - `--version` prints the project's name; the command's description says what it makes.
+- `project.title_translations` and `subtitle_translations`: a film opens on its title in its own language (the Hindi
+  films open on "ज़रा ठहरिए" and "1930"); the organisation's name on the opening card follows its translation too.
+- The closing card ends on the reporting portal in large type when the reporting address is still a placeholder
+  and the portal is real (the `india` template ends on cybercrime.gov.in, never on help@example.com).
 
 ## 0.3.0 (2026-11-12)
 

@@ -294,8 +294,13 @@ def cmd_share(a) -> int:
     p = _load(a.project)
     if not 1 <= a.max_mb <= 500:
         raise StudioError("--max-mb must be between 1 and 500.")
+    if a.each and a.scenes:
+        raise StudioError("Use --each or --scenes, not both.")
+    # one clip per scene (a minute is what people forward), the scenes asked for, or the whole film
+    groups = [[s.id] for s in p.scenes if s.enabled] if a.each else [_scenes(a.scenes)]
     for lang in ([a.lang] if a.lang else p.languages):
-        share(p, lang, a.max_mb)
+        for ids in groups:
+            share(p, lang, a.max_mb, a.jobs, scene_ids=ids)
     return 0
 
 
@@ -545,6 +550,9 @@ def parser() -> argparse.ArgumentParser:
     s.add_argument("project")
     s.add_argument("--lang", help="one language (default: every language of the project)")
     s.add_argument("--max-mb", type=float, default=15.0, help="the largest the phone film may be (default 15 MB)")
+    s.add_argument("--jobs", type=int, help="scenes assembled at once (default: half the processor's threads, up to 6)")
+    s.add_argument("--scenes", help="only these scenes, comma-separated (no opening or closing card)")
+    s.add_argument("--each", action="store_true", help="one clip per scene instead of one film")
     s.set_defaults(fn=cmd_share)
 
     s = sub.add_parser("posters", help="print each scene's lesson as a poster (A4 or Letter PNG, and a PDF) for a "

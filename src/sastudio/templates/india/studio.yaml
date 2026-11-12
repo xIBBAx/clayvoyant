@@ -11,7 +11,9 @@ schema_version: 1
 
 project:
   title: "Not So Fast"
+  title_translations: { hi-IN: "ज़रा ठहरिए" }
   subtitle: "Five scams, five minutes, five ways to stop them"
+  subtitle_translations: { hi-IN: "पाँच ठगी, पाँच मिनट, बचने के पाँच तरीके" }
   language: en-IN
   languages: [en-IN, hi-IN]
   labels:

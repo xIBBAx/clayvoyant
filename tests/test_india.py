@@ -69,3 +69,23 @@ def test_each_indian_script_is_set_in_a_font_that_has_it(word, block):
 def test_latin_and_hindi_keep_their_fonts():
     assert style.font_for("Hello", 30).path.endswith(style.LATIN)
     assert "Mukta" in style.font_for("नमस्ते", 30).path
+
+
+def test_the_closing_card_names_the_real_portal_not_a_placeholder_address(india):
+    from sastudio.build import bookends
+
+    project = load_project(india)
+    _, outro = bookends(project, "hi-IN")
+    assert outro.beats[0].extra["contact"] == "help@sunrise-forum.org"     # a real address given with --email stays
+    project.org["security_email"] = "help@example.com"
+    _, outro = bookends(project, "en-IN")
+    assert (outro.beats[0].extra["contact"], outro.beats[0].extra["url"]) == ("cybercrime.gov.in", "")
+
+
+def test_the_hindi_film_opens_on_its_hindi_title(india):
+    from sastudio.build import bookends
+
+    project = load_project(india)
+    intro, _ = bookends(project, "hi-IN")
+    assert intro.title == "ज़रा ठहरिए" and intro.beats[0].extra["subtitle"].startswith("पाँच ठगी")
+    assert bookends(project, "en-IN")[0].title == "Not So Fast"

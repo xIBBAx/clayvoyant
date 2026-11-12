@@ -35,6 +35,20 @@ Hindi:
 The sample film [Nineteen Thirty](../examples/nineteen-thirty/) is the first scene on its own,
 filmed in clay in both languages.
 
+This is the template exactly as `init` makes it, rendered in Hindi with drawn characters on a
+laptop processor (5 minutes 53 seconds of film in under four minutes, no graphics card):
+
+![Twelve frames of the Hindi film, each with its headline at the top and a Devanagari subtitle: Gopal telling Ira it is the police, Ira saying the police station is a painted wall, Ira saying they will report the number on sancharsaathi.gov.in, the scene's key point card; Farhan reading out 'Pay ₹4,500. Enter UPI PIN.', Arjun saying money coming in never needs a PIN; Lakshmi telling Kamala she works in a bank, Lakshmi explaining the code is the last lock, the key point that no bank asks for an OTP; Gopal reading the electricity message, the key point never to install an app from a message; Farhan asking about the screen-sharing app.](media/india/not-so-fast-sheet.hi-IN.jpg)
+
+The same film from `sastudio share`, for a phone held upright, and two pages from `sastudio posters`:
+
+![Four frames of the upright phone film in Hindi: the association's name and the title at the top, the film across the middle, the line being said in large Devanagari type below it, and "cybercrime.gov.in" along the foot.](media/india/phone-film.hi-IN.jpg)
+
+<p>
+  <img src="media/india/poster-the-call.hi-IN.jpg" width="49%" alt="An A4 poster in Hindi: the association's name on a teal band, the topic डिजिटल अरेस्ट, the headline वीडियो कॉल पर किसी की गिरफ़्तारी नहीं होती, the key point telling people to report the caller on sancharsaathi.gov.in and to call 1930 at once if money has gone, Gopal and Ira drawn below, and cybercrime.gov.in along the foot.">
+  <img src="media/india/poster-pin.en-IN.jpg" width="49%" alt="An A4 poster in English: the topic UPI PIN, the headline Receiving money never needs your PIN, the key point that a UPI PIN is only for paying, Farhan and Arjun drawn below, and cybercrime.gov.in along the foot.">
+</p>
+
 ## Where the advice comes from
 
 Every line of advice in the template follows a public advisory. Each scene's `policy_note` names
@@ -91,7 +105,8 @@ British voice.
   and the title at the top, the film across the middle, each line's words below it in large type in
   its own script, and where to report along the foot, encoded to stay under 15 MB (`--max-mb`).
   It also leaves a copy without subtitles in the picture, with its `.srt`, for players that show
-  their own captions.
+  their own captions. `--each` makes one clip per scene instead: about a minute and 5 MB each, one
+  scam per forward.
 - **Your walls.** `sastudio posters my-film` prints each scene's lesson as an A4 page (or `--size
   letter`), in every language of the project: your name and colours, the topic, the headline, the
   key point, the people from the scene, and where to report. One PNG per scene for a WhatsApp
