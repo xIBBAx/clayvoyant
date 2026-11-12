@@ -6,15 +6,12 @@ descriptions.
 
 ## The film
 
-[![The Fast One: Tara and Odile at a cafe table at dusk. Press to watch.](media/film/the-fast-one-poster.jpg)](https://cdn.jsdelivr.net/gh/xIBBAx/clayvoyant@8cb3c0a/docs/media/the-fast-one.mp4)
+[![The Fast One: Tara and Odile at a cafe table at dusk. Press to watch.](media/film/the-fast-one-poster.jpg)](https://xibbax.github.io/clayvoyant/)
 
-**[Watch The Fast One](https://cdn.jsdelivr.net/gh/xIBBAx/clayvoyant@8cb3c0a/docs/media/the-fast-one.mp4)** (82 seconds, 6.6 MB; it plays in the browser, with the subtitles in
-the picture. The file itself is [`docs/media/the-fast-one.mp4`](media/the-fast-one.mp4); GitHub's own
-file page will not play a file this size). Made with
-`sastudio film examples/the-fast-one --preset preview`: 1280x720, 24 frames a second, 1,974 frames,
-seventeen filmed shots, thirteen lines voiced by Kokoro, -16 LUFS. Filming every shot from nothing
-took 55 minutes on a laptop GeForce GTX 1660 Ti (measured on 11 November, before the solid-contact
-re-film, which shared the machine with a second film). [TESTING.md](TESTING.md) lists what was checked.
+**[Watch The Fast One](https://xibbax.github.io/clayvoyant/)** (82 seconds, with subtitles; the file is [`docs/media/the-fast-one.mp4`](media/the-fast-one.mp4)).
+Made with `sastudio film examples/the-fast-one --preset preview`: seventeen filmed shots at
+1280x720 and thirteen voiced lines, in 55 minutes on a laptop GeForce GTX 1660 Ti.
+[TESTING.md](TESTING.md) lists what was checked.
 
 ![Twelve frames from the film: a cafe at dusk, then an office in morning light.](media/film/the-fast-one-sheet.jpg)
 
