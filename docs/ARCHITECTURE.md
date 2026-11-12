@@ -48,33 +48,46 @@ flowchart TD
 | Module | Responsibility |
 |---|---|
 | `cli.py` | The `sastudio` commands. Each one calls the modules below; none contain logic of their own. |
+| `brief.py` | `sastudio brief`: a writing brief read from the validator's own tables, for a person or a chat assistant. |
 | `project.py` | The project model, loading, validation, display/spoken text resolution. |
 | `schema/project.schema.json` | The project file format, version 1. |
 | `migrate.py` | Upgrades older project files when the format changes (none yet). |
 | `text/template.py` | Dialogue tokens: names, forms, pronouns, gendered choices, organisation fields. |
 | `text/speech.py` | Spoken-text rules: lexicon, abbreviations, emails and URLs read as words. |
 | `voices/base.py` | The provider interface, request and audio types, WAV checks, retry policy. |
-| `voices/offline.py`, `sarvam.py`, `elevenlabs.py` | One adapter per provider: validation against its catalogue, request building, error mapping. |
+| `voices/kokoro.py`, `recorded.py`, `offline.py`, `sarvam.py`, `elevenlabs.py` | One adapter per provider: validation against its catalogue, request building, error mapping. Kokoro (free, on this computer) also reports phoneme timings; recorded reads your own files. |
 | `voices/registry.py` | Looks providers up by name. |
 | `voices/engine.py` | Plan, cache, budget, rate limit, retries, lock and ledger. |
 | `voices/lexicon.py` | Exports pronunciations in each provider's own format. |
 | `audio/ffmpeg.py` | Every FFmpeg and ffprobe call, always with an argument list. |
 | `timeline.py` | Beats, frame counts and audio placement. |
 | `subtitles.py` | Cues, wrapping, SRT, WebVTT, transcripts and timing checks. |
-| `render/cards.py`, `render/style.py` | The cards renderer, fonts, colours, contrast and text fitting. |
+| `render/cards.py`, `render/style.py` | The cards renderer and the compositor clay films share: fonts per script, colours, contrast, text fitting, subtitles. |
+| `render/figures.py` | Drawn characters in three styles, made from the same text description as the clay ones. |
 | `render/clay.py` | Sculpting the clay characters (cached per look) and what the clay renderer needs to know about this machine. |
 | `claydesign.py` | From a character's `look.design` to sculpt parameters. |
+| `direction.py` | The planner and its vocabulary: sets and marks, cameras, light, gestures, openings, endings; validation of every `direction:` key. |
+| `models.py` | Your own 3D characters: inspect, import and export glTF/GLB, FBX and OBJ. |
 | `stopmotion/` | Writes a job per shot (set, light, cast, lines, acting keys, camera) and films it in Blender; shot cache. |
-| `lipsync.py` | Mouth shapes from phoneme timings, or from the words and the loudness of the voice. |
+| `lipsync.py` | Mouth shapes from phoneme timings, or from the words (Latin and nine Indian scripts) and the loudness of the voice. |
 | `engine/sculpt/` | The sculptor: signed-distance forms and marching cubes (numpy, scipy, scikit-image). |
 | `engine/clay/` | What Blender runs: the puppet, the hand and face rigs, acting, sets, light, the film runner, guest models. |
 | `build.py` | The pipeline above, incremental keys and the manifest. |
 | `doctor.py` | Environment checks. |
 | `safepath.py` | Keeps every path inside its folder; atomic writes. |
 | `errors.py` | Error types, each with a fix and an exit code. |
-| `templates/` | `starter` (12 scenes), `short` (3, English and Hindi), `education`. |
-| `data/` | Bundled fonts and the provider catalogues. |
+| `templates/` | `starter` (12 scenes), `short` (3, English and Hindi), `education`, `india` (5 scenes of its own, English and Hindi). |
+| `data/` | Bundled fonts (Latin, Devanagari and eight more Indian scripts, each with its licence) and the provider catalogues. |
 | `engine/characters/` | Parameter files describing the five clay characters' appearance. |
+
+## Outside the package
+
+| Folder | What it holds |
+|---|---|
+| `examples/` | Complete projects: `the-fast-one` (the clay sample film), `nineteen-thirty` (the India sample, English and Hindi), `quillmere` (the cards renderer with a fictional company). |
+| `tests/` | The test suite. Tests that need Blender or FFmpeg skip with a reason when they are missing; none touch the network. |
+| `tools/` | Maintainer scripts, run from the repository root. `check_contacts.py` proves a filmed project has no intersections; the `make_*` scripts rebuild every picture and film in `docs/media` from the code, so none of them is hand-made. |
+| `docs/` | The guides, `releases/` (the notes published with each version) and `media/` (everything the README shows). |
 
 ## A project folder
 
