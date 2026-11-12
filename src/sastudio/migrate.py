@@ -21,7 +21,7 @@ def migrate(data: dict) -> dict:
         raise ConfigError(f"schema_version must be a whole number, not {version!r}.")
     if version > CURRENT:
         raise ConfigError(f"This project uses format {version}; this tool understands up to {CURRENT}.",
-                          "Update Security Awareness Studio.")
+                          "Update Clayvoyant.")
     while version < CURRENT:
         step = MIGRATIONS.get(version)
         if step is None:

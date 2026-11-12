@@ -1,9 +1,9 @@
 """Kokoro: a free neural voice that runs on this computer. No account, no key, no network once installed.
 
 Kokoro-82M is a small open text-to-speech model (weights under Apache-2.0). This adapter uses it through the
-`kokoro-onnx` package, which is not part of Security Awareness Studio: install it with
+`kokoro-onnx` package, which is not part of Clayvoyant: install it with
 
-    pip install "security-awareness-studio[voices]"
+    pip install "clayvoyant[voices]"
     sastudio voices install kokoro          # downloads the model once (about 350 MB)
 
 What it offers here: natural American and British English voices and four Hindi voices, on an ordinary CPU and
@@ -85,7 +85,7 @@ def _load(config: dict | None):
             from kokoro_onnx import Kokoro
         except ImportError:
             raise ProviderError("The kokoro voice needs the kokoro-onnx package.",
-                                'Install it: pip install "security-awareness-studio[voices]"')
+                                'Install it: pip install "clayvoyant[voices]"')
         if not installed(config):
             raise ProviderError("The Kokoro model is not downloaded yet.", "Run: sastudio voices install kokoro  (about 350 MB, once)")
         d = model_dir(config)

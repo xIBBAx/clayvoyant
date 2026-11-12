@@ -1,6 +1,6 @@
 # Architecture
 
-Security Awareness Studio is one Python package, `sastudio`, with a command-line interface. A
+Clayvoyant is one Python package, `sastudio`, with a command-line interface. A
 project is a folder of plain files; the package reads it, never changes it except for the output
 and state folders, and builds a film from it.
 

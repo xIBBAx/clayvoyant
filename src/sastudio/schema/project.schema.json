@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/xIBBAx/security-awareness-studio/schema/project-1.json",
-  "title": "Security Awareness Studio project",
+  "$id": "https://github.com/xIBBAx/clayvoyant/schema/project-1.json",
+  "title": "Clayvoyant project",
   "type": "object",
   "additionalProperties": false,
   "required": [
