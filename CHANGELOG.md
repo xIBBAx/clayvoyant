@@ -34,6 +34,9 @@
   `extreme_close_up` were declared before but could never be chosen.
 - **An insert on a prop is filmed** (`camera: insert, who: [laptop]`) with the line heard over it.
   Before, such a line was skipped without a word and fell back to the drawn style.
+- **People turn to the person they talk to.** Standing marks pinned everyone's body to the lens, so
+  in the sample Tara stood square to the camera while talking to Bashir behind her; now a standing
+  person turns towards whoever matters (seats still face their table).
 - **Framing**: a shot no longer shows the back of the speaker's head (an over-the-shoulder from
   behind a listener who stands upstage becomes a two-shot or a medium), and everyone a shot is on
   stays inside the frame however near the lens they sit.

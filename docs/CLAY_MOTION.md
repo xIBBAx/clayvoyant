@@ -130,8 +130,8 @@ On 2026-11-11, on an Intel Core i7-10750H (12 threads) with a GeForce GTX 1660 T
 |---|---|
 | Sculpting the sample's three characters from nothing | 46 s in all, 0.9 GB at most |
 | A drawing at `draft` (960x540, 6 samples) | 2.2 to 2.6 s (247 drawings, four shots) |
-| A drawing at `preview` (1280x720, 12 samples) | 4.3 to 5.0 s, 4.7 s on average (666 drawings, 17 shots) |
-| The whole sample film at `preview`, every shot filmed from nothing | 54 min 57 s, 1.95 GB at most |
+| A drawing at `preview` (1280x720, 12 samples) | 4.2 to 5.0 s, 4.7 s on average (666 drawings, 17 shots, two runs) |
+| The whole sample film at `preview`, every shot filmed from nothing | 54 min 57 s and 55 min 11 s in two runs, 1.97 GB at most |
 | Kokoro voice | 26 s for the sample's 47 s of speech, model loading included; 0.6 GB |
 | Posing the puppets, per drawing | not re-measured (an earlier note said about 0.1 s) |
 

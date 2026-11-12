@@ -167,8 +167,8 @@ Measured on one laptop on 2026-11-11 (Intel Core i7-10750H, 12 threads, GeForce 
 
 - Sculpting the sample's three characters: 46 seconds for all three, once per look.
 - Voicing its thirteen lines with Kokoro on the CPU: 26 seconds for 47 seconds of speech.
-- Filming at `preview` (1280x720, 12 samples): 4.7 seconds a drawing on average (4.3 to 5.0 over
-  the sample's 666 drawings), so about 2.3 minutes of work for each second of film on twos. The
+- Filming at `preview` (1280x720, 12 samples): 4.7 seconds a drawing on average (4.2 to 5.0 over
+  the sample's 666 drawings, in two runs), so about 2.3 minutes of work for each second of film on twos. The
   `draft` preset (960x540, 6 samples) took 2.2 to 2.6 seconds a drawing over 247 drawings. People
   the camera cannot see are not drawn.
 - The cards renderer: the 14-minute starter film in 90 seconds at `preview` and 2 minutes 41 seconds
@@ -184,10 +184,6 @@ Measured on one laptop on 2026-11-11 (Intel Core i7-10750H, 12 threads, GeForce 
   music track. Rendering on a remote GPU is not built.
 - Another language is another film: you write each line's translation in the scene file and
   render once per language. Nothing translates for you.
-- Eyelines go wrong when someone talks to a person standing behind them: in the sample's office
-  scene Tara often looks away from Bashir, whose desk is behind her. Part of the cause is known (a
-  person stops turning towards someone the camera cannot see); the rest is being traced, and the
-  sample will be filmed again with the fix.
 - The `final` preset (1920x1080) has not yet been run for a whole film; the sample was built with
   `preview`. CI has no Blender, so the clay smoke test runs only where Blender is installed.
 - The starter scenes are general guidance, not policy. Replace each procedure with your own.

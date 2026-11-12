@@ -31,7 +31,8 @@ Blender 5.2.2 under WSL2:
 | `tests/test_clay_smoke.py` with Blender present: sculpt two characters, film two drawings of a sample shot, check they are not blank, film again and see it reused | PASS, 41 s |
 | The suite with FFmpeg and Blender hidden from `PATH` | PASS: the FFmpeg and Blender tests skip with a reason, none fails |
 | CI: lint, tests, package build and a render from the wheel, Ubuntu and Windows, Python 3.11 to 3.13 | PASS |
-| The sample film at `preview`, every shot filmed from nothing (17 shots, 666 drawings) | PASS: 82.25 s, 1,974 frames, -16.0 LUFS, 54 min 57 s; frames looked at shot by shot |
+| The sample film at `preview`, every shot filmed from nothing (17 shots, 666 drawings) | PASS: 82.25 s, 1,974 frames, -16.0 LUFS, 55 min 11 s (2026-11-12, after the eyeline fix); frames looked at shot by shot |
+| Eyelines in the office scene, where Bashir's desk is behind Tara | PASS: her body turns -0.68 rad towards him (it stood at 0 before the fix); the projected eyeball axes and the rendered irises in the reaction close-up both point his way |
 | The same film after a change to its last shot | 16 shots reused by content, 1 filmed, 3 min 17 s |
 | `sastudio` killed with SIGKILL while Blender was at drawing 14 of 21 of a new shot | PASS: no Blender left running; the next run said "21 drawings (14 already done)" and finished the shot |
 | A shot renumbered by an edit to the plan | PASS: reused from its old folder ("filmed as ..."); a half-filmed one carried on ("28 already done") |
@@ -43,8 +44,7 @@ Blender 5.2.2 under WSL2:
 | Blender for Windows from WSL2 (OptiX) on the same job | UNVERIFIED: recorded as passing for an eight-drawing shot, but a later operator log contradicts it; re-run before relying on it |
 
 Not run: a clay film on native Windows or macOS; the `final` (1920x1080) preset for a whole film;
-Hindi dialogue in a clay film judged by a native listener. Known wrong: eyelines when the person
-someone talks to stands behind them (see the README's honest edges).
+Hindi dialogue in a clay film judged by a native listener.
 
 ## Edge cases
 
