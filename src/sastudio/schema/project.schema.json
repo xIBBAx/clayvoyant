@@ -616,6 +616,25 @@
               "type": "string",
               "maxLength": 40
             },
+            "props": {
+              "type": "array",
+              "maxItems": 16,
+              "description": "Things that move on a track, at a moment of a line (docs/DIRECTION.md#props-that-move).",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["thing", "line", "do"],
+                "properties": {
+                  "thing": {"type": "string", "maxLength": 40},
+                  "line": {"$ref": "#/$defs/id"},
+                  "at": {"type": "number", "minimum": 0, "maximum": 1},
+                  "do": {"type": "string", "maxLength": 20},
+                  "by": {"type": "array", "items": {"type": "number", "minimum": -10, "maximum": 10}, "minItems": 3, "maxItems": 3},
+                  "deg": {"type": "number", "minimum": -360, "maximum": 360},
+                  "frames": {"type": "integer", "minimum": 2, "maximum": 240}
+                }
+              }
+            },
             "dressing": {
               "type": "array",
               "items": {"type": "string", "maxLength": 40},

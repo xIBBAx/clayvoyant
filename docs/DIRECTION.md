@@ -159,6 +159,32 @@ A short, sharp line (six words or fewer, ending in `!` or spoken surprised) gets
 Each lighting preset differs in colour temperature, contrast and shadow, so they look different
 from one another.
 
+### Props that move
+
+`direction.props` moves things on the set at a moment of a line, on the line's own clock like a
+beat (`at`: 0 is its first word, 1 its last). Each move eases in over `frames` (default 14,
+about half a second) and the thing stays where the move leaves it.
+
+```yaml
+direction:
+  props:
+    - { thing: laptop, line: ne_01, at: 0.6, do: close }          # he shuts the laptop as she arrives
+    - { thing: printer, line: ne_04, at: 0.2, do: slide, by: [0.3, 0, 0] }
+    - { thing: screen, line: mr_02, do: turn, deg: 20 }
+```
+
+| Move | What happens |
+|---|---|
+| `open`, `close` | a laptop's lid swings open or shut |
+| `slide` | the thing moves by `by: [x, y, z]` from where it stands |
+| `turn` | the thing turns by `deg` degrees |
+| `hide`, `show` | the thing is taken away, or put back |
+
+Things that can move: office `laptop`, `laptop_2`, `printer`; reception `monitor`; meeting room
+`laptop`, `screen`; home office `laptop`, `router`; cafe `laptop`, `wifi_sign`; corridor `poster`;
+street `bus_stop`; classroom `board`, `laptop`, `map`. Mugs and phones travel in people's hands
+instead (`hold_mug`, `sip`, `check_phone`). A move later in a scene never films an earlier shot again.
+
 ### Dressing
 
 `direction.dressing` adds things that move while the people talk, built by code like everything else:

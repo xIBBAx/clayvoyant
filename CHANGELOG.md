@@ -32,6 +32,8 @@
   listener part way through long lines (`direction.reactions: false` turns it off), the listener's
   answer opens a size wider, and a short sharp line gets an extreme close-up. `reaction` and
   `extreme_close_up` were declared before but could never be chosen.
+- **Props that move on a track**: `direction.props` opens and closes laptops, slides, turns, hides and
+  shows things on the set at a moment of a line.
 - **Dressing that moves**: `direction.dressing: [steam, birds]` puts vapour over the hot drinks and
   birds across the sky outside, built by code, each on its own clock.
 - **An insert on a prop is filmed** (`camera: insert, who: [laptop]`) with the line heard over it.

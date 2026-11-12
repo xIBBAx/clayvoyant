@@ -240,6 +240,47 @@ if 'birds' in DRESS and (STG['outdoor'] or STG['windows']):
 def dress_at(f):
     for anim in ANIMATORS:
         anim(f)
+    props_at(f)
+
+
+# ------------------------------------------------------------------ props that move on a track (direction.props)
+TRACKS = {}      # thing -> (object, its lid or None, rest location, rest rotation, rest lid angle, [moves])
+for mv in JOB.get('props') or []:
+    o = PERF.things.get(mv['thing'])
+    if not hasattr(o, 'location'):
+        print(f"FILM prop {mv['thing']} is not an object that can move: left where it is", flush=True)
+        continue
+    if mv['thing'] not in TRACKS:
+        lid = next((c for c in o.children if c.name.startswith('lid')), None)
+        TRACKS[mv['thing']] = (o, lid, o.location.copy(), o.rotation_euler.copy(), lid.rotation_euler.x if lid else 0.0, [])
+    TRACKS[mv['thing']][5].append(mv)
+
+
+def props_at(f):
+    """Each thing that moves is put where its moves so far leave it: every move eases in over its own frames."""
+    for o, lid, loc0, rot0, lid0, moves in TRACKS.values():
+        loc, rz, shown, lid_a = loc0.copy(), rot0.z, True, lid0
+        for mv in moves:
+            k = sm(clamp((f - mv['frame']) / max(1, mv.get('frames', 14))))
+            if k <= 0:
+                continue
+            do = mv['do']
+            if do == 'slide':
+                loc += V(mv['by']) * k
+            elif do == 'turn':
+                rz += math.radians(mv['deg']) * k
+            elif do in ('open', 'close') and lid is not None:
+                target = -.16 if do == 'open' else -.16 - 1.4
+                lid_a = lid_a + (target - lid_a) * k
+            elif do == 'hide' and k >= 1:
+                shown = False
+            elif do == 'show' and k > 0:
+                shown = True
+        o.location = loc
+        o.rotation_euler.z = rz
+        if lid is not None:
+            lid.rotation_euler.x = lid_a
+        show_tree(o, shown)
 
 
 def desk_hands(a):
