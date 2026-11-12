@@ -612,6 +612,11 @@ def pose_actor(S_, a, f):
     # each foot comes down on the solid surface under it (floor, rug, a table's base), not through it
     fL = (fL[0], fL[1], fL[2] + S_.ground_foot(fL[0], fL[1], yaw) - S_.floor + fz + SOLE)
     fR = (fR[0], fR[1], fR[2] + S_.ground_foot(fR[0], fR[1], yaw) - S_.floor + fz + SOLE)
+    wl_ = getattr(a, 'walk_lift', None)
+    if wl_ and wl_.get('f') == f:
+        # mid-stride, a rolling heel or toe was measured in the floor this frame: lifted by exactly that, this frame only
+        fL = (fL[0], fL[1], fL[2] + wl_.get('L', 0.0))
+        fR = (fR[0], fR[1], fR[2] + wl_.get('R', 0.0))
     # stand tall: the leg slack exists for the stride; standing, the knees are all but straight
     slack_ = 2 * P.legl - (hip + .09 - .27) - .012
     z = z + max(0, slack_) * (1 - seatA)

@@ -237,8 +237,8 @@ def _solid_tree():
     if door is not None:
         skip |= {door.name} | {c.name for c in door.children_recursive}
     for o in bpy.data.objects:
-        if o.type != 'MESH' or o.name in skip or o.hide_render:
-            continue
+        if o.type != 'MESH' or o.name in skip or o.hide_render or not o.visible_camera or o.name.startswith('gob'):
+            continue        # only what the camera can see is solid: not the cards that shape the window light
         me = o.data
         co = _np.empty(len(me.vertices) * 3, _np.float32)
         me.vertices.foreach_get('co', co)
@@ -249,13 +249,17 @@ def _solid_tree():
         owner_.extend([o.name] * len(me.polygons))
         n0 += len(me.vertices)
     SOLID_OBJ = _np.array(owner_, dtype=object)
+    global SOLID_BOX
+    if polys:
+        vv_ = _np.asarray(verts, _np.float32)
+        SOLID_BOX = _np.array([_np.concatenate([vv_[list(p)].min(axis=0), vv_[list(p)].max(axis=0)]) for p in polys], _np.float32)
     global SOLID_C
     vv = _np.asarray(verts, _np.float32) if verts else _np.zeros((0, 3), _np.float32)
     SOLID_C = _np.array([vv[list(p)].mean(axis=0) for p in polys], _np.float32) if polys else _np.zeros((0, 3), _np.float32)
     return _BVH.FromPolygons(verts, polys) if polys else None
 
 
-SOLID_C = SOLID_OBJ = None
+SOLID_C = SOLID_OBJ = SOLID_BOX = None
 bpy.context.view_layer.update()
 SOLID = _solid_tree()
 
@@ -277,6 +281,99 @@ def _ground(x, y):
 
 
 PERF.ground = _ground
+
+# ------------------------------------------------------------------ walking around things, not through them
+CELL, BODY_R = .15, .55      # the route map's grain, and how far a walking body's centre keeps from anything solid
+_ROUTE = {}
+
+
+def _blocked():
+    """A top-down map of what a walking body cannot pass: every face of the set between the knee and the head."""
+    if 'grid' in _ROUTE:
+        return _ROUTE['grid']
+    x0, x1, y0, y1 = -13.0, 13.0, -14.0, STG['back'] + 2.0
+    nx, ny = int((x1 - x0) / CELL) + 1, int((y1 - y0) / CELL) + 1
+    grid = _np.zeros((nx, ny), bool)
+    if SOLID_BOX is not None:
+        band = (SOLID_BOX[:, 5] > .2) & (SOLID_BOX[:, 2] < 2.6)
+        for bx0, by0, _, bx1, by1, _ in SOLID_BOX[band]:
+            i0, i1 = int((bx0 - x0) / CELL), int((bx1 - x0) / CELL) + 1
+            j0, j1 = int((by0 - y0) / CELL), int((by1 - y0) / CELL) + 1
+            grid[max(0, i0):max(0, min(nx, i1)), max(0, j0):max(0, min(ny, j1))] = True
+    # widen everything by a body's half-width, so the path is for the body's centre
+    r = int(math.ceil(BODY_R / CELL))
+    wide = grid.copy()
+    for di in range(-r, r + 1):
+        for dj in range(-r, r + 1):
+            if di * di + dj * dj <= r * r:
+                wide |= _np.roll(_np.roll(grid, di, 0), dj, 1)
+    _ROUTE['grid'] = (wide, x0, y0, nx, ny)
+    return _ROUTE['grid']
+
+
+def route(p0, p1):
+    """Waypoints from p0 to p1 (x, y) that keep a walking body clear of the furniture: the shortest path on the map,
+    pulled straight wherever there is a clear line of sight. Just [p1] when the straight line is already clear or no
+    route exists (the log says so)."""
+    import heapq
+    wide, x0, y0, nx, ny = _blocked()
+    cell = lambda p: (min(nx - 1, max(0, int(round((p[0] - x0) / CELL)))), min(ny - 1, max(0, int(round((p[1] - y0) / CELL)))))
+    a_, b_ = cell(p0), cell(p1)
+    free = wide.copy()
+    r = int(math.ceil(.5 / CELL))      # where they start and where they are going are allowed, even beside a desk
+    for c in (a_, b_):
+        free[max(0, c[0] - r):c[0] + r + 1, max(0, c[1] - r):c[1] + r + 1] = False
+
+    def clear(c, d):
+        n = max(abs(d[0] - c[0]), abs(d[1] - c[1]), 1)
+        return not any(free[int(round(c[0] + (d[0] - c[0]) * t / n)), int(round(c[1] + (d[1] - c[1]) * t / n))] for t in range(n + 1))
+    if clear(a_, b_):
+        return [tuple(p1)]
+    best, prev, todo = {a_: 0.0}, {}, [(0.0, a_)]
+    while todo:
+        _, c = heapq.heappop(todo)
+        if c == b_:
+            break
+        for di in (-1, 0, 1):
+            for dj in (-1, 0, 1):
+                d = (c[0] + di, c[1] + dj)
+                if (di or dj) and 0 <= d[0] < nx and 0 <= d[1] < ny and not free[d]:
+                    g_ = best[c] + math.hypot(di, dj)
+                    if g_ < best.get(d, 1e9):
+                        best[d], prev[d] = g_, c
+                        heapq.heappush(todo, (g_ + math.hypot(b_[0] - d[0], b_[1] - d[1]), d))
+    if b_ not in prev:
+        print(f'FILM no clear route from {tuple(round(v, 2) for v in p0)} to {tuple(round(v, 2) for v in p1)}: walking straight', flush=True)
+        return [tuple(p1)]
+    path = [b_]
+    while path[-1] != a_:
+        path.append(prev[path[-1]])
+    path.reverse()
+    keep, i = [], 0
+    while i < len(path) - 1:
+        j = len(path) - 1
+        while j > i + 1 and not clear(path[i], path[j]):
+            j -= 1
+        keep.append(path[j])
+        i = j
+    pts = [(x0 + c[0] * CELL, y0 + c[1] * CELL) for c in keep[:-1]] + [tuple(p1)]
+    print(f'FILM route around the furniture: {len(pts)} legs', flush=True)
+    return pts
+
+
+def walk_route(a, f, dest, speed=None):
+    """Walk to dest around whatever is in the way: one walk per leg, each turning into the next."""
+    here = a.locate(f)[0]
+    t = f
+    for wp in route((here[0], here[1]), dest):
+        t = a.walk(t, wp, speed=speed)
+    return t
+
+
+def route_length(a, f, dest):
+    here = a.locate(f)[0]
+    pts = [(here[0], here[1])] + route((here[0], here[1]), dest)
+    return sum(math.hypot(q[0] - p[0], q[1] - p[1]) for p, q in zip(pts, pts[1:]))
 CLEAR = .004      # how far above a surface a resting body or hand sits: touching, never inside
 
 
@@ -323,6 +420,21 @@ def _inside(o, zmin=-9.0, zmax=99.0, only=None):
     if len(pts):
         pts = pts[(pts[:, 2] >= zmin) & (pts[:, 2] <= zmax)]
     return pts, co
+
+
+def _sole_depth(shoe):
+    """How deep a shoe's sole is in the floor (0 when it is not): every sole vertex near the bottom ray-cast against
+    the surface under it."""
+    pts, co = _inside(shoe, -1.0, .08)
+    if not len(pts) or co is None:
+        return 0.0
+    sole = co[co[:, 2] < co[:, 2].min() + .05]
+    pen = 0.0
+    for vx, vy, vz in sole[:: max(1, len(sole) // 400)]:
+        sz_ = surface_under(float(vx), float(vy), float(vz) + .1, .2)
+        if sz_ is not None:
+            pen = max(pen, sz_ - float(vz))
+    return pen
 
 
 def _part(a, suffix):
@@ -444,6 +556,17 @@ def settle(f, depth=0):
                         moved = True
             a.foot_push = push
             a.foot_lift = flift
+        else:
+            # walking: a stepping foot is where it is for one frame; measured there and lifted for that frame only
+            wl = getattr(a, 'walk_lift', None)
+            if not wl or wl.get('f') != f:
+                wl = {'f': f, 'L': 0.0, 'R': 0.0}
+            for side in ('L', 'R'):
+                pen = _sole_depth(_part(a, '_s' + side))
+                if pen > 0 and wl[side] < .15:
+                    wl[side] += pen + .002
+                    moved = True
+            a.walk_lift = wl
         if moved:
             again.append(a)
     for a in again:
@@ -551,12 +674,12 @@ for k in JOB.get('keys') or []:
         if k.pop('enter', False):
             # f is when they should have arrived: leave early enough, and stay unseen until then
             here = a.locate(f)[0]
-            f = f - int(math.hypot(dest[0] - here[0], dest[1] - here[1]) / (speed or a.st['speed'])) - 8
+            f = f - int(route_length(a, f, dest) / (speed or a.st['speed'])) - 8
             a.key(-900, dict(on=False))
             a.key(f, dict(on=True))
             if 'door' in MARKS and math.hypot(here[0] - MARKS['door']['pos'][0], here[1] - MARKS['door']['pos'][1]) < .5:
                 DOORS.append([f - 8, f + 46])
-        end = a.walk(f, dest, speed=speed)
+        end = walk_route(a, f, dest, speed=speed)
         if to == 'door':
             DOORS.append([end - 34, end + 12])
         to_mark = m if m else dict(pos=dest)

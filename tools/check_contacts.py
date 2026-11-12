@@ -51,7 +51,8 @@ for f in g['FRAMES'][::EVERY]:
     live = [o for o in bpy.data.objects if o.type == 'MESH' and not o.hide_render and o.visible_get()]
     boxes = {o.name: box(o) for o in live}
     cast = [o for o in live if o.name in owner]
-    rest = [o for o in live if o.name not in owner and o.name.split('.')[0] not in ('steam', 'wing')]
+    rest = [o for o in live if o.name not in owner and o.name.split('.')[0] not in ('steam', 'wing')
+            and o.visible_camera and not o.name.startswith('gob')]
     built = {}
     def T(o):
         if o.name not in built:
