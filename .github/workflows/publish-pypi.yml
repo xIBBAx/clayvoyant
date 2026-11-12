@@ -28,12 +28,12 @@ concurrency:
 jobs:
   pypi:
     name: Upload to PyPI
-    if: github.repository == 'xIBBAx/security-awareness-studio'
+    if: github.repository == 'xIBBAx/clayvoyant'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment:
       name: pypi
-      url: https://pypi.org/project/security-awareness-studio/
+      url: https://pypi.org/project/clayvoyant/
     permissions:
       contents: read # download the release's files
       id-token: write # PyPI trusted publishing (OIDC); no stored token

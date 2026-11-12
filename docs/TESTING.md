@@ -156,4 +156,4 @@ functions in `tests/`.
 | Metadata in published images | PASS | every PNG and the GIF checked: no text, EXIF or time chunks |
 | Known vulnerable dependencies | PASS | pip-audit 2.10.1 on the lock file: none |
 | CI permissions and untrusted pull requests | PASS | read-only permissions, no `pull_request_target`, no secrets; actionlint and zizmor report nothing |
-| Release links and assets online | PASS | 2026-11-09, without logging in: the repository, the [v0.1.0 release](https://github.com/xIBBAx/security-awareness-studio/releases/tag/v0.1.0) and every GitHub link in the docs return 200; `git clone` works; all 18 release files downloaded and match `MEDIA_SHA256SUMS` (14) and `SHA256SUMS` (2) |
+| Release links and assets online | PASS | 2026-11-09, without logging in: the repository, the [v0.1.0 release](https://github.com/xIBBAx/clayvoyant/releases/tag/v0.1.0) and every GitHub link in the docs return 200; `git clone` works; all 18 release files downloaded and match `MEDIA_SHA256SUMS` (14) and `SHA256SUMS` (2) |

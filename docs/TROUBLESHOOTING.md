@@ -40,11 +40,11 @@ Install Blender and put it on `PATH`, or set `SASTUDIO_BLENDER` to the program's
 Windows `blender.exe` works too.
 
 **`Sculpting clay characters needs numpy, scipy and scikit-image.`**
-`pip install "security-awareness-studio[clay]"` (from a clone: `pip install -e ".[clay]"`).
+`pip install "clayvoyant[clay]"` (from a clone: `pip install -e ".[clay]"`).
 
 **`The Kokoro model is not downloaded yet.`**
 `sastudio voices install kokoro` (about 350 MB, once). The package itself comes with
-`pip install "security-awareness-studio[voices]"`.
+`pip install "clayvoyant[voices]"`.
 
 **`warning: device CPU ... rendering on the CPU is much slower`**
 Blender found no usable GPU. The film is still made. Check the graphics driver, or set
@@ -72,7 +72,7 @@ The file is damaged, is not really an image, or is over 40 megapixels. `validate
 portrait and backdrop to check. Re-export it as PNG, JPG or WebP.
 
 **`This project uses format 2; this tool understands up to 1.`**
-The project was made with a newer version of Security Awareness Studio. Update the tool.
+The project was made with a newer version of Clayvoyant. Update the tool.
 
 **`Unknown character or token 'arav' in: ...` / `Unknown organisation field 'x' in: ...`**
 The word after `{` is not a character id, and the word after `{org.` is not an organisation field

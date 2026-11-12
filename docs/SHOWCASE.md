@@ -6,9 +6,9 @@ descriptions.
 
 ## The film
 
-[![The Fast One: Tara and Odile at a cafe table at dusk. Press to watch.](media/film/the-fast-one-poster.jpg)](https://cdn.jsdelivr.net/gh/xIBBAx/security-awareness-studio@324ac19/docs/media/the-fast-one.mp4)
+[![The Fast One: Tara and Odile at a cafe table at dusk. Press to watch.](media/film/the-fast-one-poster.jpg)](https://cdn.jsdelivr.net/gh/xIBBAx/clayvoyant@324ac19/docs/media/the-fast-one.mp4)
 
-**[Watch The Fast One](https://cdn.jsdelivr.net/gh/xIBBAx/security-awareness-studio@324ac19/docs/media/the-fast-one.mp4)** (82 seconds, 6.4 MB; it plays in the browser, with the subtitles in
+**[Watch The Fast One](https://cdn.jsdelivr.net/gh/xIBBAx/clayvoyant@324ac19/docs/media/the-fast-one.mp4)** (82 seconds, 6.4 MB; it plays in the browser, with the subtitles in
 the picture. The file itself is [`docs/media/the-fast-one.mp4`](media/the-fast-one.mp4); GitHub's own
 file page will not play a file this size). Made with
 `sastudio film examples/the-fast-one --preset preview`: 1280x720, 24 frames a second, 1,974 frames,

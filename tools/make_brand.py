@@ -12,7 +12,7 @@ TEAL, ORANGE, INK, PAPER = "#1E4E5F", "#E07A3F", "#16191D", "#F4EFE6"
 
 def mark_svg(frame: str, lens: str, pupil: str) -> str:
     # A rounded film frame holding a lens: making films, and paying attention.
-    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Security Awareness Studio">
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Clayvoyant">
   <rect x="4" y="10" width="56" height="44" rx="12" fill="{frame}"/>
   <path d="M14 32 C22 20, 42 20, 50 32 C42 44, 22 44, 14 32 Z" fill="{lens}"/>
   <circle cx="32" cy="32" r="6.5" fill="{pupil}"/>

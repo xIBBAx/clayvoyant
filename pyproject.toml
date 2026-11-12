@@ -3,9 +3,9 @@ requires = ["hatchling>=1.25"]
 build-backend = "hatchling.build"
 
 [project]
-name = "security-awareness-studio"
+name = "clayvoyant"
 version = "0.3.0"
-description = "Make captioned information-security awareness films from plain-text projects: your organisation, characters, voices, languages and scenes."
+description = "Clay stop-motion films, written as plain text: sculpted characters, sets, cameras, voices and subtitles from a YAML project. Made for security awareness; see the scam coming."
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
@@ -38,21 +38,22 @@ dependencies = [
 clay = ["numpy>=1.26", "scipy>=1.11", "scikit-image>=0.22"]
 # The free neural voice (voice provider "kokoro"). kokoro-onnx brings phonemizer and espeak-ng (GPL-3.0) with it.
 voices = ["kokoro-onnx>=0.6", "numpy>=1.26"]
-all = ["security-awareness-studio[clay,voices]"]
+all = ["clayvoyant[clay,voices]"]
 
 [dependency-groups]
 dev = ["pytest>=8", "ruff>=0.6"]
 
 [project.scripts]
+clayvoyant = "sastudio.cli:main"
 sastudio = "sastudio.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/xIBBAx/security-awareness-studio"
-Repository = "https://github.com/xIBBAx/security-awareness-studio"
-Documentation = "https://github.com/xIBBAx/security-awareness-studio/tree/main/docs"
-Changelog = "https://github.com/xIBBAx/security-awareness-studio/blob/main/CHANGELOG.md"
-Issues = "https://github.com/xIBBAx/security-awareness-studio/issues"
-Security = "https://github.com/xIBBAx/security-awareness-studio/security/policy"
+Homepage = "https://github.com/xIBBAx/clayvoyant"
+Repository = "https://github.com/xIBBAx/clayvoyant"
+Documentation = "https://github.com/xIBBAx/clayvoyant/tree/main/docs"
+Changelog = "https://github.com/xIBBAx/clayvoyant/blob/main/CHANGELOG.md"
+Issues = "https://github.com/xIBBAx/clayvoyant/issues"
+Security = "https://github.com/xIBBAx/clayvoyant/security/policy"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/sastudio"]
