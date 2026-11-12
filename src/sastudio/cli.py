@@ -263,6 +263,23 @@ def cmd_scenes(a) -> int:
     return 0
 
 
+def cmd_brief(a) -> int:
+    from .brief import brief
+
+    if not 1 <= a.scenes <= 12:
+        raise StudioError("--scenes must be between 1 and 12.")
+    if not 10 <= a.seconds <= 180:
+        raise StudioError("--seconds must be between 10 and 180.")
+    text = brief(_load(a.project), a.idea, a.scenes, a.seconds)
+    if a.out:
+        atomic_write_text(Path(a.out), text)
+        print(f"Wrote {a.out}. Paste it into the chat assistant you use, save what it returns under "
+              f"{Path(a.project) / 'scenes'}, then: sastudio validate {a.project}")
+    else:
+        sys.stdout.write(text)
+    return 0
+
+
 def cmd_characters(a) -> int:
     p = _load(a.project)
     used: dict[str, list[str]] = {}
@@ -481,6 +498,15 @@ def parser() -> argparse.ArgumentParser:
             s.add_argument("--sheet", metavar="FILE.png", help="draw the cast in every style into one image")
             s.add_argument("--styles", metavar="v1,v2,v3,v4", help="which styles the sheet shows (default: all four)")
         s.set_defaults(fn=fn)
+
+    s = sub.add_parser("brief", help="print a writing brief for a person or a chat assistant: the cast, the places, "
+                                     "the acting and the format of a scene")
+    s.add_argument("project")
+    s.add_argument("idea", nargs="?", help="what the film is about, in a sentence or two")
+    s.add_argument("--scenes", type=int, default=2, help="how many scenes to ask for (default 2)")
+    s.add_argument("--seconds", type=int, default=40, help="about how long each scene runs (default 40)")
+    s.add_argument("--out", metavar="FILE.md", help="write the brief to a file instead of printing it")
+    s.set_defaults(fn=cmd_brief)
 
     s = sub.add_parser("direct", help="print the shot list: cameras, lighting, gestures and transitions per scene")
     s.add_argument("project")
