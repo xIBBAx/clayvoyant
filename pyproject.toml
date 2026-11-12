@@ -60,6 +60,7 @@ packages = ["src/sastudio"]
 [tool.hatch.build.targets.sdist]
 include = ["src/sastudio", "examples", "docs", "tests", "tools", "README.md", "LICENSE", "ASSET_LICENSES.md", "CHANGELOG.md",
            "CONTRIBUTING.md", "SECURITY.md", "CODE_OF_CONDUCT.md", ".env.example"]
+exclude = ["docs/media/*.mp4"]   # the sample film plays on the repository page; packages stay small
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
