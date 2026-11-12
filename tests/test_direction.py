@@ -301,3 +301,30 @@ def test_dressing_is_asked_for_by_name_and_checked(tmp_path):
     probs = D.validate(odd)
     assert any(p.level == "error" and "Unknown dressing 'fog'" in p.message for p in probs)
     assert any(p.level == "warning" and "no window" in p.message for p in probs)
+
+
+def test_props_move_on_a_line_s_clock_and_are_checked(tmp_path):
+    from sastudio import stopmotion as SM
+
+    proj = _scene(write_project(tmp_path / "a"), "    direction:\n      set: office\n      props:\n"
+                  "        - { thing: laptop, line: l2, at: 0.5, do: close }\n"
+                  "        - { thing: printer, line: l1, do: slide, by: [0.3, 0, 0] }\n")
+    assert _errors(proj) == []
+    scene, plan = proj.scenes[0], D.plan(proj)[0]
+    spans = SM.spans_estimated(proj, scene)
+    part = SM.scene_job(proj, scene, plan, spans)
+    sp = next(x for x in spans if x.line.id == "l2")
+    assert [(m["thing"], m["do"]) for m in part["props"]] == [("printer", "slide"), ("laptop", "close")]
+    assert part["props"][1]["frame"] == int(sp.start + .5 * (sp.end - sp.start))
+    first = plan.shots[0]
+    early = SM.shot_job(part, first, SM.shot_frames(first, spans)[:2], "draft")
+    assert [m["thing"] for m in early.get("props", [])] == ["printer"], "a later move stays out of an earlier shot"
+    plain = _scene(write_project(tmp_path / "b"), "    direction:\n      set: office\n")
+    assert "props" not in SM.scene_job(plain, plain.scenes[0], D.plan(plain)[0], SM.spans_estimated(plain, plain.scenes[0]))
+    bad = _scene(write_project(tmp_path / "c"), "    direction:\n      set: office\n      props:\n"
+                 "        - { thing: mug, line: l1, do: slide, by: [1, 0, 0] }\n"
+                 "        - { thing: printer, line: l1, do: close }\n"
+                 "        - { thing: laptop, line: l9, do: turn }\n")
+    msgs = [p.message for p in _errors(bad)]
+    assert any("'mug' cannot move" in m for m in msgs) and any("Only a laptop can close" in m for m in msgs)
+    assert any("No line 'l9'" in m for m in msgs) and any("A turn needs `deg`" in m for m in msgs)

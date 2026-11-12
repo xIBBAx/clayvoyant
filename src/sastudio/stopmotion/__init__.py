@@ -244,6 +244,15 @@ def scene_job(project, scene, plan: D.ScenePlan, spans: list[Span], lang: str | 
                       "manual": sorted(manual)})
     org = project.org
     clock = D.clock_time(scene)
+    tracks = []
+    span_of = {sp.line.id: sp for sp in spans}
+    for mv in d.get("props") or []:
+        sp = span_of.get(mv.get("line"))
+        if sp is None:
+            continue
+        tracks.append({"thing": mv["thing"], "do": mv["do"], "frame": int(sp.start + float(mv.get("at", 0)) * max(1, sp.end - sp.start)),
+                       **({"by": list(mv["by"])} if mv.get("by") else {}), **({"deg": float(mv["deg"])} if mv.get("deg") is not None else {}),
+                       "frames": int(mv.get("frames", 14))})
     return {"set": {"name": plan.set, "palette": org.get("palette") or {}, "org": org.get("short_name") or org.get("name"),
                     **({"clock": clock} if clock else {}),
                     **({"dressing": sorted(set(d["dressing"]))} if d.get("dressing") else {}),
@@ -251,6 +260,7 @@ def scene_job(project, scene, plan: D.ScenePlan, spans: list[Span], lang: str | 
                     "time": (scene.setting or {}).get("time_of_day", "day")},
             "lighting": dict(D.LIGHTING[plan.lighting], name=plan.lighting, **D.light_overrides(scene)),
             "cast": cast, "lines": lines, "keys": sorted(keys, key=lambda x: x["frame"]), "door": doors, "carry": carry, "fps": FPS,
+            **({"props": sorted(tracks, key=lambda x: x["frame"])} if tracks else {}),
             **({"aliases": _aliases()} if any(c.get("model") for c in cast) else {})}
 
 
@@ -308,6 +318,9 @@ def shot_job(scene_part: dict, shot: D.Shot, frames: list[int], preset: str) -> 
     job["keys"] = [k for k in scene_part["keys"] if k["frame"] <= last]
     job["door"] = [dr for dr in scene_part["door"] if dr[0] <= last]
     job["carry"] = [c for c in scene_part["carry"] if c["start"] <= last]
+    job.pop("props", None)
+    if [m for m in scene_part.get("props") or [] if m["frame"] <= last]:
+        job["props"] = [m for m in scene_part["props"] if m["frame"] <= last]   # a later move does not refilm this shot
     job.update(mode="film", frames=frames, width=w, height=h, samples=samples,
                camera={"shot": shot.camera, "who": list(shot.who), "focus": shot.focus, "lens": shot.lens or D.SHOTS[shot.camera]["lens"],
                        "fstop": shot.fstop, "move": shot.move, "height": shot.height,
@@ -326,6 +339,9 @@ def opening_job(scene_part: dict, plan: D.ScenePlan, scene, frames: list[int], p
     job["keys"] = [k for k in scene_part["keys"] if k["frame"] <= last]
     job["door"] = [dr for dr in scene_part["door"] if dr[0] <= last]
     job["carry"] = [c for c in scene_part["carry"] if c["start"] <= last]
+    job.pop("props", None)
+    if [m for m in scene_part.get("props") or [] if m["frame"] <= last]:
+        job["props"] = [m for m in scene_part["props"] if m["frame"] <= last]   # a later move does not refilm this shot
     style = OPENINGS.get(plan.transition_in, "establish")
     if style == "door":
         job["door"] = job["door"] + [[frames[0] + 6, frames[-1] + 30]]

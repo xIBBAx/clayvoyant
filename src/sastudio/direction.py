@@ -142,6 +142,15 @@ DRESSING: dict[str, str] = {
 
 WINDOWED = {"office", "reception", "home_desk", "cafe"}   # sets with a window in the back wall
 
+# Things on each set that can move on a track (`direction.props`): real objects, not just a place to look at.
+MOVABLE: dict[str, set[str]] = {
+    "office": {"laptop", "laptop_2", "printer"}, "reception": {"monitor"}, "meeting_room": {"laptop", "screen"},
+    "home_desk": {"laptop", "router"}, "cafe": {"laptop", "wifi_sign"}, "corridor": {"poster"}, "street": {"bus_stop"},
+    "classroom": {"board", "laptop", "map"}, "studio": set(),
+}
+PROP_MOVES = {"open": "a laptop's lid opens", "close": "a laptop's lid closes", "slide": "moves by `by: [x, y, z]`",
+              "turn": "turns by `deg` degrees", "hide": "is taken away", "show": "is put back"}
+
 # What a wall clock reads when the scene does not say (`direction.clock: "17:45"`): the scene's time of day.
 CLOCK_AT = {"morning": "08:40", "day": "13:15", "evening": "18:25", "night": "22:50"}
 
@@ -286,6 +295,23 @@ def validate(project) -> list[Problem]:
                                    "Birds show in: " + ", ".join(sorted(WINDOWED | {"street"})) + "."))
             elif item == "steam" and "mug" not in set_info["props"]:
                 out.append(Problem("warning", f"{where}.dressing", f"The {set_name} set has no mug to steam."))
+        for n, mv in enumerate(d.get("props") or [], 1):
+            wp = f"{where}.props[{n}]"
+            if mv.get("thing") not in MOVABLE.get(set_name, set()):
+                out.append(Problem("error", f"{wp}.thing", f"'{mv.get('thing')}' cannot move on the {set_name} set.",
+                                   "Things that can: " + (", ".join(sorted(MOVABLE.get(set_name, set()))) or "none") + "."))
+            ids = [ln.id for ln in s.lines]
+            if mv.get("line") not in ids:
+                out.append(Problem("error", f"{wp}.line", f"No line '{mv.get('line')}' in this scene.", _suggest(mv.get("line"), ids)))
+            do = mv.get("do")
+            if do not in PROP_MOVES:
+                out.append(Problem("error", f"{wp}.do", f"Unknown move '{do}'.", _suggest(do, PROP_MOVES)))
+            elif do in ("open", "close") and not str(mv.get("thing", "")).startswith("laptop"):
+                out.append(Problem("error", f"{wp}.do", f"Only a laptop can {do}.", "Use slide, turn, hide or show."))
+            elif do == "slide" and not mv.get("by"):
+                out.append(Problem("error", f"{wp}.by", "A slide needs `by: [x, y, z]`."))
+            elif do == "turn" and mv.get("deg") is None:
+                out.append(Problem("error", f"{wp}.deg", "A turn needs `deg`."))
         if d.get("clock") and not SETS.get(set_name, {}).get("clock"):
             out.append(Problem("warning", f"{where}.clock", f"The {set_name} set has no wall clock; `clock` does nothing here.",
                                "Clocks hang in: " + ", ".join(k for k, v in SETS.items() if v.get("clock")) + "."))
