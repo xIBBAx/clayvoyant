@@ -38,7 +38,7 @@ filmed in clay in both languages.
 This is the template exactly as `init` makes it, rendered in Hindi with drawn characters on a
 laptop processor (5 minutes 53 seconds of film in under four minutes, no graphics card):
 
-![Ten frames of the Hindi film: the title card, then Gopal and Ira, Farhan and Arjun, Kamala and Lakshmi, Gopal and Arjun, Lakshmi and Farhan in their scenes, each with its headline at the top and a Devanagari subtitle, a key point card, and the closing card that names cybercrime.gov.in.](media/india/not-so-fast-sheet.hi-IN.jpg)
+![Twelve frames of the Hindi film, each with its headline at the top and a Devanagari subtitle: Gopal telling Ira it is the police, Ira saying the police station is a painted wall, Ira saying they will report the number on sancharsaathi.gov.in, the scene's key point card; Farhan reading out 'Pay ₹4,500. Enter UPI PIN.', Arjun saying money coming in never needs a PIN; Lakshmi telling Kamala she works in a bank, Lakshmi explaining the code is the last lock, the key point that no bank asks for an OTP; Gopal reading the electricity message, the key point never to install an app from a message; Farhan asking about the screen-sharing app.](media/india/not-so-fast-sheet.hi-IN.jpg)
 
 The same film from `sastudio share`, for a phone held upright, and two pages from `sastudio posters`:
 
