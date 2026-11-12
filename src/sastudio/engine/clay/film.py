@@ -31,6 +31,7 @@ JOB = json.load(open(sys.argv[sys.argv.index('--') + 1], encoding='utf-8'))
 os.environ['SASTUDIO_RIG'] = JOB['rig']
 
 bpy.ops.wm.read_factory_settings(use_empty=True)
+from mathutils import Matrix  # noqa: E402
 from mathutils import Vector as V  # noqa: E402
 
 import acting as A  # noqa: E402
@@ -225,37 +226,74 @@ import numpy as _np  # noqa: E402
 from mathutils.bvhtree import BVHTree as _BVH  # noqa: E402
 
 
-def _solid_tree():
-    global SOLID_OBJ
-    verts, polys, n0, owner_ = [], [], 0, []
-    door = STG.get('door')
-    skip = {o.name for a in PERF.actors.values() for o in getattr(a.P, 'parts', [])}      # the cast is not the set
-    for a in PERF.actors.values():
-        root = getattr(a.P, 'root', None)
-        if root is not None:
-            skip |= {c.name for c in root.children_recursive}
-    if door is not None:
-        skip |= {door.name} | {c.name for c in door.children_recursive}
-    for o in bpy.data.objects:
-        if o.type != 'MESH' or o.name in skip or o.hide_render or not o.visible_camera or o.name.startswith('gob'):
-            continue        # only what the camera can see is solid: not the cards that shape the window light
-        me = o.data
-        co = _np.empty(len(me.vertices) * 3, _np.float32)
-        me.vertices.foreach_get('co', co)
-        M = _np.array(o.matrix_world, dtype=_np.float32)
-        co = co.reshape(-1, 3) @ M[:3, :3].T + M[:3, 3]
+def _mesh_world(o):
+    """One object of the set as contact needs it: vertices in the world, faces, and each face's box and centre."""
+    me = o.data
+    if not len(me.polygons):
+        return None
+    co = _np.empty(len(me.vertices) * 3, _np.float32)
+    me.vertices.foreach_get('co', co)
+    M = _np.array(o.matrix_world, dtype=_np.float32)
+    co = co.reshape(-1, 3) @ M[:3, :3].T + M[:3, 3]
+    polys = [tuple(p.vertices) for p in me.polygons]
+    lv = _np.empty(len(me.loops), _np.int32)
+    me.loops.foreach_get('vertex_index', lv)
+    ls = _np.empty(len(polys), _np.int32)
+    me.polygons.foreach_get('loop_start', ls)
+    lt = _np.empty(len(polys), _np.int32)
+    me.polygons.foreach_get('loop_total', lt)
+    pc = co[lv]
+    box = _np.concatenate([_np.minimum.reduceat(pc, ls, axis=0), _np.maximum.reduceat(pc, ls, axis=0)], axis=1)
+    cen = _np.add.reduceat(pc, ls, axis=0) / lt[:, None]
+    return co, polys, box, cen
+
+
+CHAIRS = []       # chairs somebody stands up from or walks to: they move (see chairs_at), so they are measured apart
+_STATIC = None    # everything else on the set, measured once
+
+
+def _gather(objs):
+    verts, polys, owner_, boxes, cens, n0 = [], [], [], [], [], 0
+    for o in objs:
+        got = _mesh_world(o)
+        if got is None:
+            continue
+        co, ps, box, cen = got
         verts.extend(map(tuple, co))
-        polys.extend(tuple(v + n0 for v in p.vertices) for p in me.polygons)
-        owner_.extend([o.name] * len(me.polygons))
-        n0 += len(me.vertices)
+        polys.extend(tuple(v + n0 for v in p) for p in ps) if n0 else polys.extend(ps)
+        owner_.extend([o.name] * len(ps))
+        boxes.append(box)
+        cens.append(cen)
+        n0 += len(co)
+    return verts, polys, owner_, boxes, cens
+
+
+def _solid_tree():
+    """The set as one tree of faces. What never moves is gathered once; a chair in use is gathered where it stands now."""
+    global SOLID_OBJ, SOLID_BOX, SOLID_C, _STATIC
+    if _STATIC is None:
+        door = STG.get('door')
+        skip = {o.name for a in PERF.actors.values() for o in getattr(a.P, 'parts', [])}      # the cast is not the set
+        for a in PERF.actors.values():
+            root = getattr(a.P, 'root', None)
+            if root is not None:
+                skip |= {c.name for c in root.children_recursive}
+        if door is not None:
+            skip |= {door.name} | {c.name for c in door.children_recursive}
+        for ch in CHAIRS:
+            skip |= {o.name for o in ch['meshes']}
+        # only what the camera can see is solid: not the cards that shape the window light
+        _STATIC = _gather(o for o in bpy.data.objects if o.type == 'MESH' and o.name not in skip and not o.hide_render
+                          and o.visible_camera and not o.name.startswith('gob'))
+    verts, polys, owner_, boxes, cens = _STATIC
+    if CHAIRS:
+        n0 = len(verts)
+        v2, p2, o2, b2, c2 = _gather(o for ch in CHAIRS for o in ch['meshes'])
+        verts, polys = verts + v2, polys + [tuple(v + n0 for v in p) for p in p2]
+        owner_, boxes, cens = owner_ + o2, boxes + b2, cens + c2
     SOLID_OBJ = _np.array(owner_, dtype=object)
-    global SOLID_BOX
-    if polys:
-        vv_ = _np.asarray(verts, _np.float32)
-        SOLID_BOX = _np.array([_np.concatenate([vv_[list(p)].min(axis=0), vv_[list(p)].max(axis=0)]) for p in polys], _np.float32)
-    global SOLID_C
-    vv = _np.asarray(verts, _np.float32) if verts else _np.zeros((0, 3), _np.float32)
-    SOLID_C = _np.array([vv[list(p)].mean(axis=0) for p in polys], _np.float32) if polys else _np.zeros((0, 3), _np.float32)
+    SOLID_BOX = _np.concatenate(boxes) if boxes else None
+    SOLID_C = _np.concatenate(cens) if cens else _np.zeros((0, 3), _np.float32)
     return _BVH.FromPolygons(verts, polys) if polys else None
 
 
@@ -283,8 +321,23 @@ def _ground(x, y):
 PERF.ground = _ground
 
 # ------------------------------------------------------------------ walking around things, not through them
-CELL, BODY_R = .15, .55      # the route map's grain, and how far a walking body's centre keeps from anything solid
+# the route map's grain; how far a walking body's centre likes to keep from anything solid; the least it can pass with
+CELL, BODY_R, BODY_MIN = .15, .55, .3
 _ROUTE = {}
+
+
+def _near_map(grid):
+    """For every cell, how many cells away the nearest solid thing is (0 in it), counted up to a body's comfort."""
+    R = int(math.ceil(BODY_R / CELL))
+    near = _np.full(grid.shape, R + 1, _np.int8)
+    for r in range(R, -1, -1):
+        wide = grid.copy()
+        for di in range(-r, r + 1):
+            for dj in range(-r, r + 1):
+                if (di or dj) and di * di + dj * dj <= r * r:
+                    wide |= _np.roll(_np.roll(grid, di, 0), dj, 1)
+        near[wide] = r
+    return near
 
 
 def _blocked():
@@ -300,59 +353,76 @@ def _blocked():
             i0, i1 = int((bx0 - x0) / CELL), int((bx1 - x0) / CELL) + 1
             j0, j1 = int((by0 - y0) / CELL), int((by1 - y0) / CELL) + 1
             grid[max(0, i0):max(0, min(nx, i1)), max(0, j0):max(0, min(ny, j1))] = True
-    # widen everything by a body's half-width, so the path is for the body's centre
-    r = int(math.ceil(BODY_R / CELL))
-    wide = grid.copy()
-    for di in range(-r, r + 1):
-        for dj in range(-r, r + 1):
-            if di * di + dj * dj <= r * r:
-                wide |= _np.roll(_np.roll(grid, di, 0), dj, 1)
-    _ROUTE['grid'] = (wide, x0, y0, nx, ny)
+    _ROUTE['hard'] = grid
+    _ROUTE['grid'] = (_near_map(grid), x0, y0, nx, ny)
     return _ROUTE['grid']
 
 
+def _block(bx0, by0, bx1, by1):
+    """Something else now stands on the floor (a chair pulled out for whoever is coming): walks go round it too."""
+    _, x0, y0, nx, ny = _blocked()
+    g = _ROUTE['hard']
+    g[max(0, int((bx0 - x0) / CELL)):max(0, min(nx, int((bx1 - x0) / CELL) + 1)),
+      max(0, int((by0 - y0) / CELL)):max(0, min(ny, int((by1 - y0) / CELL) + 1))] = True
+    _ROUTE['grid'] = (_near_map(g), x0, y0, nx, ny)
+
+
 def route(p0, p1):
-    """Waypoints from p0 to p1 (x, y) that keep a walking body clear of the furniture: the shortest path on the map,
-    pulled straight wherever there is a clear line of sight. Just [p1] when the straight line is already clear or no
-    route exists (the log says so)."""
+    """Waypoints from p0 to p1 (x, y) that keep a walking body clear of the furniture: the cheapest path on the map
+    (a body's width of room wherever there is that much, never less than the body itself), pulled straight wherever
+    that costs no clearance. Just [p1] when the straight line is already clear or no route exists (the log says so)."""
     import heapq
-    wide, x0, y0, nx, ny = _blocked()
+    near, x0, y0, nx, ny = _blocked()
+    R = int(near.max())
     cell = lambda p: (min(nx - 1, max(0, int(round((p[0] - x0) / CELL)))), min(ny - 1, max(0, int(round((p[1] - y0) / CELL)))))
     a_, b_ = cell(p0), cell(p1)
-    free = wide.copy()
     r = int(math.ceil(.5 / CELL))      # where they start and where they are going are allowed, even beside a desk
-    for c in (a_, b_):
-        free[max(0, c[0] - r):c[0] + r + 1, max(0, c[1] - r):c[1] + r + 1] = False
 
-    def clear(c, d):
+    def ends(c):
+        return any(abs(c[0] - e[0]) <= r and abs(c[1] - e[1]) <= r for e in (a_, b_))
+
+    def line(c, d):
         n = max(abs(d[0] - c[0]), abs(d[1] - c[1]), 1)
-        return not any(free[int(round(c[0] + (d[0] - c[0]) * t / n)), int(round(c[1] + (d[1] - c[1]) * t / n))] for t in range(n + 1))
-    if clear(a_, b_):
+        return [(int(round(c[0] + (d[0] - c[0]) * t / n)), int(round(c[1] + (d[1] - c[1]) * t / n))) for t in range(n + 1)]
+
+    def clear(c, d, level):
+        return all(near[q] >= level or ends(q) for q in line(c, d))
+    if clear(a_, b_, R):
         return [tuple(p1)]
-    best, prev, todo = {a_: 0.0}, {}, [(0.0, a_)]
-    while todo:
-        _, c = heapq.heappop(todo)
-        if c == b_:
-            break
-        for di in (-1, 0, 1):
-            for dj in (-1, 0, 1):
-                d = (c[0] + di, c[1] + dj)
-                if (di or dj) and 0 <= d[0] < nx and 0 <= d[1] < ny and not free[d]:
-                    g_ = best[c] + math.hypot(di, dj)
+    path = None
+    for hard in (int(math.ceil(BODY_MIN / CELL)), 1):
+        best, prev, todo = {a_: 0.0}, {}, [(0.0, a_)]
+        while todo:
+            _, c = heapq.heappop(todo)
+            if c == b_:
+                break
+            for di in (-1, 0, 1):
+                for dj in (-1, 0, 1):
+                    d = (c[0] + di, c[1] + dj)
+                    if not (di or dj) or not (0 <= d[0] < nx and 0 <= d[1] < ny):
+                        continue
+                    lv = int(near[d])
+                    if lv <= hard and not ends(d):
+                        continue
+                    # squeezing past something costs more than going round with room to spare
+                    g_ = best[c] + math.hypot(di, dj) * (1.0 + 1.2 * max(0, R - lv))
                     if g_ < best.get(d, 1e9):
                         best[d], prev[d] = g_, c
                         heapq.heappush(todo, (g_ + math.hypot(b_[0] - d[0], b_[1] - d[1]), d))
-    if b_ not in prev:
+        if b_ in prev:
+            path = [b_]
+            while path[-1] != a_:
+                path.append(prev[path[-1]])
+            path.reverse()
+            break
+    if path is None:
         print(f'FILM no clear route from {tuple(round(v, 2) for v in p0)} to {tuple(round(v, 2) for v in p1)}: walking straight', flush=True)
         return [tuple(p1)]
-    path = [b_]
-    while path[-1] != a_:
-        path.append(prev[path[-1]])
-    path.reverse()
     keep, i = [], 0
     while i < len(path) - 1:
         j = len(path) - 1
-        while j > i + 1 and not clear(path[i], path[j]):
+        # a corner is cut only when the straight line keeps as much room as the path it replaces
+        while j > i + 1 and not clear(path[i], path[j], min([int(near[q]) for q in path[i:j + 1] if not ends(q)] or [0])):
             j -= 1
         keep.append(path[j])
         i = j
@@ -361,19 +431,128 @@ def route(p0, p1):
     return pts
 
 
-def walk_route(a, f, dest, speed=None):
-    """Walk to dest around whatever is in the way: one walk per leg, each turning into the next."""
+# ------------------------------------------------------------------ chairs: pushed back to stand, drawn in to sit
+# how far a chair is pushed back from where it is sat in; how far behind where they sat someone who has stood up stands;
+# how far to its side people step in
+PULL, STAND_BACK, SIDE = .8, .22, .95
+ALL_CHAIRS = []
+for g_ in bpy.data.objects:
+    if g_.type == 'EMPTY' and g_.parent is None and g_.name.split('.')[0] in ('chair', 'taskchair'):
+        rz_ = g_.rotation_euler.z
+        # an office chair rolls further: its five-star base is wider than its seat
+        ALL_CHAIRS.append(dict(g=g_, pos=(g_.location.x, g_.location.y), z=g_.location.z, back=(-math.sin(rz_), math.cos(rz_)),
+                               meshes=[c for c in g_.children_recursive if c.type == 'MESH'], users=[], off=0.0,
+                               far=PULL + (.25 if g_.name.startswith('taskchair') else 0.0), pull=PULL, stand=0.0))
+
+
+def _chair_at(pos, r=.5):
+    return next((ch for ch in ALL_CHAIRS if math.hypot(ch['pos'][0] - pos[0], ch['pos'][1] - pos[1]) < r), None)
+
+
+def _chair_room(ch):
+    """How far this chair can be pushed back before it meets a wall or other furniture."""
+    if SOLID_BOX is None:
+        return ch['far'] + STAND_BACK
+    own = _np.isin(SOLID_OBJ, [o.name for o in ch['meshes']])
+    if not own.any():
+        return ch['far'] + STAND_BACK
+    mine, rest = SOLID_BOX[own], SOLID_BOX[~own & (SOLID_BOX[:, 5] > .15)]
+    lo, hi = mine[:, :3].min(axis=0) + .02, mine[:, 3:].max(axis=0) - .02
+    d = ch['far'] + STAND_BACK
+    while d > 1e-3:
+        l_, h_ = lo + (ch['back'][0] * d, ch['back'][1] * d, 0), hi + (ch['back'][0] * d, ch['back'][1] * d, 0)
+        if not ((rest[:, 0] <= h_[0]) & (rest[:, 3] >= l_[0]) & (rest[:, 1] <= h_[1]) & (rest[:, 4] >= l_[1])
+                & (rest[:, 2] <= h_[2]) & (rest[:, 5] >= l_[2])).any():
+            return d
+        d -= .05
+    return 0.0
+
+
+def _seat_side(m, other):
+    """Where to step in beside the chair at seat mark m (or step out to), on the side nearer `other`: people get into
+    a chair from its side, not through its back or over the table."""
+    ch = _chair_at(m['pos']) if m and m.get('seat') else None
+    if ch is None:
+        return None
+    near, x0, y0, nx, ny = _blocked()
+    sx, sy = -ch['back'][1], ch['back'][0]
+    best = None
+    for sg in (1, -1):
+        q = (m['pos'][0] + sg * sx * SIDE, m['pos'][1] + sg * sy * SIDE)
+        i, j = int(round((q[0] - x0) / CELL)), int(round((q[1] - y0) / CELL))
+        if 0 <= i < nx and 0 <= j < ny and near[i, j] >= int(math.ceil(BODY_MIN / CELL)):
+            d = math.hypot(q[0] - other[0], q[1] - other[1])
+            if best is None or d < best[0]:
+                best = (d, q)
+    return best[1] if best else None
+
+
+def route_to(a, f, dest, m=None):
+    """Every waypoint of a walk from where the actor is at f: out by the side of the chair they are leaving, round the
+    furniture, and in by the side of the chair they are going to."""
     here = a.locate(f)[0]
+    start, pts = (here[0], here[1]), []
+    if math.hypot(dest[0] - start[0], dest[1] - start[1]) < .3:
+        return [tuple(dest)]        # already there (someone who stands up where they sat): no way round to find
+    m0 = getattr(a, 'mark', None)
+    if m0 and m0.get('seat') and math.hypot(m0['pos'][0] - start[0], m0['pos'][1] - start[1]) < .3:
+        out = _seat_side(m0, dest)
+        if out is not None:
+            pts.append(out)
+            start = out
+    side = _seat_side(m, start)
+    if side is not None:
+        ch = _chair_at(m['pos'])
+        if not ch.get('waits'):
+            # the chair stands pushed back until they sit: nobody walks through where it waits
+            ch['waits'] = True
+            room = min(ch['far'], _chair_room(ch))
+            bx, by = ch['pos'][0] + ch['back'][0] * (room + .12), ch['pos'][1] + ch['back'][1] * (room + .12)
+            _block(bx - .5, by - .5, bx + .5, by + .5)
+            side = _seat_side(m, start) or side
+        pts += route(start, side)
+        pts.append(tuple(dest))
+    else:
+        pts += route(start, dest)
+    return pts
+
+
+def walk_route(a, f, dest, speed=None, m=None):
+    """Walk to dest around whatever is in the way: one walk per leg, each turning into the next."""
     t = f
-    for wp in route((here[0], here[1]), dest):
+    for wp in route_to(a, f, dest, m):
         t = a.walk(t, wp, speed=speed)
     return t
 
 
-def route_length(a, f, dest):
+def route_length(a, f, dest, m=None):
     here = a.locate(f)[0]
-    pts = [(here[0], here[1])] + route((here[0], here[1]), dest)
+    pts = [(here[0], here[1])] + route_to(a, f, dest, m)
     return sum(math.hypot(q[0] - p[0], q[1] - p[1]) for p, q in zip(pts, pts[1:]))
+
+
+def chairs_at(f):
+    """A chair somebody uses is where their body needs it: pushed back while they stand at it (and left there when they
+    go, and waiting there before they come), drawn in under them as they sit."""
+    global SOLID
+    moved = False
+    for ch in CHAIRS:
+        s_ = 0.0
+        for a in ch['users']:
+            p = a.locate(f)[0]
+            if math.hypot(p[0] - ch['pos'][0], p[1] - ch['pos'][1]) < .7:
+                s_ = max(s_, a.seat_amt(f))
+        # it stays out until they have turned to it and begun to lower, and is home before they are all the way down
+        off = ch['pull'] * A.clamp(1 - (s_ - .3) / .5) + ch['stand'] * max((a.stood_up(f) for a in ch['users']), default=0.0)
+        if abs(off - ch['off']) > 1e-4:
+            ch['off'] = off
+            ch['g'].location = (ch['pos'][0] + ch['back'][0] * off, ch['pos'][1] + ch['back'][1] * off, ch['z'])
+            moved = True
+    if moved:
+        bpy.context.view_layer.update()
+        SOLID = _solid_tree()
+
+
 CLEAR = .004      # how far above a surface a resting body or hand sits: touching, never inside
 
 
@@ -465,6 +644,8 @@ def _seated_for(a, f):
 def settle(f, depth=0):
     """After everyone is posed: a seated body rests on its seat (not in it, not above it) and a hand laid on a table rests
     on the top. What is measured is kept (seat_lift, hand_lift), so the next frames start right and seldom pose twice."""
+    if depth == 0:
+        chairs_at(f)
     bpy.context.view_layer.update()
     again = []
     for a in PERF.actors.values():
@@ -472,7 +653,10 @@ def settle(f, depth=0):
             continue
         cur = a.state(f)[1][1]
         moved = False
-        if cur.get('seat'):
+        # half way into a chair or out of it nothing is learnt for later: what is measured then is true of that
+        # drawing only, and would be carried into the sitting or the standing that follows
+        mid = .02 < a.seat_amt(f) < .98
+        if cur.get('seat') and not mid:
             # the thighs rest on the seat too: while either is in it, the body comes up a centimetre at a time
             rx, ry = a.P.root.matrix_world.translation.xy
             top, seat_o = surface_under(rx, ry, 1.2, 1.2, which=True)     # from under a table top, down to the seat
@@ -480,6 +664,18 @@ def settle(f, depth=0):
             legs = [_inside(_part(a, '_l' + sd), top - .3, top + .1, only=seat_o)[0] for sd in ('L', 'R')]
             # a thigh in the top of the seat: the body comes up a centimetre at a time
             thighs_in = any(len(p_) and (p_[:, 2] >= top - .02).any() for p_ in legs)
+            # a knee against the underside of the table they sit at: that foot goes forward, and the knee comes down
+            yw_ = a.last_yaw or 0.0
+            for sd, in_seat in zip(('L', 'R'), legs):
+                # ...and a calf against the front edge or the corner of the seat: the same, and the shin swings clear
+                edge = len(in_seat) and not (in_seat[:, 2] >= top - .02).any()
+                if edge or len(_inside(_part(a, '_l' + sd), top + .3, top + 1.0)[0]):
+                    push = getattr(a, 'foot_push', {})
+                    px, py = push.get((a.spot, sd), (0.0, 0.0))
+                    if math.hypot(px, py) < .45:
+                        push[(a.spot, sd)] = (px + .05 * math.sin(yw_), py - .05 * math.cos(yw_))
+                        a.foot_push = push
+                        moved = True
             g_ = _gap(_part(a, '_torso'), .3)
             if thighs_in and getattr(a, 'seat_lift', 0.0) < .3:
                 a.seat_lift = getattr(a, 'seat_lift', 0.0) + .01
@@ -496,31 +692,60 @@ def settle(f, depth=0):
                 if g_ is not None and g_ < -.002:
                     lifts[side] = lifts.get(side, 0.0) - g_
                     moved = True
-                # a forearm lying across the table's edge goes through it: the hands come up until it clears
-                elif len(_inside(_part(a, '_a' + side), .9, 2.2)[0]) and lifts.get(side, 0.0) < .25:
+                # a forearm lying across the table's edge goes through it, or the hand itself overhangs the edge
+                # and cuts into it: the hands come up until both clear
+                elif (len(_inside(_part(a, '_a' + side), .9, 2.2)[0]) or len(_inside(_part(a, '_h' + side), .9, 2.2)[0])) \
+                        and lifts.get(side, 0.0) < .25:
                     lifts[side] = lifts.get(side, 0.0) + .01
                     moved = True
             a.hand_lift = lifts
         # a hand in a gesture that ends inside something on the set (a mug, a machine, a screen) is nudged clear of it,
         # for that gesture only
         nudges = getattr(a, 'hand_nudge', {})
+        # ...and a hand still on its way to the gesture goes round what it meets, for this drawing only (carried on, a
+        # little less, into the next, so it never jumps)
+        now = getattr(a, 'hand_now', None)
+        if not now or now.get('f') != f:
+            last = now if now and 0 < f - now.get('f', -99) <= 2 else {}
+            now = {'f': f, 'L': tuple(.6 * v for v in last.get('L', (0.0, 0.0, 0.0))), 'R': tuple(.6 * v for v in last.get('R', (0.0, 0.0, 0.0)))}
+            if any(now['L']) or any(now['R']):
+                moved = True
         for side in ('L', 'R'):
             if cur.get('h' + side) is not None:
                 continue
             pts, co = _inside(_part(a, '_h' + side), .3, 9.0)
+            if not len(pts):
+                pts, co = _inside(_part(a, '_a' + side), .9, 9.0)      # the forearm behind it counts too
             if len(pts) and co is not None:
                 d = co.mean(axis=0) - pts.mean(axis=0)
                 n = float(_np.linalg.norm(d))
                 d, n = (d, n) if n > 1e-4 else (_np.array([0.0, 0.0, 1.0]), 1.0)
-                key = (side, a.state(f)[1][0])
-                nx, ny, nz = nudges.get(key, (0.0, 0.0, 0.0))
-                if math.sqrt(nx * nx + ny * ny + nz * nz) < .4:
-                    nudges[key] = (nx + .04 * d[0] / n, ny + .04 * d[1] / n, nz + .04 * d[2] / n)
-                    moved = True
+                kf = a.state(f)[1][0]
+                # in a counter or a table from the side: straight up onto its top, in one measured step
+                lo_ = co[int(_np.argmin(co[:, 2]))]
+                top_ = surface_under(float(lo_[0]), float(lo_[1]), float(lo_[2]) + .5, .5)
+                if top_ is not None and top_ > float(lo_[2]) + .002:
+                    d, n = _np.array([0.0, 0.0, (top_ - float(lo_[2]) + CLEAR) / .04]), 1.0
+                key = (side, kf)
+                spent = math.sqrt(sum(v * v for v in nudges.get(key, (0.0, 0.0, 0.0)))) >= .6 or depth >= 12
+                if f - kf < 30 or spent:
+                    # (also a hand at rest that a turn of the body swings into something: a gesture's own nudge can
+                    # only do so much, and then the hand goes round for this drawing)
+                    nx, ny, nz = now[side]
+                    if math.sqrt(nx * nx + ny * ny + nz * nz) < .6:
+                        # up and out: over the edge of a table rather than through it
+                        now[side] = (nx + .04 * d[0] / n, ny + .04 * d[1] / n, nz + .04 * max(d[2] / n, .5))
+                        moved = True
+                else:
+                    nx, ny, nz = nudges.get(key, (0.0, 0.0, 0.0))
+                    if math.sqrt(nx * nx + ny * ny + nz * nz) < .6:
+                        nudges[key] = (nx + .04 * d[0] / n, ny + .04 * d[1] / n, nz + .04 * d[2] / n)
+                        moved = True
         a.hand_nudge = nudges
+        a.hand_now = now
         # feet are pushed sideways out of whatever they stand in (a chair's base, a table's foot), remembered for the
         # spot the person stands or sits at, and never mid-stride
-        if not a.walking(f):
+        if not a.walking(f) and not mid:
             here = getattr(a, 'spot', None)
             push = getattr(a, 'foot_push', {})
             flift = getattr(a, 'foot_lift', {})
@@ -573,8 +798,8 @@ def settle(f, depth=0):
         PERF.pose_one(a, f)
     if again:
         bpy.context.view_layer.update()
-        if depth < 8:
-            settle(f, depth + 1)     # measure again: one correction can need a few small steps
+        if depth < 24:
+            settle(f, depth + 1)     # measure again: one correction can need a few small steps (a shot's first drawing most)
 
 
 PERF.settle = settle
@@ -674,12 +899,12 @@ for k in JOB.get('keys') or []:
         if k.pop('enter', False):
             # f is when they should have arrived: leave early enough, and stay unseen until then
             here = a.locate(f)[0]
-            f = f - int(route_length(a, f, dest) / (speed or a.st['speed'])) - 8
+            f = f - int(route_length(a, f, dest, m) / (speed or a.st['speed'])) - 8
             a.key(-900, dict(on=False))
             a.key(f, dict(on=True))
             if 'door' in MARKS and math.hypot(here[0] - MARKS['door']['pos'][0], here[1] - MARKS['door']['pos'][1]) < .5:
                 DOORS.append([f - 8, f + 46])
-        end = walk_route(a, f, dest, speed=speed)
+        end = walk_route(a, f, dest, speed=speed, m=m)
         if to == 'door':
             DOORS.append([end - 34, end + 12])
         to_mark = m if m else dict(pos=dest)
@@ -706,6 +931,28 @@ for k in JOB.get('keys') or []:
     a.key(f, k)
 PERF.finish()
 
+# whoever sits at some point uses the chair at that place: those chairs move with them, and are measured as they stand
+for a in PERF.actors.values():
+    if getattr(a.P, 'guest', False):
+        continue
+    for fk, st_k in a.keys:
+        if st_k.get('seat'):
+            ch = _chair_at(a.locate(fk + 9)[0])
+            if ch is not None and a not in ch['users']:
+                ch['users'].append(a)
+for ch in ALL_CHAIRS:
+    if ch['users']:
+        room = _chair_room(ch)
+        ch['pull'], ch['stand'] = min(ch['far'], room), max(0.0, min(STAND_BACK, room - ch['far']))
+        if room < ch['far'] + STAND_BACK - 1e-3:
+            print(f"FILM the chair at {tuple(round(v, 2) for v in ch['pos'])} can only be pushed back {room:.2f}", flush=True)
+        for a in ch['users']:
+            a.chairs = getattr(a, 'chairs', []) + [(ch['pos'], ch['back'], ch['stand'])]
+        CHAIRS.append(ch)
+if CHAIRS:
+    _STATIC = None
+    SOLID = _solid_tree()
+
 # things carried in a hand: made once, shown while they are held
 HELD = []
 for c in JOB.get('carry') or []:
@@ -715,11 +962,20 @@ for c in JOB.get('carry') or []:
     palm = a.P.palm['R']
     hs = a.P.m.get('hs', 1.0)
     if c.get('prop') == 'mug':
-        o = K.mug(.085 * hs, -.105 * hs, -.1 * hs, palm, hex_=c.get('color') or '#c1553f')
+        # in the cupped hand (handrig 'cup'): its wall against the palm and inside the fingers, the rim above the
+        # index finger, the handle turned away from the fingertips
+        o = K.mug(.135 * hs, -.135 * hs, -.09 * hs, palm, hex_=c.get('color') or '#c1553f')
+        o.rotation_euler = (0, 0, math.radians(-120))
         o.scale = (.78 * hs,) * 3
     elif c.get('prop') == 'phone':
-        o = K.phone(.09 * hs, -.05 * hs, 0, palm)
-        o.rotation_euler = (math.pi / 2, 0, math.pi / 2)
+        if c.get('use') == 'phone_to_ear':
+            # across the cradling fingers (handrig 'cradle'), its long edge under the thumb, the screen to the ear
+            o = K.phone(.089 * hs, -.042 * hs, -.1225 * hs, palm)
+            o.rotation_euler = (math.pi / 2, 0, 0)
+        else:
+            # being read: its back on the palm and along the fingers (handrig 'tray'), the screen facing out of the palm
+            o = K.phone(.2225 * hs, -.042 * hs, -.036 * hs, palm)
+            o.rotation_euler = Matrix(((0, 1, 0), (0, 0, -1), (-1, 0, 0))).to_euler()
         o.scale = (1.15 * hs,) * 3
     else:
         continue
@@ -1043,7 +1299,13 @@ t0 = time.time()
 steps = sorted({f for a in PERF.actors.values() for f in a.steps()})
 json.dump(dict(steps=steps), open(os.path.join(out, 'events.json'), 'w'))
 t_pose = t_draw = 0.0
-for n, f in enumerate(frames):
+todo, n = set(frames), 0
+for f in FRAMES:
+    if f not in todo:
+        # A drawing kept from an interrupted run is still posed: contact is learnt drawing by drawing (a seat, a
+        # table, a spot remember how far they pushed back), so a resumed shot draws what an uninterrupted one would.
+        PERF.pose(f)
+        continue
     t1 = time.time()
     PERF.pose(f)
     door_at(f)
@@ -1058,6 +1320,7 @@ for n, f in enumerate(frames):
     os.replace(path + '.part.png', path)
     t_pose += t2 - t1
     t_draw += time.time() - t2
-    print(f'FILM frame {n + 1}/{len(frames)} f{f} {time.time() - t0:.1f}s', flush=True)
+    n += 1
+    print(f'FILM frame {n}/{len(frames)} f{f} {time.time() - t0:.1f}s', flush=True)
 print(f'FILM timing pose {t_pose:.1f}s draw {t_draw:.1f}s', flush=True)
 print('FILM done', len(frames), 'frames', round(time.time() - t0, 1), 's', flush=True)

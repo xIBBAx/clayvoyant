@@ -31,6 +31,10 @@ HAND = dict(
     fist=dict(c=[(-1.3, -1.6, -1.3)] * 4, spread=.03, th=(.2, 1.3)),
     grip=dict(c=[(-.8, -1.0, -.9)] * 4, spread=.04, th=(.5, .9)),
     thumb=dict(c=[(-1.3, -1.6, -1.3)] * 4, spread=.03, th=(1.4, .05)),
+    # a phone being read lies along the palm and the fingers: they stay all but flat under it, the thumb up beside its edge
+    tray=dict(c=[(-.06, -.1, -.1)] * 4, spread=.05, th=(1.4, .05)),
+    # round a mug: the fingers lie on its wall, a finger's thickness out from it, and the thumb rests over the rim
+    cup=dict(c=[(-.386, -.225, -.405)] * 4, spread=.04, th=(1.0, .2)),
     # a phone held to the ear: fingers lie along its back and curl over its far edge, the thumb holds the near edge
     cradle=dict(c=[(-.22, -.5, -.45)] * 4, spread=.05, th=(.85, .55)),
 )

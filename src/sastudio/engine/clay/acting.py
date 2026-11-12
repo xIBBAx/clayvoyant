@@ -169,9 +169,9 @@ GEST = dict(
     lean=dict(L=(-.62, -.3, -.7), R=(.62, -.3, -.7), bend=.12),
     recoil=dict(L=(-.5, -.3, -.2), R=(.5, -.3, -.2), pL='open', pR='open', bend=-.09),
     # things in the hand: a phone or a page being read, a mug being carried
-    read=dict(L=(-.54, -.03, -1.02), R=(.36, -.60, -.36), pR='cradle', bend=.03),
-    carry=dict(L=(-.54, -.03, -1.02), R=(.40, -.56, -.56), pR='grip'),
-    sip=dict(L=(-.54, -.03, -1.02), R=(.16, -.50, .02), pR='grip', bend=-.02),
+    read=dict(L=(-.54, -.03, -1.02), R=(.36, -.60, -.36), pR='tray', bend=.03),
+    carry=dict(L=(-.54, -.03, -1.02), R=(.40, -.56, -.56), pR='cup'),
+    sip=dict(L=(-.54, -.03, -1.02), R=(.16, -.50, .02), pR='cup', bend=-.02),
     # the vocabulary of someone explaining something they care about
     talkR=dict(L=(-.54, -.03, -1.02), R=(.62, -.44, -.42), pR='open', side=.012),
     talkL=dict(L=(-.62, -.44, -.42), R=(.54, -.03, -1.02), pL='open', side=-.012),
@@ -188,6 +188,7 @@ TALK = ['talk', 'talkR', 'chest', 'talkWide', 'weigh', 'talkL', 'palmsDown', 'pr
 STYLE = dict(amp=1.0, loose=1.0, bend=0.0, stance=.24, speed=.075, step=.9, bob=.045, contra=.8)
 KEYS = ('g', 'f', 'look', 'face', 'on', 'lean', 'seat', 'nod', 'turn', 'tilt', 'ly', 'hL', 'hR', 'pL', 'pR', 'bkL', 'bkR', 'cL', 'cR')
 SEAT_H = .82      # an ordinary chair: where the top of the seat is
+SIT_FRAMES = 22      # how long sitting down or standing up takes
 SOLE = .004       # the shoe's lowest point sits this far under the foot's target: lift it so the sole rests on top
 
 
@@ -344,6 +345,42 @@ class Actor:
                 wo = sm(clamp((f - (f1 - To * .2)) / To))
                 yaw = yaw + (face - yaw) * wo
         return yaw
+
+    def seat_amt(a, f):
+        """How far into sitting they are at frame f (0 standing, 1 seated): the same blend the pose uses, without posing."""
+        K_, ki = a.keys, 0
+        for i_, k_ in enumerate(K_):
+            if k_[0] > f:
+                break
+            ki = i_
+        k = ki
+        while k > 0 and f - K_[k][0] < SIT_FRAMES:
+            k -= 1
+        v = 1.0 if K_[k][1].get('seat') else 0.0
+        for m_ in range(k + 1, ki + 1):
+            t_ = clamp((f - K_[m_][0]) / SIT_FRAMES)
+            v = lerp(v, 1.0 if K_[m_][1].get('seat') else 0.0, anticipate(t_) if t_ < 1 else 1)
+        return v
+
+    def stood_up(a, f):
+        """0..1: how much they are standing where they just got up from a chair. Someone who stands up pushes the
+        chair back and stands a little behind where they sat; it fades as they sit again, or with their first step away."""
+        m, was = None, bool(a.keys[0][1].get('seat'))
+        for k in a.keys[1:]:
+            if k[0] > f:
+                break
+            now = bool(k[1].get('seat'))
+            if was and not now:
+                m = k[0]
+            was = now
+        if m is None:
+            return 0.0
+        w = 1.0 - clamp(a.seat_amt(f)) ** 2       # back first, then up: the thighs come out from under the table
+        for wk in a.walks:
+            if wk[1] > wk[0] and m <= wk[0] <= f:
+                w *= 1 - sm(clamp((f - wk[0]) / 12))
+                break
+        return w
 
     def walking(a, f):
         """True while a walk is under way at frame f."""
@@ -510,6 +547,12 @@ def pose_actor(S_, a, f):
     g1 = GEST[cur[1]['g']]
     Mo = {k: fold(lambda m_, k=k: MOOD[K_[m_][1]['f']][k], 13) for k in MOOD['neutral']}
     pos, feet, yaw_w, walk_amt = a.locate(f)
+    for cp_, cb_, cd_ in getattr(a, 'chairs', ()):
+        if cd_ and math.hypot(pos[0] - cp_[0], pos[1] - cp_[1]) < .3:
+            # just stood up from this chair: they stand a little behind where they sat, clear of the table's edge
+            w_ = a.stood_up(f) * cd_
+            pos = (pos[0] + cb_[0] * w_, pos[1] + cb_[1] * w_, pos[2])
+            break
     pos = (pos[0], pos[1], pos[2] + S_.ground_at(pos[0], pos[1]))
     S = S_.speaking(a.name, f)
     str_ = S_.stress(a.name, f)
@@ -545,7 +588,8 @@ def pose_actor(S_, a, f):
     sides += .006 * noise(f / 30, seed + 2) * S * st_['amp'] - .3 * sway
     twist = .05 * noise(f / 26, seed + 3) * S * st_['amp']
     x, y, z = pos
-    a.spot = (round(x, 1), round(y, 1))     # where they stand or sit, for remembered corrections
+    # where they stand or sit, for remembered corrections: what is learnt arriving on foot is not what holds sitting
+    a.spot = (round(x, 1), round(y, 1), bool(cur[1].get('seat')))
     wtw_ = 0.
     fz = S_.floor
     if feet:
@@ -582,7 +626,7 @@ def pose_actor(S_, a, f):
         fR = (x + ss * .8, y - .03 - .05 * max(0, -cw_), 0)
         x = x - .025 * cw_
     seat_h = fold(lambda m_: float(K_[m_][1]['seat'] if isinstance(K_[m_][1].get('seat'), (int, float)) and not isinstance(K_[m_][1].get('seat'), bool) else SEAT_H), db_)
-    seatA = fold(lambda m_: 1 if K_[m_][1].get('seat') else 0, db_ + 8, ease=eb_)
+    seatA = fold(lambda m_: 1 if K_[m_][1].get('seat') else 0, SIT_FRAMES, ease=eb_)
     # standing still: whatever the gestures add, the torso's side lean stays small (walking and sitting keep theirs)
     standA = (1 - clamp(seatA)) * (1 - walk_amt)
     sides = lerp(sides, .03 * math.tanh(sides / .03), standA)
@@ -702,7 +746,11 @@ def pose_actor(S_, a, f):
             dq_ = q - sh_
             if dq_.length > mx_:
                 q = sh_ + dq_.normalized() * mx_
-        return M @ (q + V((0, 0, sz)))
+        hw_ = M @ (q + V((0, 0, sz)))
+        hn_ = getattr(a, 'hand_now', None)
+        if hn_ and hn_.get('f') == f and hn_.get(side):
+            hw_ = hw_ + V(hn_[side])     # on its way between two poses this hand met something solid: it goes round it
+        return hw_
     hL, hR = hand4('L'), hand4('R')
     # the hand in joint terms: forearm roll and wrist blend from gesture to gesture, so a palm can only turn the way a palm
     # turns, and fingers close and open through every shape in between, a touch out of step with each other

@@ -3,10 +3,10 @@
     python tools/check_contacts.py examples/the-fast-one              # every shot of the last filming
     python tools/check_contacts.py examples/the-fast-one --every 2    # check more drawings (slower)
 
-For each shot's job (`.studio/work/clay/*/job.json`, written when the project was filmed), Blender poses the scene
-exactly as the film does and intersects every part of every character with every object of the set and with every
-other character (triangle against triangle). Touching is fine; any intersection is reported with the frame, the part
-and what it is inside. Exit status 1 when anything intersects. Needs Blender, like filming.
+For each shot's job (`.studio/work/clay/*/job.json`, written when the project was filmed), Blender poses every drawing
+in order, exactly as the film does, and at every Nth intersects every part of every character with every object of the
+set and with every other character (triangle against triangle). Touching is fine; any intersection is reported with the
+frame, the part and what it is inside. Exit status 1 when anything intersects. Needs Blender, like filming.
 """
 from __future__ import annotations
 
@@ -42,8 +42,13 @@ def box(o):
     return (V((min(p.x for p in bb), min(p.y for p in bb), min(p.z for p in bb))),
             V((max(p.x for p in bb), max(p.y for p in bb), max(p.z for p in bb))))
 
-for f in g['FRAMES'][::EVERY]:
-    PERF.pose(f); g['door_at'](f); g['held_at'](f)
+checked = 0
+for i, f in enumerate(g['FRAMES']):
+    PERF.pose(f)                     # every drawing is posed in order, as filming does: contact is learnt as it goes
+    if i % EVERY:
+        continue
+    checked += 1
+    g['door_at'](f); g['held_at'](f)
     if 'dress_at' in g:
         g['dress_at'](f)
     bpy.context.view_layer.update()
@@ -69,7 +74,7 @@ for f in g['FRAMES'][::EVERY]:
                 n = len(a.overlap(b))
                 if n:
                     print(f'CONTACT f={f} {n} {p.name} {o.name}', flush=True)
-print(f'CHECKED {len(g["FRAMES"][::EVERY])}', flush=True)
+print(f'CHECKED {checked}', flush=True)
 '''
 
 
