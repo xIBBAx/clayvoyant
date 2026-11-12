@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/media/brand/mark-clay-512.png" width="168" alt="The project's mark, sculpted in clay by the engine itself: a round teal disc pressed with the ridges of a thumbprint, which circle an orange eye.">
+  <img src="https://raw.githubusercontent.com/xIBBAx/clayvoyant/main/docs/media/brand/mark-clay-512.png" width="168" alt="The project's mark, sculpted in clay by the engine itself: a round teal disc pressed with the ridges of a thumbprint, which circle an orange eye.">
 </p>
 
 <h1 align="center">Clayvoyant</h1>
@@ -13,17 +13,17 @@
 
 <p align="center">
   <a href="#make-a-film">Make a film</a> ·
-  <a href="examples/the-fast-one/">The sample film</a> ·
-  <a href="docs/INDIA.md">For India</a> ·
-  <a href="docs/CLAY_MOTION.md">How the clay works</a> ·
+  <a href="https://github.com/xIBBAx/clayvoyant/tree/main/examples/the-fast-one/">The sample film</a> ·
+  <a href="https://github.com/xIBBAx/clayvoyant/blob/main/docs/INDIA.md">For India</a> ·
+  <a href="https://github.com/xIBBAx/clayvoyant/blob/main/docs/CLAY_MOTION.md">How the clay works</a> ·
   <a href="#documentation">Documentation</a> ·
-  <a href="docs/ROADMAP.md">Roadmap</a>
+  <a href="https://github.com/xIBBAx/clayvoyant/blob/main/docs/ROADMAP.md">Roadmap</a>
 </p>
 
 <p align="center">
-  <a href="https://xibbax.github.io/clayvoyant/"><img src="docs/media/film/the-fast-one.gif" width="800" alt="A few seconds of the sample film The Fast One: in a cafe at dusk, Tara, a clay figure with a ponytail and a mustard jacket, sits at a round table with a laptop and talks with Odile, who runs the cafe. Their mouths move with the words, they turn to each other and gesture, and the camera cuts between a two-shot and close-ups."></a><br>
+  <a href="https://xibbax.github.io/clayvoyant/"><img src="https://raw.githubusercontent.com/xIBBAx/clayvoyant/main/docs/media/film/the-fast-one.gif" width="800" alt="A few seconds of the sample film The Fast One: in a cafe at dusk, Tara, a clay figure with a ponytail and a mustard jacket, sits at a round table with a laptop and talks with Odile, who runs the cafe. Their mouths move with the words, they turn to each other and gesture, and the camera cuts between a two-shot and close-ups."></a><br>
   <a href="https://xibbax.github.io/clayvoyant/"><b>Watch the whole film</b></a> (82 seconds) ·
-  <a href="docs/SHOWCASE.md"><b>Before and after, frame by frame</b></a>
+  <a href="https://github.com/xIBBAx/clayvoyant/blob/main/docs/SHOWCASE.md"><b>Before and after, frame by frame</b></a>
 </p>
 
 I built Clayvoyant after making a 29-minute clay film to teach information security at my father's
@@ -37,7 +37,7 @@ language.
 ## Make a film
 
 You need Python 3.11+, FFmpeg and [Blender](https://www.blender.org/download/) 4.2 or newer
-([installing them](docs/INSTALLATION.md)). A GPU makes it quicker; it is not required.
+([installing them](https://github.com/xIBBAx/clayvoyant/blob/main/docs/INSTALLATION.md)). A GPU makes it quicker; it is not required.
 
 ```bash
 git clone https://github.com/xIBBAx/clayvoyant
@@ -56,16 +56,16 @@ account and no API key. Edit a line and only the shots it can affect are filmed 
 November 2026.)
 
 <p align="center">
-  <img src="docs/media/film/the-fast-one-sheet.jpg" width="100%" alt="Twelve frames from The Fast One. A cafe at dusk with the city in the window: Tara at a table with her laptop and Odile behind the counter, seen whole; Tara listening in close-up while Odile explains which Wi-Fi is hers; Tara reading out what the other network wants; the two of them at the table; Odile in close-up, smiling. A key point card. Then an office in morning light: Tara arriving at Bashir's desk; Bashir, bearded and in glasses, asking what stopped her; Tara explaining with her palms open; Bashir standing to make his point; the two of them as he offers to buy the coffee. A last key point card.">
+  <img src="https://raw.githubusercontent.com/xIBBAx/clayvoyant/main/docs/media/film/the-fast-one-sheet.jpg" width="100%" alt="Twelve frames from The Fast One. A cafe at dusk with the city in the window: Tara at a table with her laptop and Odile behind the counter, seen whole; Tara listening in close-up while Odile explains which Wi-Fi is hers; Tara reading out what the other network wants; the two of them at the table; Odile in close-up, smiling. A key point card. Then an office in morning light: Tara arriving at Bashir's desk; Bashir, bearded and in glasses, asking what stopped her; Tara explaining with her palms open; Bashir standing to make his point; the two of them as he offers to buy the coffee. A last key point card.">
 </p>
 
 **[Watch The Fast One](https://xibbax.github.io/clayvoyant/)**
 (82 seconds, with subtitles). It is exactly what the command above makes with `--preset preview`:
 seventeen filmed shots at 1280x720 and thirteen voiced lines, in 55 minutes on a laptop GeForce GTX
 1660 Ti. Checked drawing by drawing, nothing in it passes through anything
-([how](docs/CLAY_MOTION.md#nothing-passes-through-anything)).
+([how](https://github.com/xIBBAx/clayvoyant/blob/main/docs/CLAY_MOTION.md#nothing-passes-through-anything)).
 
-Everything in [The Fast One](examples/the-fast-one/) comes from two scene files and one page of
+Everything in [The Fast One](https://github.com/xIBBAx/clayvoyant/tree/main/examples/the-fast-one/) comes from two scene files and one page of
 character descriptions. Nobody opened Blender, drew anything or recorded a voice.
 
 ## What you direct
@@ -89,7 +89,7 @@ headscarf, a bindi. No two characters share a face, even when described alike.
 ```
 
 <p align="center">
-  <img src="docs/media/characters/clay-lineup.jpg" width="100%" alt="Six different clay characters in a row, each made from a short description: a woman with long hair in a rust sweater waving; a bearded man in a green hoodie with his hands on his hips; a woman in a headscarf and a blue kurta, palms together; a tall bald man with a moustache and glasses, arms folded; a woman in a mustard zip jacket giving a thumbs-up; a curly-haired person in a knit vest with a lanyard, hand on chin.">
+  <img src="https://raw.githubusercontent.com/xIBBAx/clayvoyant/main/docs/media/characters/clay-lineup.jpg" width="100%" alt="Six different clay characters in a row, each made from a short description: a woman with long hair in a rust sweater waving; a bearded man in a green hoodie with his hands on his hips; a woman in a headscarf and a blue kurta, palms together; a tall bald man with a moustache and glasses, arms folded; a woman in a mustard zip jacket giving a thumbs-up; a curly-haired person in a knit vest with a lanyard, hand on chin.">
 </p>
 
 **Performances.** They walk on planted feet, sit down, turn to whoever is speaking, point, shrug,
@@ -112,7 +112,7 @@ by code, dressed in your organisation's colours and name, lit for morning, day, 
 No model files, no photographs, nothing to license.
 
 <p align="center">
-  <img src="docs/media/film/sets.jpg" width="100%" alt="The eight sets as establishing shots: an office with desks and a wall of windows, a reception with a branded counter, a meeting room with a wall screen, a home with a sofa and a garden window, a cafe with round tables and pendant lamps, a corridor with wall lights, a street of shop fronts with trees and a bench, and a classroom with rows of desks and a board.">
+  <img src="https://raw.githubusercontent.com/xIBBAx/clayvoyant/main/docs/media/film/sets.jpg" width="100%" alt="The eight sets as establishing shots: an office with desks and a wall of windows, a reception with a branded counter, a meeting room with a wall screen, a home with a sofa and a garden window, a cafe with round tables and pendant lamps, a corridor with wall lights, a street of shop fronts with trees and a bench, and a classroom with rows of desks and a board.">
 </p>
 
 **The camera.** Nine framings, seven moves, seven lighting moods, depth of field. Left alone, the
@@ -125,7 +125,7 @@ it did. Every face gets room to look into, and no shot shows the back of a speak
 way the story asks: a slow push into the room, a door that opens, the camera pulling back from an
 object, a match cut on a face. Never a wipe.
 
-**Voices.** [Kokoro](docs/VOICE_PROVIDERS.md#kokoro), a free neural voice that runs on your
+**Voices.** [Kokoro](https://github.com/xIBBAx/clayvoyant/blob/main/docs/VOICE_PROVIDERS.md#kokoro), a free neural voice that runs on your
 computer, in British and American English and Hindi. Or your own recordings, one file per line.
 Or Sarvam and ElevenLabs with your own key, a spending cap and a ledger; nothing paid ever runs
 without `--live`. One film per language from the same project.
@@ -145,7 +145,7 @@ sastudio render my-film --preset draft
 ```
 
 <p align="center">
-  <img src="docs/media/characters/styles.png" width="640" alt="The five bundled characters in four styles, one row each: sketch, flat, paper cut-out and clay.">
+  <img src="https://raw.githubusercontent.com/xIBBAx/clayvoyant/main/docs/media/characters/styles.png" width="640" alt="The five bundled characters in four styles, one row each: sketch, flat, paper cut-out and clay.">
 </p>
 
 ## For India
@@ -166,8 +166,8 @@ sastudio film my-film --preset draft --lang hi-IN
 each: small enough to forward. `--lang hi-Latn` gives the Hindi film with its words in Roman
 letters, the way people type Hindi on a phone ("Papa, ek minute ke liye phone neeche rakhiye").
 
-[Films for India](docs/INDIA.md) has the sources, nine more Indian languages and a checklist for
-showing a film. [Nineteen Thirty](examples/nineteen-thirty/) is the first scene on its own, filmed
+[Films for India](https://github.com/xIBBAx/clayvoyant/blob/main/docs/INDIA.md) has the sources, nine more Indian languages and a checklist for
+showing a film. [Nineteen Thirty](https://github.com/xIBBAx/clayvoyant/tree/main/examples/nineteen-thirty/) is the first scene on its own, filmed
 in clay.
 
 ## How it works
@@ -187,8 +187,8 @@ flowchart LR
 
 Acting is a pure function of the frame, so any shot can be filmed alone, shots of one scene always
 agree, and a shot that stopped half way resumes at its first missing drawing. Sculpts, voices and
-shots are cached by content. [ARCHITECTURE.md](docs/ARCHITECTURE.md) and
-[CLAY_MOTION.md](docs/CLAY_MOTION.md) have the detail.
+shots are cached by content. [ARCHITECTURE.md](https://github.com/xIBBAx/clayvoyant/blob/main/docs/ARCHITECTURE.md) and
+[CLAY_MOTION.md](https://github.com/xIBBAx/clayvoyant/blob/main/docs/CLAY_MOTION.md) have the detail.
 
 ## What it costs to run
 
@@ -226,20 +226,20 @@ Measured on one laptop on 2026-11-11 (Intel Core i7-10750H, 12 threads, GeForce 
 
 | Guide | |
 |---|---|
-| [Quickstart](docs/QUICKSTART.md) | a first film in ten minutes |
-| [Why it exists](docs/WHY.md) | who it is for, what it costs, how it compares |
-| [Films for India](docs/INDIA.md) | the `india` template, its sources, Indian languages |
-| [Writing with an assistant](docs/WRITING_WITH_AN_ASSISTANT.md) | `sastudio brief`: a script from any chat assistant |
-| [Installation](docs/INSTALLATION.md) and [requirements](docs/REQUIREMENTS.md) | Ubuntu, WSL2, Windows, Blender, GPUs |
-| [Clay films](docs/CLAY_MOTION.md) | the engine: sculpting, acting, sets, light, caching |
-| [Characters](docs/CHARACTERS.md) | describing people; every choice and slider |
-| [Direction](docs/DIRECTION.md) | sets, marks, cameras, light, gestures, openings |
-| [Scenes](docs/SCENES.md) and [configuration](docs/CONFIGURATION.md) | writing scenes, tokens, translations |
-| [Voice providers](docs/VOICE_PROVIDERS.md) and [API keys](docs/API_SETUP.md) | Kokoro, recordings, Sarvam, ElevenLabs |
-| [Rendering](docs/RENDERING.md) | presets, outputs, subtitles, incremental builds |
-| [Architecture](docs/ARCHITECTURE.md) and [glossary](docs/GLOSSARY.md) | how it fits together |
-| [Troubleshooting](docs/TROUBLESHOOTING.md) | common errors and their fixes |
-| [Roadmap](docs/ROADMAP.md) and [testing](docs/TESTING.md) | what comes next; how it is checked |
+| [Quickstart](https://github.com/xIBBAx/clayvoyant/blob/main/docs/QUICKSTART.md) | a first film in ten minutes |
+| [Why it exists](https://github.com/xIBBAx/clayvoyant/blob/main/docs/WHY.md) | who it is for, what it costs, how it compares |
+| [Films for India](https://github.com/xIBBAx/clayvoyant/blob/main/docs/INDIA.md) | the `india` template, its sources, Indian languages |
+| [Writing with an assistant](https://github.com/xIBBAx/clayvoyant/blob/main/docs/WRITING_WITH_AN_ASSISTANT.md) | `sastudio brief`: a script from any chat assistant |
+| [Installation](https://github.com/xIBBAx/clayvoyant/blob/main/docs/INSTALLATION.md) and [requirements](https://github.com/xIBBAx/clayvoyant/blob/main/docs/REQUIREMENTS.md) | Ubuntu, WSL2, Windows, Blender, GPUs |
+| [Clay films](https://github.com/xIBBAx/clayvoyant/blob/main/docs/CLAY_MOTION.md) | the engine: sculpting, acting, sets, light, caching |
+| [Characters](https://github.com/xIBBAx/clayvoyant/blob/main/docs/CHARACTERS.md) | describing people; every choice and slider |
+| [Direction](https://github.com/xIBBAx/clayvoyant/blob/main/docs/DIRECTION.md) | sets, marks, cameras, light, gestures, openings |
+| [Scenes](https://github.com/xIBBAx/clayvoyant/blob/main/docs/SCENES.md) and [configuration](https://github.com/xIBBAx/clayvoyant/blob/main/docs/CONFIGURATION.md) | writing scenes, tokens, translations |
+| [Voice providers](https://github.com/xIBBAx/clayvoyant/blob/main/docs/VOICE_PROVIDERS.md) and [API keys](https://github.com/xIBBAx/clayvoyant/blob/main/docs/API_SETUP.md) | Kokoro, recordings, Sarvam, ElevenLabs |
+| [Rendering](https://github.com/xIBBAx/clayvoyant/blob/main/docs/RENDERING.md) | presets, outputs, subtitles, incremental builds |
+| [Architecture](https://github.com/xIBBAx/clayvoyant/blob/main/docs/ARCHITECTURE.md) and [glossary](https://github.com/xIBBAx/clayvoyant/blob/main/docs/GLOSSARY.md) | how it fits together |
+| [Troubleshooting](https://github.com/xIBBAx/clayvoyant/blob/main/docs/TROUBLESHOOTING.md) | common errors and their fixes |
+| [Roadmap](https://github.com/xIBBAx/clayvoyant/blob/main/docs/ROADMAP.md) and [testing](https://github.com/xIBBAx/clayvoyant/blob/main/docs/TESTING.md) | what comes next; how it is checked |
 
 ## Responsible use
 
@@ -250,15 +250,15 @@ yours to use; the studio records the licence you give for each imported model.
 ## Contributing
 
 Sets, garments, hair, gestures, scene templates, translations, voice adapters, fixes and
-documentation are welcome. [CONTRIBUTING.md](.github/CONTRIBUTING.md) explains how changes are tested and
+documentation are welcome. [CONTRIBUTING.md](https://github.com/xIBBAx/clayvoyant/blob/main/.github/CONTRIBUTING.md) explains how changes are tested and
 how secrets and unlicensed material are kept out. Please follow the
-[code of conduct](.github/CODE_OF_CONDUCT.md) and report vulnerabilities privately ([SECURITY.md](SECURITY.md)).
-Working with a coding assistant? [AGENTS.md](AGENTS.md) tells it how to make a film here and what
+[code of conduct](https://github.com/xIBBAx/clayvoyant/blob/main/.github/CODE_OF_CONDUCT.md) and report vulnerabilities privately ([SECURITY.md](https://github.com/xIBBAx/clayvoyant/blob/main/SECURITY.md)).
+Working with a coding assistant? [AGENTS.md](https://github.com/xIBBAx/clayvoyant/blob/main/AGENTS.md) tells it how to make a film here and what
 never to do.
 
 ## License
 
-Code, sculpts, sets and sample scripts: [MIT](LICENSE). Bundled fonts: SIL Open Font License.
-Every bundled file is listed in [ASSET_LICENSES.md](docs/ASSET_LICENSES.md). Optional voice software
-keeps its own licences ([details](docs/VOICE_PROVIDERS.md#kokoro)). Films you make are yours, and
+Code, sculpts, sets and sample scripts: [MIT](https://github.com/xIBBAx/clayvoyant/blob/main/LICENSE). Bundled fonts: SIL Open Font License.
+Every bundled file is listed in [ASSET_LICENSES.md](https://github.com/xIBBAx/clayvoyant/blob/main/docs/ASSET_LICENSES.md). Optional voice software
+keeps its own licences ([details](https://github.com/xIBBAx/clayvoyant/blob/main/docs/VOICE_PROVIDERS.md#kokoro)). Films you make are yours, and
 you do not need to credit this project in them.

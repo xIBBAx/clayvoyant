@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.2 (2026-11-12)
+
+On PyPI: `pip install clayvoyant`. The README's pictures and links now work on the package page, and
+the package's changelog link points to `docs/CHANGELOG.md`. The code is the same as 0.3.1; the films
+stay on the 0.3.1 release.
+
 ## 0.3.1 (2026-11-12)
 
 Films for India, ready to forward.
