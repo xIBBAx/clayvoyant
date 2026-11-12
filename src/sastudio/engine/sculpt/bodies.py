@@ -45,7 +45,9 @@ def collar(P, L, col_y=-.20, spread=.13, r=.028):
 
 # ---------- torsos ----------
 def knit_vest(c):
+    """A knit vest over a collared shirt; with c['lanyard'] (the default for older designs), an ID card on a lanyard."""
     L, sw = c['L'], c['sw']
+    badge = c.get('lanyard', 1)
     def vzone(P):
         return np.maximum(np.maximum(-V_zone(P, .66, .36), -ell(P, (sw, 0, L - .12), (.17, .34, .25))), -ell(P, (-sw, 0, L - .12), (.17, .34, .25)))
     vest = lambda P: np.maximum(vzone(P), P[2] - (L + .02))
@@ -55,21 +57,25 @@ def knit_vest(c):
         d = smin(b, v, .003)
         d = smin(d, neck(P, c), .03)
         d = smin(d, collar(P, L), .004)
-        lan = U(path(P, [(-.135, -.14, L + .08), (-.125, -.285, L - .16), (-.04, -.325, .74), (0, -.33, .62)], .012),
-                path(P, [(.135, -.14, L + .08), (.125, -.285, L - .16), (.04, -.325, .74), (0, -.33, .62)], .012), k=.006)
-        d = smin(d, lan, .003)
-        d = smin(d, rbox(P, (.0, -.345, .51), (.085, .007, .105), .006, rot=(0, .1, 0)), .002)
+        if badge:
+            lan = U(path(P, [(-.135, -.14, L + .08), (-.125, -.285, L - .16), (-.04, -.325, .74), (0, -.33, .62)], .012),
+                    path(P, [(.135, -.14, L + .08), (.125, -.285, L - .16), (.04, -.325, .74), (0, -.33, .62)], .012), k=.006)
+            d = smin(d, lan, .003)
+            d = smin(d, rbox(P, (.0, -.345, .51), (.085, .007, .105), .006, rot=(0, .1, 0)), .002)
         return d + .003 * CL(P)
     paint = [
         (lambda P: P[2] + .006, c['pant'], .004, 0),
         (lambda P: smax(vest(P), .0 - P[2], .001), c['vest'], .003, 0),
-        (lambda P: path(P, [(-.135, -.14, L + .08), (-.125, -.285, L - .16), (-.04, -.325, .74), (0, -.33, .62)], .02), c['lan'], .002, 0),
-        (lambda P: path(P, [(.135, -.14, L + .08), (.125, -.285, L - .16), (.04, -.325, .74), (0, -.33, .62)], .02), c['lan'], .002, 0),
-        (lambda P: rbox(P, (.0, -.345, .51), (.09, .02, .11), .006, rot=(0, .1, 0)), '#f6efe0', .002, 0),
-        (lambda P: rbox(P, (.009, -.345, .59), (.09, .03, .02), .002, rot=(0, .1, 0)), '#2f8fa8', .002, 0),
-        (lambda P: rbox(P, (-.012, -.345, .49), (.04, .03, .05), .002, rot=(0, .1, 0)), '#c48a5c', .002, 0),
-        (lambda P: smax(neck(P, c) - .012, -(P[2] - (L + .0)), .002), c['skin'], .003, 0),
     ]
+    if badge:
+        paint += [
+            (lambda P: path(P, [(-.135, -.14, L + .08), (-.125, -.285, L - .16), (-.04, -.325, .74), (0, -.33, .62)], .02), c['lan'], .002, 0),
+            (lambda P: path(P, [(.135, -.14, L + .08), (.125, -.285, L - .16), (.04, -.325, .74), (0, -.33, .62)], .02), c['lan'], .002, 0),
+            (lambda P: rbox(P, (.0, -.345, .51), (.09, .02, .11), .006, rot=(0, .1, 0)), '#f6efe0', .002, 0),
+            (lambda P: rbox(P, (.009, -.345, .59), (.09, .03, .02), .002, rot=(0, .1, 0)), '#2f8fa8', .002, 0),
+            (lambda P: rbox(P, (-.012, -.345, .49), (.04, .03, .05), .002, rot=(0, .1, 0)), '#c48a5c', .002, 0),
+        ]
+    paint.append((lambda P: smax(neck(P, c) - .012, -(P[2] - (L + .0)), .002), c['skin'], .003, 0))
     return sdf, paint, c['shirt']
 
 def blazer_sdf(P, c, apex, slope, lap=.075):
@@ -220,15 +226,18 @@ def hoodie(c):
     return sdf, paint, c['top']
 
 def kurta(c):
-    """A short kurta: a band collar, a buttoned placket to the chest, straight to the hip with a slit at each side."""
+    """A short kurta (a kurti): a band collar, a buttoned placket to the chest, straight to the hip with a slit at each
+    side. c['kurta_hem'] is how far below the waist line it ends. It stops above the tops of the legs (.06): this kurta
+    is solid clay, and any lower the thighs would show through its front and pass through it when the wearer sits."""
     L = c['L']
+    drop = c.get('kurta_hem', .06)
     y0 = _front_y(c)
     def sdf(P):
         b = base_torso(P, c) + folds(P, .006, z0=.25, zw=.3)
         d = b - .02
         # it hangs straight from the chest rather than following the waist, and ends below the hip
         d = smin(d, ell(P, (0, 0, .12), (c['hw'] + .045, (c['hw'] + .04) * c['dp'], .40)), .08)
-        d = smax(d, -(P[2] + .27), .012)
+        d = smax(d, -(P[2] + drop), .012)
         for s in (-1, 1):
             d = smax(d, -rbox(P, (s * (c['hw'] + .05), 0, -.2), (.03, .05, .12), .01), .01)       # the side slits
         d = smin(d, neck(P, c), .03)
@@ -238,7 +247,7 @@ def kurta(c):
         d = smin(d, _buttons(P, L, y0 - .012, n=4, top=L - .1, bottom=L - .5, r=.014), .003)
         return d + .003 * CL(P)
     paint = [
-        (lambda P: P[2] + .285, c['pant'], .004, 0),
+        (lambda P: P[2] + drop + .015, c['pant'], .004, 0),
         (lambda P: smax(neck(P, c) - .012, -(P[2] - (L + .02)), .002), c['skin'], .003, 0),
         (lambda P: V_zone(P, L - .06, .55), c['skin'], .004, 0),
         (lambda P: rbox(P, (0, y0 - .015, L - .3), (.036, .03, .27), .006), c.get('trim', c['top']), .003, 0),

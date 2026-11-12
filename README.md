@@ -14,14 +14,15 @@
 <p align="center">
   <a href="#make-a-film">Make a film</a> ·
   <a href="examples/the-fast-one/">The sample film</a> ·
+  <a href="docs/INDIA.md">For India</a> ·
   <a href="docs/CLAY_MOTION.md">How the clay works</a> ·
   <a href="#documentation">Documentation</a> ·
   <a href="docs/ROADMAP.md">Roadmap</a>
 </p>
 
 <p align="center">
-  <a href="https://cdn.jsdelivr.net/gh/xIBBAx/clayvoyant@324ac19/docs/media/the-fast-one.mp4"><img src="docs/media/film/the-fast-one.gif" width="800" alt="A few seconds of the sample film The Fast One: in a cafe at dusk, Tara, a clay figure with a ponytail and a mustard jacket, sits at a round table with a laptop and talks with Odile, who runs the cafe. Their mouths move with the words, they turn to each other and gesture, and the camera cuts between a two-shot and close-ups."></a><br>
-  <a href="https://cdn.jsdelivr.net/gh/xIBBAx/clayvoyant@324ac19/docs/media/the-fast-one.mp4"><b>Watch the whole film</b></a> (82 seconds) ·
+  <a href="https://cdn.jsdelivr.net/gh/xIBBAx/clayvoyant@8cb3c0a/docs/media/the-fast-one.mp4"><img src="docs/media/film/the-fast-one.gif" width="800" alt="A few seconds of the sample film The Fast One: in a cafe at dusk, Tara, a clay figure with a ponytail and a mustard jacket, sits at a round table with a laptop and talks with Odile, who runs the cafe. Their mouths move with the words, they turn to each other and gesture, and the camera cuts between a two-shot and close-ups."></a><br>
+  <a href="https://cdn.jsdelivr.net/gh/xIBBAx/clayvoyant@8cb3c0a/docs/media/the-fast-one.mp4"><b>Watch the whole film</b></a> (82 seconds) ·
   <a href="docs/SHOWCASE.md"><b>Before and after, frame by frame</b></a>
 </p>
 
@@ -57,12 +58,15 @@ account and no API key. Edit a line and only the shots it can affect are filmed 
   <img src="docs/media/film/the-fast-one-sheet.jpg" width="100%" alt="Twelve frames from The Fast One. A cafe at dusk with the city in the window: Tara at a table with her laptop and Odile behind the counter, seen whole; Tara listening in close-up while Odile explains which Wi-Fi is hers; Tara reading out what the other network wants; the two of them at the table; Odile in close-up, smiling. A key point card. Then an office in morning light: Tara arriving at Bashir's desk; Bashir, bearded and in glasses, asking what stopped her; Tara explaining with her palms open; Bashir standing to make his point; the two of them as he offers to buy the coffee. A last key point card.">
 </p>
 
-**[Watch The Fast One](https://cdn.jsdelivr.net/gh/xIBBAx/clayvoyant@324ac19/docs/media/the-fast-one.mp4)** (82 seconds, 6.4 MB; it opens and plays in the browser, subtitles in
+**[Watch The Fast One](https://cdn.jsdelivr.net/gh/xIBBAx/clayvoyant@8cb3c0a/docs/media/the-fast-one.mp4)** (82 seconds, 6.6 MB; it opens and plays in the browser, subtitles in
 the picture; the file is [`docs/media/the-fast-one.mp4`](docs/media/the-fast-one.mp4), with
 [WebVTT subtitles](docs/media/the-fast-one.en-GB.vtt)). It is exactly what the command above
 makes with `--preset preview`: 1280x720 at 24 frames a second, 1,974 frames, two scenes, seventeen
 filmed shots (two of them reactions cut into the middle of a line), thirteen Kokoro lines at -16
-LUFS. Filming every shot from nothing took 55 minutes on a laptop GeForce GTX 1660 Ti.
+LUFS. Filming every shot from nothing took 55 minutes on a laptop GeForce GTX 1660 Ti (measured on
+11 November; this re-film with solid contact shared the machine with a second film, so its time is not a fair
+figure). Checked drawing by drawing, nothing in it passes through anything: 0 intersections in 116 sampled
+drawings, against 192 in the render before ([how](docs/CLAY_MOTION.md#nothing-passes-through-anything)).
 
 Everything in [The Fast One](examples/the-fast-one/) comes from two scene files and one page of
 character descriptions. Nobody opened Blender, drew anything or recorded a voice.
@@ -147,6 +151,23 @@ sastudio render my-film --preset draft
   <img src="docs/media/characters/styles.png" width="640" alt="The five bundled characters in four styles, one row each: sketch, flat, paper cut-out and clay.">
 </p>
 
+## For India
+
+Five everyday scams, each a short scene in English and Hindi, in your organisation's name:
+"digital arrest" on a video call, a UPI request that wants your PIN, a caller who needs your OTP,
+an electricity-bill message with an app to install, and a customer-care number from the top of a
+search. Every line of advice follows an advisory from I4C, the RBI or the Department of
+Telecommunications, and each scene names its source.
+
+```bash
+sastudio init my-film --template india --org "Sunrise Senior Citizens Forum" --email help@sunrise-forum.org
+sastudio film my-film --preset draft --lang hi-IN
+```
+
+[Films for India](docs/INDIA.md) has the sources, the languages (Hindi free and offline; nine more
+with recorded or Sarvam voices, lip-synced from their own scripts) and a checklist for showing it.
+[Nineteen Thirty](examples/nineteen-thirty/) is the first scene on its own.
+
 ## How it works
 
 ```mermaid
@@ -200,6 +221,9 @@ Measured on one laptop on 2026-11-11 (Intel Core i7-10750H, 12 threads, GeForce 
 | Guide | |
 |---|---|
 | [Quickstart](docs/QUICKSTART.md) | a first film in ten minutes |
+| [Why it exists](docs/WHY.md) | who it is for, what it costs, how it compares |
+| [Films for India](docs/INDIA.md) | the `india` template, its sources, Indian languages |
+| [Writing with an assistant](docs/WRITING_WITH_AN_ASSISTANT.md) | `sastudio brief`: a script from any chat assistant |
 | [Installation](docs/INSTALLATION.md) and [requirements](docs/REQUIREMENTS.md) | Ubuntu, WSL2, Windows, Blender, GPUs |
 | [Clay films](docs/CLAY_MOTION.md) | the engine: sculpting, acting, sets, light, caching |
 | [Characters](docs/CHARACTERS.md) | describing people; every choice and slider |

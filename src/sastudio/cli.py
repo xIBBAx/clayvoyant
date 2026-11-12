@@ -15,7 +15,7 @@ from . import __version__
 from .errors import StudioError
 from .safepath import atomic_write_text
 
-TEMPLATES = ("starter", "short", "education")
+TEMPLATES = ("starter", "short", "education", "india")
 
 
 def _scenes(arg: str | None) -> list[str] | None:
@@ -90,8 +90,10 @@ def cmd_init(a) -> int:
         raise StudioError(f"Unknown template '{a.template}'.", f"Templates: {', '.join(TEMPLATES)}")
     opts = _init_options(a)
     skip = shutil.ignore_patterns("__pycache__", "__init__.py")
-    # Every template shares the starter's scenes and artwork; a template folder only overrides studio.yaml.
-    for name in dict.fromkeys(["starter", a.template]):
+    # A template with its own scenes stands alone; any other shares the starter's scenes and artwork and only
+    # overrides studio.yaml.
+    own = resources.files("sastudio.templates").joinpath(a.template).joinpath("scenes").is_dir()
+    for name in dict.fromkeys(([] if own else ["starter"]) + [a.template]):
         with resources.as_file(resources.files("sastudio.templates").joinpath(name)) as s:
             shutil.copytree(s, dest, dirs_exist_ok=True, ignore=skip)
     if opts:
@@ -113,8 +115,14 @@ def cmd_init(a) -> int:
                               count=1, flags=re.M)
             if n != 1:
                 raise StudioError(f"The {a.template} template has no character_style line to set.")
+        if "--logo" in opts and not re.search(r"^  logo: ", text, flags=re.M):
+            # a template without a logo line gets one, under the organisation's reporting address
+            text, n = re.subn(r'^(  reporting_url: [^\n]*\n)', r'\1  logo: assets/logo.png\n', text, count=1, flags=re.M)
+            if n != 1:
+                raise StudioError(f"The {a.template} template has no organization.reporting_url line to put a logo under.")
         atomic_write_text(yml, text)
         if "--logo" in opts:
+            (dest / "assets").mkdir(exist_ok=True)
             opts["--logo"].save(dest / "assets" / "logo.png")
     print(f"Created {dest}.")
     from .project import load_project, placeholder_contacts
@@ -260,6 +268,23 @@ def cmd_scenes(a) -> int:
         speak = sum(1 for ln in s.lines if not ln.is_card)
         req = f" requires {', '.join(s.requires)}" if s.requires else ""
         print(f"{'on ' if s.enabled else 'off'}  {s.id:<22} {speak:>3} lines  {s.title}{req}")
+    return 0
+
+
+def cmd_brief(a) -> int:
+    from .brief import brief
+
+    if not 1 <= a.scenes <= 12:
+        raise StudioError("--scenes must be between 1 and 12.")
+    if not 10 <= a.seconds <= 180:
+        raise StudioError("--seconds must be between 10 and 180.")
+    text = brief(_load(a.project), a.idea, a.scenes, a.seconds)
+    if a.out:
+        atomic_write_text(Path(a.out), text)
+        print(f"Wrote {a.out}. Paste it into the chat assistant you use, save what it returns under "
+              f"{Path(a.project) / 'scenes'}, then: sastudio validate {a.project}")
+    else:
+        sys.stdout.write(text)
     return 0
 
 
@@ -481,6 +506,15 @@ def parser() -> argparse.ArgumentParser:
             s.add_argument("--sheet", metavar="FILE.png", help="draw the cast in every style into one image")
             s.add_argument("--styles", metavar="v1,v2,v3,v4", help="which styles the sheet shows (default: all four)")
         s.set_defaults(fn=fn)
+
+    s = sub.add_parser("brief", help="print a writing brief for a person or a chat assistant: the cast, the places, "
+                                     "the acting and the format of a scene")
+    s.add_argument("project")
+    s.add_argument("idea", nargs="?", help="what the film is about, in a sentence or two")
+    s.add_argument("--scenes", type=int, default=2, help="how many scenes to ask for (default 2)")
+    s.add_argument("--seconds", type=int, default=40, help="about how long each scene runs (default 40)")
+    s.add_argument("--out", metavar="FILE.md", help="write the brief to a file instead of printing it")
+    s.set_defaults(fn=cmd_brief)
 
     s = sub.add_parser("direct", help="print the shot list: cameras, lighting, gestures and transitions per scene")
     s.add_argument("project")

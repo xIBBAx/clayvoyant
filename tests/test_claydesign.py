@@ -127,3 +127,20 @@ def test_sculpting_kit_makes_a_closed_painted_form(tmp_path):
     _, counts = np.unique(edges, axis=0, return_counts=True)
     assert (counts == 2).all()                       # every edge has two faces: the form is closed
     assert c[v[:, 2] < 0][:, 0].mean() < c[v[:, 2] > .2][:, 0].mean() + 1 and len(np.unique(c[:, :3].round(2), axis=0)) > 10
+
+
+def test_a_lanyard_is_worn_only_when_asked_for(tmp_path):
+    """The knit vest used to come with an office ID card on a lanyard; at home it is just a vest."""
+    p, cid = _project(tmp_path / "a", outfit="vest", extras="glasses")
+    assert CD.params(p, cid)["body"]["lanyard"] == 0
+    p, cid = _project(tmp_path / "b", outfit="vest", extras="glasses, lanyard")
+    assert CD.params(p, cid)["body"]["lanyard"] == 1
+    p, cid = _project(tmp_path / "c", outfit="sweater", extras="glasses")
+    assert "lanyard" not in CD.params(p, cid)["body"]     # other outfits' sculpts (and their filmed shots) are untouched
+
+
+def test_a_kurta_names_its_hem_and_nothing_else_does(tmp_path):
+    p, cid = _project(tmp_path / "a", outfit="kurta", extras="bindi")
+    assert CD.params(p, cid)["body"]["kurta_hem"] == .06
+    p, cid = _project(tmp_path / "b", outfit="shirt", extras="glasses")
+    assert "kurta_hem" not in CD.params(p, cid)["body"]

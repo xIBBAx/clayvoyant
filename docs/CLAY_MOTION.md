@@ -113,6 +113,37 @@ The filmed frames then go through the same compositor as every other film here: 
 tags the first time someone speaks, cards, the intro and outro, frame-exact audio, loudness
 normalisation, the manifest with checksums ([RENDERING.md](RENDERING.md)).
 
+## Nothing passes through anything
+
+Every character is solid, and so is every piece of the set. Nothing is placed by an assumed height:
+
+- Before the cast exists, the set's own geometry (floors, rugs, furniture, props; not the door that
+  swings) is built into a ray-cast tree. Each foot comes down on the highest point under six samples
+  across its sole: the floor, a rug, the base of a table. The body stands on what is under it.
+- After everyone is posed for a drawing, the film measures what touches what: a seated body's lowest
+  point and its thighs against the seat, a hand laid on a table and its forearm against the top, each
+  foot and shin against chair bases and table feet, a gesturing hand against the props around it.
+  Whatever is inside is moved out in small measured steps (a body up off the seat, hands up off the
+  table, a foot sideways out of a chair's base, a hand clear of a mug) and posed again. What is
+  learnt is kept for that seat, that table or that spot, so the next drawings start right.
+- Chairs are shallower than a thigh is long, so a sitter's knees clear the front edge and the shins
+  hang in front of the legs.
+- A chair is a thing people move. Somebody coming to sit finds it pulled back, comes to it from its
+  side and is drawn in under the table as they sit; somebody standing up pushes it back first and
+  stands a little behind where they sat, so their thighs never cross the table's edge.
+- Walks are routed on a top-down map of the set that keeps a body's width clear of every table,
+  chair and counter wherever there is that much room, and never less than the body itself, so
+  there is always a way round instead of through.
+- Hands hold things from the outside: a mug in a cupped hand, fingers on its wall and the thumb over
+  the rim; a phone being read lying along the palm. A hand on its way between two poses goes round
+  what it meets.
+
+`python tools/check_contacts.py PROJECT` checks a filmed project: Blender poses every shot exactly as
+the film does and intersects every triangle of every character with the set and with each other.
+Touching is allowed; any intersection is listed with its frame, and the command fails. On the sample
+film, sampling every sixth drawing of all seventeen shots (116 drawings): 0 intersections, against 192
+in the render before the last round of fixes and over two thousand before this work began.
+
 ## Guests
 
 A character can be a model somebody already has (`sastudio model import`). A guest is fitted to

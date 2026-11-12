@@ -19,6 +19,15 @@ def test_lips_close_on_m_b_p_and_open_on_vowels():
     assert lipsync.REST in [s for s, _ in lipsync.shapes_for_text("two words")]
 
 
+@pytest.mark.parametrize("word", ["নমস্কার", "ਨਮਸਕਾਰ", "નમસ્કાર", "ନମସ୍କାର", "நமஸ்காரம்", "నమస్కారం", "ನಮಸ್ಕಾರ", "നമസ്കാരം"])
+def test_every_indian_script_that_shares_devanagari_s_layout_moves_the_mouth(word):
+    """'Namaskar' in Bengali, Gurmukhi, Gujarati, Odia, Tamil, Telugu, Kannada and Malayalam: a line in any of them
+    reads like the Devanagari one: tongue for N, lips closed for M, open for the long A."""
+    shapes = [s for s, _ in lipsync.shapes_for_text(word)]
+    deva = [s for s, _ in lipsync.shapes_for_text("नमस्कार")]
+    assert shapes[:2] == deva[:2] == ["H", "A"] and "D" in shapes
+
+
 def test_cues_follow_the_voice_and_rest_in_its_pauses():
     env = [0.0] * 3 + [0.6] * 20 + [0.0] * 12 + [0.5] * 20 + [0.0] * 5
     cues = lipsync.cues_from_text("Hello there. Fine morning.", env, 24)

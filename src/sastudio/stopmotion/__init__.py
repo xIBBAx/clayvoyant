@@ -28,7 +28,7 @@ from ..render import clay
 
 FPS = 24
 STEP = 2
-ENGINE_VERSION = "7"  # bump when the engine changes what it draws: every cached shot is filmed again
+ENGINE_VERSION = "10"  # bump when the engine changes what it draws: every cached shot is filmed again
 PRESETS = {"draft": (960, 540, 6), "preview": (1280, 720, 12), "final": (1920, 1080, 24)}
 LEAD = 3              # frames of breath before a line when there is no recorded audio to time it
 SPEAKER_UNTIL = "speaker_until"   # in a line's folder: the first frame of the line that does not show its speaker
@@ -187,7 +187,7 @@ def scene_job(project, scene, plan: D.ScenePlan, spans: list[Span], lang: str | 
         if cid in plan.sides and g in HANDS:
             keys.append(dict(who=cid, frame=-500, g=HANDS[g], cR=1 if g in CARRIED else 0, **({"look": "hand"} if g == "check_phone" else {})))
             if g in CARRIED:
-                carry.append({"who": cid, "prop": CARRIED[g], "start": -10 ** 6, "end": first_line.get(cid, 10 ** 6) - 6,
+                carry.append({"who": cid, "prop": CARRIED[g], "use": g, "start": -10 ** 6, "end": first_line.get(cid, 10 ** 6) - 6,
                               "color": (project.org.get("palette") or {}).get("accent")})
     for sp in spans:
         ln = sp.line
@@ -198,7 +198,7 @@ def scene_job(project, scene, plan: D.ScenePlan, spans: list[Span], lang: str | 
             if hands:
                 manual.add(ln.who)
             if g in CARRIED:
-                carry.append({"who": ln.who, "prop": CARRIED[g], "start": sp.start - 8, "end": sp.end + (72 if g == "sip" else 8),
+                carry.append({"who": ln.who, "prop": CARRIED[g], "use": g, "start": sp.start - 8, "end": sp.end + (72 if g == "sip" else 8),
                               "color": (project.org.get("palette") or {}).get("accent")})
             if g == "walk_in":
                 c = next(x for x in cast if x["id"] == ln.who)
@@ -220,7 +220,7 @@ def scene_job(project, scene, plan: D.ScenePlan, spans: list[Span], lang: str | 
                 if hands:
                     manual.add(who)
                 if g in CARRIED:
-                    carry.append({"who": who, "prop": CARRIED[g], "start": f - 8, "end": max(f + 24, sp.end) + 8,
+                    carry.append({"who": who, "prop": CARRIED[g], "use": g, "start": f - 8, "end": max(f + 24, sp.end) + 8,
                                   "color": (project.org.get("palette") or {}).get("accent")})
         if ln.go:
             keys.append(dict(who=ln.who, frame=sp.start - 8, walk=ln.go))

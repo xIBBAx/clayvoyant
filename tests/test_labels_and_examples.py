@@ -88,4 +88,6 @@ def test_examples_validate_strictly(example, capsys):
 def test_example_portraits_are_the_template_portraits(example):
     tpl = REPO / "src" / "sastudio" / "templates" / "starter" / "assets" / "characters"
     for png in (example / "assets" / "characters").glob("*.png"):
+        if png.name.endswith("_clay.png"):
+            continue        # made by `sastudio clay portraits` from the character's description; not committed
         assert png.read_bytes() == (tpl / png.name).read_bytes(), f"{png} differs from the template portrait"

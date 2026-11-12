@@ -1,0 +1,82 @@
+id: six_numbers
+title: Six Numbers
+title_translations: { hi-IN: "छह नंबर" }
+topic: OTP
+summary: A polite young man from "the bank" needs the six numbers that just arrived, or Kamala's card is blocked tonight.
+headline: No bank asks for your OTP
+headline_translations: { hi-IN: "कोई बैंक ओटीपी नहीं माँगता" }
+takeaway: "No bank asks for your OTP or PIN, ever. If a code arrives for a payment you did not start, call your bank yourself."
+takeaway_translations:
+  hi-IN: "कोई भी बैंक कभी ओटीपी या पिन नहीं माँगता। जो पेमेंट आपने शुरू नहीं किया, उसका कोड आए तो ख़ुद बैंक को फ़ोन करें।"
+setting: { backdrop: cafe, time_of_day: morning }
+policy_note: >
+  Source: RBI safe digital banking advice: never share your PIN, UPI PIN or OTP with anyone, not even
+  bank officials; if an OTP arrives for a debit you did not start, inform your bank at once. Links in
+  docs/INDIA.md.
+direction:
+  set: cafe
+  lighting: daylight
+  blocking: { kamala: table_left, lakshmi: table_right }
+  dressing: [steam]
+lines:
+  - id: sn_01
+    who: kamala
+    emotion: worried
+    act: [phone_to_ear]
+    say: "Blocked today? Yes, beta, a message has come. Six numbers. Wait, let me find my glasses."
+    translations: { hi-IN: "आज ही ब्लॉक? हाँ बेटा, मैसेज आया है। छह नंबर हैं। रुको, चश्मा ढूँढती हूँ।" }
+
+  - id: sn_02
+    who: lakshmi
+    to: kamala
+    emotion: surprised
+    act: [lean_in]
+    say: "Aunty, wait. Who wants those six numbers?"
+    translations: { hi-IN: "आंटी, रुकिए। वो छह नंबर किसे चाहिए?" }
+
+  - id: sn_03
+    who: kamala
+    to: lakshmi
+    emotion: worried
+    say: "The bank. He says my card will be blocked tonight if I do not read them out."
+    translations: { hi-IN: "बैंक वाले को। कह रहा है नंबर नहीं बताए तो आज रात कार्ड ब्लॉक हो जाएगा।" }
+
+  - id: sn_04
+    who: lakshmi
+    to: kamala
+    emotion: confident
+    camera: close_up
+    act: [shake_head]
+    say: "Aunty, I work in a bank. We never ask for an OTP. Not on the phone, not at the counter. Never."
+    translations: { hi-IN: "आंटी, मैं बैंक में काम करती हूँ। हम कभी ओटीपी नहीं माँगते। न फ़ोन पर, न काउंटर पर। कभी नहीं।" }
+
+  - id: sn_05
+    who: kamala
+    to: lakshmi
+    emotion: suspicious
+    say: "Then why has the message come at all?"
+    translations: { hi-IN: "तो फिर ये मैसेज आया ही क्यों?" }
+
+  - id: sn_06
+    who: lakshmi
+    to: kamala
+    emotion: concern
+    say: "Because he has started a payment from your card. That code is the last lock on the door."
+    translations: { hi-IN: "क्योंकि उसने आपके कार्ड से पेमेंट शुरू किया है। वो कोड दरवाज़े का आख़िरी ताला है।" }
+
+  - id: sn_07
+    who: kamala
+    to: lakshmi
+    emotion: annoyed
+    act: [shake_head]
+    reactions: { lakshmi: grin }
+    say: "Then he can wait at that door for ever. I am putting the phone down."
+    translations: { hi-IN: "तो वो उस दरवाज़े पर हमेशा खड़ा रहे। मैं फ़ोन रख रही हूँ।" }
+
+  - id: sn_08
+    who: lakshmi
+    to: kamala
+    emotion: warm
+    act: [nod]
+    say: "Now call the bank yourself, on the number on the back of your card, and tell them."
+    translations: { hi-IN: "अब ख़ुद बैंक को फ़ोन कीजिए, कार्ड के पीछे लिखे नंबर पर, और उन्हें बताइए।" }

@@ -19,6 +19,11 @@ the first table is promised or scheduled. Each item says how we would know it wo
 | Character styles: v1 sketch, v2 flat, v3 cut-out (drawn), v4 clay (portraits) | done in 0.2; characters can be described in text |
 | Character animation | 0.2: in the drawn styles the speaker talks and blinks; no body animation |
 | Clay films (sculpted characters, sets, cameras, acting, lip sync) | released: `sastudio film` ([CLAY_MOTION.md](CLAY_MOTION.md)) |
+| A free neural voice, offline (Kokoro: British and American English, Hindi) | done in 0.3 |
+| Solid contact: nothing passes through anything, checked by `tools/check_contacts.py` | done in 0.3 |
+| Films for India: the `india` template (five scams, English and Hindi, sourced advice) | done in 0.3 ([INDIA.md](INDIA.md)) |
+| Lip sync and lettering in nine Indian scripts | done in 0.3 |
+| A writing brief for any person or chat assistant (`sastudio brief`) | done in 0.3 |
 
 What the 0.1 films are, measured on the reference film: 94 % of the running time is still frames
 (illustrated cards with hard cuts), and the offline placeholder voice is silent.
@@ -63,21 +68,22 @@ run without `--live` and a budget, and its cost appears in the ledger.
 
 ## Found while preparing 0.2
 
-**A. Free voices worth hearing.** Without a paid account a film is silent, or robotic with
+**A. Free voices worth hearing.** *(Done in 0.3 with Kokoro for English and Hindi. Still open: an
+offline voice for the other Indian languages whose licence allows redistribution and commercial
+use, checked by fluent listeners.)* Without a paid account a film is silent, or robotic with
 espeak-ng: every reference film is digital silence. An optional offline neural voice provider
 (for example Piper) would make the free path watchable. Each voice model has its own licence and
 some are non-commercial, so only voices whose licence allows redistribution and commercial use
-would be listed, and Indian-language quality must be checked by fluent listeners first. *Done
-when:* a fresh project renders an audible English film offline, with each voice's licence shown
-by `doctor`.
+would be listed, and Indian-language quality must be checked by fluent listeners first.
 
 **B. Posters from the same project.** Many trainings happen without a screen. The key-point cards
 the renderer already draws could be exported as A4 or Letter posters (PNG and PDF) for notice
 boards, in every language of the project. *Done when:* the starter prints twelve posters that pass
 the same contrast checks as the film.
 
-**C. Vertical clips for messaging apps.** Small organisations often share video through messaging
-apps on phones. One short 9:16 clip per scene, with large subtitles, would fit how such films are
+**C. Vertical clips for messaging apps.** *(The most useful next step for India, where these films
+travel through family and society WhatsApp groups.)* Small organisations often share video through
+messaging apps on phones. One short 9:16 clip per scene, with large subtitles, would fit how such films are
 actually passed around. *Done when:* each starter scene exports as a vertical clip under 16 MB.
 
 **D. Speaker close-ups.** In the full-frame layout the talking face is small. Occasional close-up
@@ -85,7 +91,9 @@ framing of the speaker, in the drawn styles, would make the speech readable on p
 
 ## 0.3 — languages and verification
 
-**6. Translations and pronunciation review.** Translate the remaining starter scenes into Hindi
+**6. Translations and pronunciation review.** *(Started in 0.3: the `india` template is written in
+English and Hindi; its Hindi has not yet been reviewed by fluent speakers from its audience.)*
+Translate the remaining starter scenes into Hindi
 and other Indian languages, each reviewed by a fluent speaker and marked as reviewed in the
 project, plus a report that lines up each line's source text, translation, spoken form and
 subtitle so a reviewer can check all four at once. Machine translation may help draft; it is never
@@ -102,7 +110,8 @@ the recorded hash, and any edited input is named in the mismatch report.
 **8. Change impact before rendering.** Show which lines need new speech, which scenes re-render,
 how many paid characters that is and an estimate from your own price table, before anything runs.
 
-**9. More scene templates** for topics the starter does not cover, written to the same rules:
+**9. More scene templates** *(0.3 adds `india`: digital arrest, UPI PIN, OTP, fake apps, fake
+helplines.)* For topics the starter does not cover, written to the same rules:
 generic, no invented policy, every procedure marked for the organisation to replace, each with a
 stated learning objective.
 

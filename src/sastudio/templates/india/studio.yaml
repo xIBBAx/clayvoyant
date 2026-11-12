@@ -1,0 +1,225 @@
+# Clayvoyant project file: five scams that reach people in India, as five short scenes in English and Hindi.
+# For families, schools, colleges, housing societies, bank branches and community groups.
+# Every scene's advice follows a public advisory (I4C, RBI, DoT); each scene's policy_note names it, and
+# docs/INDIA.md links them. Check them again before you show the film: helplines and portals can change.
+#
+#   sastudio validate .                      check your edits
+#   sastudio film . --preset draft           clay stop motion (needs Blender and the free voice)
+#   sastudio film . --lang hi-IN             the Hindi film
+#   sastudio render . --preset draft         drawn characters instead: no Blender, no graphics card
+schema_version: 1
+
+project:
+  title: "Not So Fast"
+  subtitle: "Five scams, five minutes, five ways to stop them"
+  language: en-IN
+  languages: [en-IN, hi-IN]
+  labels:
+    topics:
+      "digital arrest": { hi-IN: "डिजिटल अरेस्ट" }
+      "UPI PIN": { hi-IN: "यूपीआई पिन" }
+      "OTP": { hi-IN: "ओटीपी" }
+      "fake app": { hi-IN: "नकली ऐप" }
+      "fake helpline": { hi-IN: "नकली हेल्पलाइन" }
+  credits:
+    show: true
+    # creator: "Your name, school or association"
+    extra:
+      - "The people are invented. The helplines and portals are real: 1930, cybercrime.gov.in, sancharsaathi.gov.in."
+
+organization:
+  # Who is showing this film. Replace these with your school, society, branch or group.
+  name: "Example Residents' Association"
+  short_name: "Example RWA"
+  security_email: "help@example.com"                  # where your own people can ask for help
+  reporting_url: "https://cybercrime.gov.in"          # the national cyber crime reporting portal
+  # translations:                                     # your name as the Hindi film should show it
+  #   hi-IN: { name: "...", short_name: "..." }
+
+characters:
+  - id: gopal
+    name: Gopal
+    role: Retired schoolteacher
+    description: Courteous, proud, believes anyone who speaks with authority.
+    pronouns: he
+    gender: masculine
+    forms: { full_name: "Gopal Rao", hi-IN.name: "गोपाल" }
+    spoken: { hi-IN: "गोपाल" }
+    voice:
+      provider: kokoro
+      speaker: bm_george
+      settings: { speed: 0.92 }
+      languages: { hi-IN: { provider: kokoro, speaker: hm_omega, settings: { speed: 0.92 } } }
+    look:
+      style: clay
+      design:
+        skin: "#9A6845"
+        eyes: "#24160E"
+        hair: { style: short, color: "#BDB8B0" }
+        outfit: { style: vest, color: "#7B5A3A", shirt: "#ECE5D4" }
+        trousers: "#6E6457"
+        shoes: { style: flat, color: "#4A3424" }
+        extras: [glasses, moustache]
+        body: { build: average, height: short }
+        face: { width: 0.3, cheeks: 0.2, nose: 0.3, brows: 0.3 }
+      acting: { energy: 0.8, looseness: 0.85, pace: 0.85 }
+
+  - id: ira
+    name: Ira
+    role: Software tester, Gopal's daughter
+    description: Checks everything twice for a living. Gentle with her father, merciless with liars.
+    pronouns: she
+    gender: feminine
+    forms: { full_name: "Ira Rao", hi-IN.name: "इरा" }
+    spoken: { hi-IN: "इरा" }
+    voice:
+      provider: kokoro
+      speaker: bf_emma
+      languages: { hi-IN: { provider: kokoro, speaker: hf_alpha } }
+    look:
+      style: clay
+      design:
+        skin: "#B47C56"
+        eyes: "#1E120A"
+        hair: { style: long, color: "#1C120D" }
+        outfit: { style: kurta, color: "#2F7F7A" }
+        trousers: "#34466A"
+        shoes: { style: flat, color: "#8A5A3A" }
+        extras: [bindi, earrings]
+        body: { build: slim }
+        face: { eyes: 0.3, cheeks: 0.2, lips: 0.1 }
+      acting: { energy: 1.1, looseness: 1.05 }
+
+  - id: kamala
+    name: Kamala
+    role: Retired nurse
+    description: Sharp, impatient, hates being rushed and is about to be rushed.
+    pronouns: she
+    gender: feminine
+    forms: { full_name: "Kamala Iyer", hi-IN.name: "कमला" }
+    spoken: { hi-IN: "कमला" }
+    voice:
+      provider: kokoro
+      speaker: bf_isabella
+      settings: { speed: 0.9 }
+      languages: { hi-IN: { provider: kokoro, speaker: hf_beta, settings: { speed: 0.9 } } }
+    look:
+      style: clay
+      design:
+        skin: "#A8714D"
+        eyes: "#24160E"
+        hair: { style: bun, color: "#CFC8BE" }
+        outfit: { style: sweater, color: "#8E2F4B", shirt: "#F3D9A4" }
+        trousers: "#4A3A44"
+        shoes: { style: flat, color: "#3A2A22" }
+        extras: [glasses, bindi]
+        body: { height: short }
+        face: { cheeks: 0.4, lips: -0.2 }
+      acting: { energy: 0.85, looseness: 0.8, pace: 0.9 }
+
+  - id: arjun
+    name: Arjun
+    role: College student
+    description: Fast, cheerful, reads every screen out loud. Lives across the corridor.
+    pronouns: he
+    gender: masculine
+    forms: { full_name: "Arjun Menon", hi-IN.name: "अर्जुन" }
+    spoken: { hi-IN: "अर्जुन" }
+    voice:
+      provider: kokoro
+      speaker: bm_lewis
+      languages: { hi-IN: { provider: kokoro, speaker: hm_psi } }
+    look:
+      style: clay
+      design:
+        skin: "#8F5E3F"
+        eyes: "#1E120A"
+        hair: { style: side_sweep, color: "#1A120C" }
+        outfit: { style: hoodie, color: "#E0A43A" }
+        trousers: "#2E3B57"
+        shoes: { style: sneaker, color: "#F2EFE8" }
+        body: { build: slim, height: tall }
+        face: { jaw: -0.2, eyes: 0.3 }
+      acting: { energy: 1.25, looseness: 1.15 }
+
+  - id: farhan
+    name: Farhan
+    role: Runs a phone repair shop
+    description: Generous, busy, says yes before the question is finished.
+    pronouns: he
+    gender: masculine
+    forms: { full_name: "Farhan Qureshi", hi-IN.name: "फ़रहान" }
+    spoken: { hi-IN: "फ़रहान" }
+    voice:
+      provider: kokoro
+      speaker: bm_daniel
+      languages: { hi-IN: { provider: kokoro, speaker: hm_omega } }
+    look:
+      style: clay
+      design:
+        skin: "#9A6A48"
+        eyes: "#1E120A"
+        hair: { style: short, color: "#16110F" }
+        outfit: { style: shirt, color: "#5E8C6A" }
+        trousers: "#3A3A40"
+        shoes: { style: sneaker, color: "#3A3A3A" }
+        extras: [beard]
+        body: { build: broad }
+        face: { jaw: 0.4, brows: 0.3 }
+      acting: { energy: 1.0, looseness: 1.0 }
+
+  - id: lakshmi
+    name: Lakshmi
+    role: Branch officer at a bank
+    description: Unflappable, precise, has explained this a thousand times and will explain it once more.
+    pronouns: she
+    gender: feminine
+    forms: { full_name: "Lakshmi Nair", hi-IN.name: "लक्ष्मी" }
+    spoken: { hi-IN: "लक्ष्मी" }
+    voice:
+      provider: kokoro
+      speaker: bf_alice
+      languages: { hi-IN: { provider: kokoro, speaker: hf_alpha } }
+    look:
+      style: clay
+      design:
+        skin: "#7E5236"
+        eyes: "#1E120A"
+        hair: { style: bun, color: "#1A120D" }
+        outfit: { style: blazer, color: "#3B4E7A", shirt: "#F2E7D4" }
+        trousers: "#2C3446"
+        shoes: { style: flat, color: "#2A2026" }
+        extras: [earrings]
+        face: { jaw: 0.1, brows: 0.2 }
+      acting: { energy: 0.85, looseness: 0.8, posture: 0.6 }
+
+scenes:
+  - file: scenes/01_the_call.yaml
+  - file: scenes/02_pin_is_for_paying.yaml
+  - file: scenes/03_six_numbers.yaml
+  - file: scenes/04_the_light_bill.yaml
+  - file: scenes/05_the_first_number.yaml
+
+voices:
+  providers:
+    offline: { engine: auto }        # used by --voice-fallback offline when the free neural voice is not installed
+  budget:
+    max_characters: 0
+
+speech:
+  gap_seconds: 0.4
+  lexicon:
+    Gopal: { default: "Go paal" }
+    CBI: { default: "C B I" }
+    UPI: { default: "U P I" }
+    OTP: { default: "O T P" }
+    KYC: { default: "K Y C" }
+
+render:
+  preset: draft
+  renderer: cards          # `sastudio render`: drawn characters, no Blender. `sastudio film` is always clay.
+  # character_style: v2    # v1 sketch, v2 flat, v3 cutout: drawn characters that talk and blink; v4 clay portraits (default)
+  output: build
+  burn_subtitles: true
+  intro: true
+  outro: true

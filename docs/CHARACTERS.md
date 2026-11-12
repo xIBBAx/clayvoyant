@@ -94,9 +94,10 @@ A design is a few words in `studio.yaml`; anything you leave out comes from the 
 | `hair.style` | `short`, `side_sweep`, `swept_back`, `curls`, `bob`, `bun`, `long`, `ponytail`, `headscarf`, `bald` (with `hair.color`; for `headscarf` it is the scarf's colour) |
 | `outfit.style` | `blazer`, `suit`, `jacket`, `shirt`, `sweater`, `kurta` (with `outfit.color` and `outfit.shirt`) |
 | `shoes.style` | `flat`, `sneaker`, `brogue`, `heel`, `boot` (with `shoes.color`) |
-| `extras` | any of `glasses`, `necklace`, `lapel_pin`, `freckles`, `earrings`, `beard`, `moustache`, `bindi` |
+| `extras` | any of `glasses`, `necklace`, `lapel_pin`, `freckles`, `earrings`, `beard`, `moustache`, `bindi`, `lanyard` |
 
-`outfit.style` also takes `hoodie` and `vest` (a knit vest over a shirt, with a lanyard).
+`outfit.style` also takes `hoodie` and `vest` (a knit vest over a shirt; add `lanyard` to `extras` for an ID card on
+a lanyard, the office version).
 
 In a cards film, a character with a design but no clay still is drawn in `v2` flat; make its still
 with `sastudio clay portraits my-film`. In a clay film every character is sculpted from its design.
@@ -129,7 +130,8 @@ clothes ([how](CLAY_MOTION.md)). Four more things can be said about a person the
 
 Extras in clay: `glasses` and `earrings` are separate hard objects, `beard` and `moustache` are
 clay laid on the face that moves with the mouth, `freckles` and `bindi` are painted, `necklace`
-and `lapel_pin` appear on the tailored jackets. A `headscarf` is matte cloth wrapped round the head.
+and `lapel_pin` appear on the tailored jackets, and `lanyard` hangs an ID card over the knit vest. A `headscarf` is
+matte cloth wrapped round the head.
 
 Useful commands: `sastudio clay build my-film` sculpts the cast (about 25 seconds each, then
 cached); `sastudio clay portraits my-film` renders a still of each;

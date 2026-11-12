@@ -15,6 +15,13 @@ from ..text.speech import has_devanagari
 FONT_DIR = resources.files("sastudio.data").joinpath("fonts")
 LATIN = "AtkinsonHyperlegibleNext[wght].ttf"
 DEVANAGARI = {"regular": "Mukta-Regular.ttf", "bold": "Mukta-Bold.ttf"}
+# The other Indian scripts, by the first code point of their Unicode block. Each Noto font also carries Latin, so a
+# line that mixes a script with a web address or a number draws whole.
+INDIC = {0x0980: "NotoSansBengali[wdth,wght].ttf", 0x0A00: "NotoSansGurmukhi[wdth,wght].ttf",
+         0x0A80: "NotoSansGujarati[wdth,wght].ttf", 0x0B00: "NotoSansOriya[wdth,wght].ttf",
+         0x0B80: "NotoSansTamil[wdth,wght].ttf", 0x0C00: "NotoSansTelugu[wdth,wght].ttf",
+         0x0C80: "NotoSansKannada[wdth,wght].ttf", 0x0D00: "NotoSansMalayalam[wdth,wght].ttf"}
+WEIGHTS = {"regular": 400, "medium": 500, "semibold": 600, "bold": 700, "extrabold": 800}
 HAS_RAQM = features.check("raqm")
 
 
@@ -58,23 +65,35 @@ def readable_on(bg: str, preferred: str = "#1C1C1E") -> str:
     return "#FFFFFF" if contrast(bg, "#FFFFFF") >= contrast(bg, "#111111") else "#111111"
 
 
+def script(text: str) -> str | int:
+    """Which font a piece of text needs: "devanagari", the block of another Indian script, or "latin"."""
+    if has_devanagari(text):
+        return "devanagari"
+    for ch in text:
+        block = ord(ch) & ~0x7F
+        if block in INDIC:
+            return block
+    return "latin"
+
+
 @functools.lru_cache(maxsize=128)
-def font(size: int, weight: str = "regular", devanagari: bool = False) -> ImageFont.FreeTypeFont:
+def font(size: int, weight: str = "regular", devanagari: bool = False, script: str | int = "latin") -> ImageFont.FreeTypeFont:
     engine = ImageFont.Layout.RAQM if HAS_RAQM else ImageFont.Layout.BASIC
-    if devanagari:
+    if devanagari or script == "devanagari":
         path = FONT_DIR.joinpath(DEVANAGARI["bold" if weight in ("bold", "semibold") else "regular"])
         return ImageFont.truetype(str(path), size, layout_engine=engine)
-    f = ImageFont.truetype(str(FONT_DIR.joinpath(LATIN)), size, layout_engine=engine)
-    wght = {"regular": 400, "medium": 500, "semibold": 600, "bold": 700, "extrabold": 800}[weight]
+    f = ImageFont.truetype(str(FONT_DIR.joinpath(INDIC.get(script, LATIN))), size, layout_engine=engine)
     try:
-        f.set_variation_by_axes([wght])
+        # every axis at its default except the weight (the Noto fonts also have a width axis)
+        f.set_variation_by_axes([WEIGHTS[weight] if a.get("name") in (b"Weight", "Weight") else a["default"]
+                                 for a in f.get_variation_axes()])
     except (OSError, ValueError):  # FreeType without variation support: regular only
         pass
     return f
 
 
 def font_for(text: str, size: int, weight: str = "regular") -> ImageFont.FreeTypeFont:
-    return font(size, weight, devanagari=has_devanagari(text))
+    return font(size, weight, script=script(text))
 
 
 def text_width(draw: ImageDraw.ImageDraw, text: str, f: ImageFont.FreeTypeFont) -> int:

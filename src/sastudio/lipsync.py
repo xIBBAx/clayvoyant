@@ -3,14 +3,15 @@
 The clay puppets speak with the nine mouth shapes of the Rhubarb alphabet (A closed, B teeth, C open, D wide open,
 E rounded, F pucker, G lip on teeth, H tongue up, X rest). The best source is a phoneme track: a voice provider
 that reports phoneme times (`cues_from_phonemes`), or Rhubarb Lip Sync when it is installed. Without either, the
-shapes are read from the spelling and laid over the parts of the audio where someone is actually speaking, so the
-mouth closes in every pause and opens on the vowels. That is an approximation, and it is honest work for a puppet:
+shapes are read from the spelling (Latin letters, and Devanagari with the eight Indian scripts that share its layout)
+and laid over the parts of the audio where someone is actually speaking, so the mouth closes in every pause and opens
+on the vowels. That is an approximation, and it is honest work for a puppet:
 stop-motion mouths are replacement shapes on twos, not a phonetic transcription.
 """
 
 from __future__ import annotations
 
-import re
+import unicodedata
 
 REST = "X"
 # Latin letters. Digraphs first.
@@ -23,6 +24,19 @@ _LETTERS = {**dict.fromkeys("a", "D"), **dict.fromkeys("e", "C"), **dict.fromkey
 _DEVA = {**dict.fromkeys("अआाॅ", "D"), **dict.fromkeys("इईिी", "B"), **dict.fromkeys("उऊुू", "F"), **dict.fromkeys("एऐेै", "C"),
          **dict.fromkeys("ओऔोौऑॉ", "E"), **dict.fromkeys("पफबभम", "A"), **dict.fromkeys("व", "G"),
          **dict.fromkeys("तथदधनलटठडढणरड़ढ़", "H"), **dict.fromkeys("कखगघङचछजझञशषसहयक़ख़ग़ज़फ़", "B")}
+# Bengali, Gurmukhi, Gujarati, Odia, Tamil, Telugu, Kannada and Malayalam are laid out in Unicode letter for letter
+# like Devanagari, each in its own block of 128: the same offset in any of them is the same sound (KA is +0x15 in all
+# nine). So a line in any of these scripts is read through the Devanagari table.
+_INDIC = range(0x0980, 0x0D80)
+
+
+def _letter(ch: str) -> str | None:
+    s = _LETTERS.get(ch) or _DEVA.get(ch)
+    if s is None and ord(ch) in _INDIC:
+        s = _DEVA.get(chr(0x0900 + (ord(ch) & 0x7F)))
+    return s
+
+
 _VOWELS = set("DCEF")
 # Phonemes (IPA and ARPAbet-like symbols, as text-to-speech engines report them) to mouth shapes.
 _PHONEMES = {**dict.fromkeys(["m", "b", "p"], "A"), **dict.fromkeys(["f", "v"], "G"),
@@ -35,10 +49,33 @@ _PHONEMES = {**dict.fromkeys(["m", "b", "p"], "A"), **dict.fromkeys(["f", "v"], 
              **dict.fromkeys(["u", "ʊ", "uː", "w", "uw", "uh"], "F")}
 
 
+def _words(text: str) -> list[str]:
+    """Words and numbers. A vowel sign or a virama (a combining mark) belongs to the word it is written in: Indian
+    scripts write most vowels that way, and a split there would close the mouth in the middle of a word."""
+    out, cur, digits = [], "", False
+    for ch in text:
+        mark = unicodedata.category(ch)[0] == "M"
+        if ch.isdigit():
+            if cur and not digits:
+                out.append(cur)
+                cur = ""
+            cur, digits = cur + ch, True
+        elif ch.isalpha() or (mark and cur and not digits):
+            if cur and digits:
+                out.append(cur)
+                cur = ""
+            cur, digits = cur + ch, False
+        else:
+            if cur:
+                out.append(cur)
+            cur, digits = "", False
+    return out + ([cur] if cur else [])
+
+
 def shapes_for_text(text: str) -> list[tuple[str, float]]:
     """The mouth shapes a line passes through, with a weight for how long each is held. Words are separated by REST."""
     out: list[tuple[str, float]] = []
-    for word in re.findall(r"[^\W\d_]+|\d+", text or "", flags=re.UNICODE):
+    for word in _words(text or ""):
         w = word.lower()
         shapes: list[str] = []
         i = 0
@@ -49,7 +86,7 @@ def shapes_for_text(text: str) -> list[tuple[str, float]]:
                 i += 2
                 continue
             ch = w[i]
-            s = _LETTERS.get(ch) or _DEVA.get(ch)
+            s = _letter(ch)
             if s is None and ch.isdigit():
                 s = "C"
             if s and not (shapes and shapes[-1] == s and s not in _VOWELS):
