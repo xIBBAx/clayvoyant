@@ -9,6 +9,8 @@ Films for India, ready to forward.
   own script, and where to report along the foot; encoded under `--max-mb` (15 MB by default). It also leaves the
   film without subtitles in the picture, with its `.srt`, in `build/clean/`. Every voice and filmed shot is reused.
 - `tools/make_showcase_media.py` takes `--lang`, `--name` and `--no-gif`, so any sample film gets a sheet.
+- `sastudio share --each` makes one phone clip per scene (the india template's Hindi clips are 4.5 to 7.3 MB each);
+  `--scenes a,b` only the scenes named.
 - `--version` prints the project's name; the command's description says what it makes.
 - `project.title_translations` and `subtitle_translations`: a film opens on its title in its own language (the Hindi
   films open on "ज़रा ठहरिए" and "1930"); the organisation's name on the opening card follows its translation too.

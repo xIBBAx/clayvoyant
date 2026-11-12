@@ -1,6 +1,6 @@
 """Phone films: the film laid out for a phone held upright, small enough to forward.
 
-    sastudio share PROJECT [--lang LANG] [--max-mb 15]
+    sastudio share PROJECT [--lang LANG] [--max-mb 15] [--each | --scenes a,b]
 
 For each language it first builds the film without subtitles in the picture, into build/clean/<lang>/ next to
 its .srt (a copy that is useful on its own, for players that show their own captions). Every voice, sculpt and
@@ -137,14 +137,15 @@ def compose(project, lang: str, film: Path, srt: Path, out: Path, max_mb: float 
     return out
 
 
-def share(project, lang: str | None = None, max_mb: float = 15.0, jobs: int | None = None, log=print) -> Path:
+def share(project, lang: str | None = None, max_mb: float = 15.0, jobs: int | None = None, scene_ids=None,
+          log=print) -> Path:
     """Build the film without subtitles in the picture (reusing everything already made), then lay it out for a phone."""
     lang = lang or project.language
     rc = project.data.setdefault("render", {})
     own = rc.get("output", "build")
     rc["output"] = f"{own}/clean"
     try:
-        res = build(project, language=lang, burn=False, jobs=jobs, log=log)
+        res = build(project, language=lang, scene_ids=scene_ids, burn=False, jobs=jobs, log=log)
     finally:
         rc["output"] = own
     if res.video is None or res.srt is None:

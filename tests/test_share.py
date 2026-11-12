@@ -51,3 +51,17 @@ def test_a_film_becomes_an_upright_phone_film_under_its_size_limit(tmp_path):
     assert "width=720|height=1280" in probe and "codec_type=audio" in probe
     assert abs(float(probe.split("duration=")[1]) - 4.0) < 0.15
     assert out.stat().st_size <= 2_000_000
+
+
+def test_each_scene_can_be_its_own_clip(tmp_path, monkeypatch):
+    from sastudio import share as share_mod
+
+    assert main(["init", str(tmp_path / "film"), "--template", "india"]) == 0
+    calls = []
+    monkeypatch.setattr(share_mod, "share", lambda p, lang, mb, jobs, scene_ids=None: calls.append((lang, scene_ids)))
+    assert main(["share", str(tmp_path / "film"), "--lang", "hi-IN", "--each"]) == 0
+    assert calls == [("hi-IN", [s]) for s in ("the_call", "pin_is_for_paying", "six_numbers", "the_light_bill",
+                                              "the_first_number")]
+    calls.clear()
+    assert main(["share", str(tmp_path / "film"), "--scenes", "six_numbers"]) == 0
+    assert calls == [("en-IN", ["six_numbers"]), ("hi-IN", ["six_numbers"])]
