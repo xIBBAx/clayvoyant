@@ -32,6 +32,8 @@
   listener part way through long lines (`direction.reactions: false` turns it off), the listener's
   answer opens a size wider, and a short sharp line gets an extreme close-up. `reaction` and
   `extreme_close_up` were declared before but could never be chosen.
+- **Dressing that moves**: `direction.dressing: [steam, birds]` puts vapour over the hot drinks and
+  birds across the sky outside, built by code, each on its own clock.
 - **An insert on a prop is filmed** (`camera: insert, who: [laptop]`) with the line heard over it.
   Before, such a line was skipped without a word and fell back to the drawn style.
 - **Framing**: a shot no longer shows the back of the speaker's head (an over-the-shoulder from

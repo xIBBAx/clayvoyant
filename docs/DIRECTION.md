@@ -65,6 +65,7 @@ direction:
   open_with: close_up               # how the scene begins
   end_with: { camera: wide, move: pull_out, why: "he is alone with it now" }   # how it ends, and why
   clock: "17:45"                    # what the wall clock reads (home_desk, classroom); default: the time of day
+  dressing: [steam, birds]          # things that move in the background (below)
   transition_in: cut                # how we arrive from the previous scene
   object: phone                     # for follow_object: the thing the scene opens on
   extras: [nadia]                   # in the scene without a line
@@ -157,6 +158,18 @@ A short, sharp line (six words or fewer, ending in `!` or spoken surprised) gets
 
 Each lighting preset differs in colour temperature, contrast and shadow, so they look different
 from one another.
+
+### Dressing
+
+`direction.dressing` adds things that move while the people talk, built by code like everything else:
+
+| Dressing | What moves | Where |
+|---|---|---|
+| `steam` | vapour off every hot drink on the set: puffs that leave the cup small, swell, drift and thin out, each on its own clock | sets with a mug |
+| `birds` | a few birds crossing the sky, wings beating, each on its own line and speed | seen through the window of an office, reception, home office or cafe, or over the street |
+
+A scene without `dressing` films exactly as before. Steam lets light pass through more layers of
+vapour, which costs a little time in the shots that show a cup.
 
 ### Light
 
