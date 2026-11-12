@@ -164,7 +164,8 @@ sastudio init my-film --template india --org "Sunrise Senior Citizens Forum" --e
 sastudio film my-film --preset draft --lang hi-IN
 ```
 
-[Films for India](docs/INDIA.md) has the sources, the languages (Hindi free and offline; nine more
+`sastudio posters my-film` prints each scene's lesson as an A4 poster in both languages, for a
+notice board or a WhatsApp forward. [Films for India](docs/INDIA.md) has the sources, the languages (Hindi free and offline; nine more
 with recorded or Sarvam voices, lip-synced from their own scripts) and a checklist for showing it.
 [Nineteen Thirty](examples/nineteen-thirty/) is the first scene on its own.
 

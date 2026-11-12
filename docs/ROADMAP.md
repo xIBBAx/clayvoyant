@@ -24,6 +24,7 @@ the first table is promised or scheduled. Each item says how we would know it wo
 | Films for India: the `india` template (five scams, English and Hindi, sourced advice) | done in 0.3 ([INDIA.md](INDIA.md)) |
 | Lip sync and lettering in nine Indian scripts | done in 0.3 |
 | A writing brief for any person or chat assistant (`sastudio brief`) | done in 0.3 |
+| Posters: each scene's lesson as an A4 or Letter page and a PDF, in every language (`sastudio posters`) | done in 0.3 |
 
 What the 0.1 films are, measured on the reference film: 94 % of the running time is still frames
 (illustrated cards with hard cuts), and the offline placeholder voice is silent.
@@ -76,7 +77,7 @@ espeak-ng: every reference film is digital silence. An optional offline neural v
 some are non-commercial, so only voices whose licence allows redistribution and commercial use
 would be listed, and Indian-language quality must be checked by fluent listeners first.
 
-**B. Posters from the same project.** Many trainings happen without a screen. The key-point cards
+**B. Posters from the same project.** *(Done in 0.3: `sastudio posters`.)* Many trainings happen without a screen. The key-point cards
 the renderer already draws could be exported as A4 or Letter posters (PNG and PDF) for notice
 boards, in every language of the project. *Done when:* the starter prints twelve posters that pass
 the same contrast checks as the film.
