@@ -11,6 +11,10 @@ Clayvoyant makes those stories on an ordinary computer, in English and Hindi, fo
 school, a college, a housing society, a bank branch, a panchayat office or a family WhatsApp group
 can make a film in its own name without a video budget, an account or an upload.
 
+Schools, colleges, universities, panchayats and municipalities mark Cyber Jaagrookta Diwas on the
+first Wednesday of every month ([CIET-NCERT](https://ciet.ncert.gov.in/activity/cjd_ssw)). These
+films are made for that hour: one scam, a few minutes, in your own name and language.
+
 ## Start here
 
 ```bash
@@ -38,10 +42,10 @@ filmed in clay in both languages.
 
 ![Twelve frames from Nineteen Thirty, in clay, in a warm living room at evening. Gopal, grey-haired with round glasses and a white moustache, sits alone on a green sofa with a phone at his ear ("A parcel in my name?"), then in close-up ("Right now, on this video call?"); his daughter Ira, in a green kurti, arrives beside him ("Papa? Who are you sending money to?"); he spreads his hands ("He says I must stay on camera and tell nobody"); Ira in close-up, pointing ("Police, CBI, customs, judges: nobody arrests anyone on a video call"); Gopal protesting that the man had a uniform and a badge; Gopal admitting he sat there two hours; Ira leaning in ("That is the trick. Fear, hurry, and keep it secret"); Gopal saying not one rupee went; and the key point card: Nobody is arrested on a video call. Report the caller on sancharsaathi.gov.in. If money has gone, call 1930 at once.](media/film/nineteen-thirty-sheet.jpg)
 
-**Watch Nineteen Thirty** (about two minutes; each opens and plays in the browser):
-[in English](https://cdn.jsdelivr.net/gh/xIBBAx/clayvoyant@4f9cbbc/docs/media/nineteen-thirty.en-IN.mp4) ·
-[in Hindi, words in Roman letters](https://cdn.jsdelivr.net/gh/xIBBAx/clayvoyant@4f9cbbc/docs/media/nineteen-thirty.hi-Latn.mp4) ·
-in Hindi with Devanagari subtitles, as a phone film and with subtitle files: on the
+**Watch Nineteen Thirty** (two minutes):
+[English](https://cdn.jsdelivr.net/gh/xIBBAx/clayvoyant@4f9cbbc/docs/media/nineteen-thirty.en-IN.mp4) ·
+[Hindi in Roman letters](https://cdn.jsdelivr.net/gh/xIBBAx/clayvoyant@4f9cbbc/docs/media/nineteen-thirty.hi-Latn.mp4) ·
+Hindi in Devanagari and the phone versions are on the
 [latest release](https://github.com/xIBBAx/clayvoyant/releases/latest).
 
 This is the template exactly as `init` makes it, rendered in Hindi with drawn characters on a

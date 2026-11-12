@@ -95,7 +95,7 @@ know of one, [open an issue](https://github.com/xIBBAx/clayvoyant/issues): it be
   of people who walk, sit, gesture, react and talk.
 - You need a look other than clay stop motion or drawn cards.
 
-[Honest edges](../README.md#honest-edges) lists what is not built, and
+[Known limits](../README.md#known-limits) lists what is not built, and
 [the roadmap](ROADMAP.md) what could be.
 
 ## If your computer is small

@@ -26,16 +26,13 @@
   <a href="docs/SHOWCASE.md"><b>Before and after, frame by frame</b></a>
 </p>
 
-It began as a tool for security-awareness training, and it still makes that better than anything
-else here: twelve practical stories about phishing, passwords, phone scams and reporting, in your
-organisation's name, words and language. But what it has grown into is a small film studio. Every
-figure is sculpted from signed-distance clay and rigged with real hands and a face that acts; every
-room is built by code; every shot is planned like a film and can be changed in a line of YAML.
+It began as a way to make security-awareness films: twelve short stories about phishing, passwords,
+phone scams and reporting, in your organisation's name, words and language. It grew into a small
+film studio. Every figure is sculpted from signed-distance clay and rigged with real hands and a
+face that acts; every room is built by code; every shot is planned like a film and can be changed
+in a line of YAML.
 
 ## Make a film
-
-Clayvoyant was called Security Awareness Studio until November 2026; old links redirect here. The
-command is `sastudio`, and `clayvoyant` works the same.
 
 You need Python 3.11+, FFmpeg and [Blender](https://www.blender.org/download/) 4.2 or newer
 ([installing them](docs/INSTALLATION.md)). A GPU makes it quicker; it is not required.
@@ -53,20 +50,18 @@ sastudio film examples/the-fast-one --preset draft
 That one command voices thirteen lines, sculpts three people, builds a cafe and an office, films
 seventeen shots on twos and assembles a subtitled film in `examples/the-fast-one/build/`. No
 account and no API key. Edit a line and only the shots it can affect are filmed again.
+(`clayvoyant` works in place of `sastudio`: the project was called Security Awareness Studio until
+November 2026.)
 
 <p align="center">
   <img src="docs/media/film/the-fast-one-sheet.jpg" width="100%" alt="Twelve frames from The Fast One. A cafe at dusk with the city in the window: Tara at a table with her laptop and Odile behind the counter, seen whole; Tara listening in close-up while Odile explains which Wi-Fi is hers; Tara reading out what the other network wants; the two of them at the table; Odile in close-up, smiling. A key point card. Then an office in morning light: Tara arriving at Bashir's desk; Bashir, bearded and in glasses, asking what stopped her; Tara explaining with her palms open; Bashir standing to make his point; the two of them as he offers to buy the coffee. A last key point card.">
 </p>
 
-**[Watch The Fast One](https://cdn.jsdelivr.net/gh/xIBBAx/clayvoyant@8cb3c0a/docs/media/the-fast-one.mp4)** (82 seconds, 6.6 MB; it opens and plays in the browser, subtitles in
-the picture; the file is [`docs/media/the-fast-one.mp4`](docs/media/the-fast-one.mp4), with
-[WebVTT subtitles](docs/media/the-fast-one.en-GB.vtt)). It is exactly what the command above
-makes with `--preset preview`: 1280x720 at 24 frames a second, 1,974 frames, two scenes, seventeen
-filmed shots (two of them reactions cut into the middle of a line), thirteen Kokoro lines at -16
-LUFS. Filming every shot from nothing took 55 minutes on a laptop GeForce GTX 1660 Ti (measured on
-11 November; this re-film with solid contact shared the machine with a second film, so its time is not a fair
-figure). Checked drawing by drawing, nothing in it passes through anything: 0 intersections in 116 sampled
-drawings, against 192 in the render before ([how](docs/CLAY_MOTION.md#nothing-passes-through-anything)).
+**[Watch The Fast One](https://cdn.jsdelivr.net/gh/xIBBAx/clayvoyant@8cb3c0a/docs/media/the-fast-one.mp4)**
+(82 seconds, with subtitles). It is exactly what the command above makes with `--preset preview`:
+seventeen filmed shots at 1280x720 and thirteen voiced lines, in 55 minutes on a laptop GeForce GTX
+1660 Ti. Checked drawing by drawing, nothing in it passes through anything
+([how](docs/CLAY_MOTION.md#nothing-passes-through-anything)).
 
 Everything in [The Fast One](examples/the-fast-one/) comes from two scene files and one page of
 character descriptions. Nobody opened Blender, drew anything or recorded a voice.
@@ -164,15 +159,14 @@ sastudio init my-film --template india --org "Sunrise Senior Citizens Forum" --e
 sastudio film my-film --preset draft --lang hi-IN
 ```
 
-`sastudio posters my-film` prints each scene's lesson as an A4 poster in both languages, for a
-notice board. `sastudio share my-film --each` makes one upright phone clip per scam, with large
-captions, about a minute and 5 MB each: small enough to forward.
-The Hindi film also comes with its words in Roman letters, the way people type Hindi on a phone
-("Papa, ek minute ke liye phone neeche rakhiye"): add `--lang hi-Latn`. The voices stay Hindi and
-nothing is written twice.
-[Films for India](docs/INDIA.md) has the sources, the languages (Hindi free and offline; nine more
-with recorded or Sarvam voices, lip-synced from their own scripts) and a checklist for showing it.
-[Nineteen Thirty](examples/nineteen-thirty/) is the first scene on its own, filmed in clay.
+`sastudio posters my-film` prints each scene's lesson as an A4 poster, for a notice board.
+`sastudio share my-film --each` makes one upright phone clip per scam, about a minute and 5 MB
+each: small enough to forward. `--lang hi-Latn` gives the Hindi film with its words in Roman
+letters, the way people type Hindi on a phone ("Papa, ek minute ke liye phone neeche rakhiye").
+
+[Films for India](docs/INDIA.md) has the sources, nine more Indian languages and a checklist for
+showing a film. [Nineteen Thirty](examples/nineteen-thirty/) is the first scene on its own, filmed
+in clay.
 
 ## How it works
 
@@ -201,18 +195,17 @@ Measured on one laptop on 2026-11-11 (Intel Core i7-10750H, 12 threads, GeForce 
 
 - Sculpting the sample's three characters: 46 seconds for all three, once per look.
 - Voicing its thirteen lines with Kokoro on the CPU: 26 seconds for 47 seconds of speech.
-- Filming at `preview` (1280x720, 12 samples): 4.7 seconds a drawing on average (4.2 to 5.0 over
-  the sample's 666 drawings, in two runs), so about 2.3 minutes of work for each second of film on twos. The
-  `draft` preset (960x540, 6 samples) took 2.2 to 2.6 seconds a drawing over 247 drawings. People
-  the camera cannot see are not drawn.
+- Filming at `preview` (1280x720): 4.7 seconds a drawing, about 2.3 minutes of work for each
+  second of film on twos. `draft` (960x540) takes about half that. People the camera cannot see are
+  not drawn.
 - The cards renderer: the 14-minute starter film in 90 seconds at `preview` and 2 minutes 41 seconds
   at `final`, on the CPU.
 
-## Honest edges
+## Known limits
 
 - Kokoro has no Indian-English accent; English lines are read in a British or American voice.
 - Imported models stand, walk, turn, look, talk and gesture; they do not sit or use hands.
-- Lip sync follows the provider's phoneme timings when it reports them (Kokoro does), and
+- Lip sync follows the voice's phoneme timings when the provider reports them (Kokoro does), and
   otherwise the spelling and the loudness of the voice.
 - There is no sound-effect or music library yet: a film has its dialogue and, if you add one, a
   music track. Rendering on a remote GPU is not built.
@@ -221,11 +214,11 @@ Measured on one laptop on 2026-11-11 (Intel Core i7-10750H, 12 threads, GeForce 
 - The `final` preset (1920x1080) has not yet been run for a whole film; the sample was built with
   `preview`. CI has no Blender, so the clay smoke test runs only where Blender is installed.
 - The starter scenes are general guidance, not policy. Replace each procedure with your own.
-- Solid contact is measured, and it is not yet true everywhere. The sample film is clean (0 intersections), on the
-  cafe and office sets. On the sofa of the `home_desk` set a seated person's legs still pass into the cushion:
-  Nineteen Thirty shows it, and the checker counts it ([#28](https://github.com/xIBBAx/clayvoyant/issues/28)).
-- The `india` template's Hindi was written for it and has not yet been reviewed by fluent speakers
-  from its audience. Read every line aloud with someone who will watch it before you show it.
+- On the sofa of the home set, a seated character still sinks into the cushion; Nineteen Thirty
+  shows it ([#28](https://github.com/xIBBAx/clayvoyant/issues/28)).
+- The `india` template's Hindi has not yet been reviewed by fluent speakers from its audience
+  ([#20](https://github.com/xIBBAx/clayvoyant/issues/20)). Read every line aloud with someone who
+  will watch it before you show it.
 
 ## Documentation
 

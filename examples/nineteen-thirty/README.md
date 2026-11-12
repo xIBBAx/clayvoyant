@@ -1,7 +1,7 @@
 # Nineteen Thirty
 
-A one-scene clay film about the "digital arrest" scam, in English and Hindi from the same script
-(and the Hindi film a second time with its words in Roman letters).
+A one-scene clay film about the "digital arrest" scam, in English, Hindi and Hindi in Roman
+letters, from one script.
 
 Gopal, a retired schoolteacher, has been on a video call for two hours with a man in a uniform who
 says he is under arrest and must transfer his savings to clear his name. His daughter Ira walks in
@@ -38,10 +38,8 @@ Each film, its subtitles and a transcript land in `examples/nineteen-thirty/buil
 | `outfit: { style: kurta }`, `extras: [bindi, earrings]` | a short kurti over jeans |
 | `takeaway:` | the key point card: report the caller on Sanchar Saathi; if money has gone, call 1930 at once |
 
-**Not yet right.** `python tools/check_contacts.py examples/nineteen-thirty` is not clean on this film (1,559
-intersections in 208 sampled drawings): seated on the sofa, Gopal's legs pass into its cushion, and Ira stands against
-its arm. The sample film The Fast One is clean. The fix and a re-film are
-[issue #28](https://github.com/xIBBAx/clayvoyant/issues/28).
+Known issue: seated on the sofa, Gopal sinks into the cushion, and Ira stands against its arm
+([#28](https://github.com/xIBBAx/clayvoyant/issues/28)).
 
 The five-scene version, with a UPI PIN, an OTP, an electricity-bill message and a fake helpline, is
 the `india` template: `sastudio init my-film --template india`.
