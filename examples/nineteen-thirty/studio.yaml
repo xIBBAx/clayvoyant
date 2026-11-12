@@ -5,7 +5,9 @@ schema_version: 1
 
 project:
   title: "Nineteen Thirty"
+  title_translations: { hi-IN: "1930" }
   subtitle: "A short film about an arrest that cannot happen"
+  subtitle_translations: { hi-IN: "एक ऐसी गिरफ़्तारी की कहानी, जो हो ही नहीं सकती" }
   language: en-IN
   languages: [en-IN, hi-IN]           # one script, two films: build/en-IN/ and build/hi-IN/
   labels:

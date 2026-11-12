@@ -890,9 +890,16 @@
         "title": {
           "$ref": "#/$defs/shortText"
         },
+        "title_translations": {
+          "$ref": "#/$defs/byLang",
+          "description": "The title in other languages, as {lang: text}; file names keep `title`."
+        },
         "subtitle": {
           "type": "string",
           "maxLength": 160
+        },
+        "subtitle_translations": {
+          "$ref": "#/$defs/byLang"
         },
         "language": {
           "$ref": "#/$defs/lang"

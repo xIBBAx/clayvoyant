@@ -22,6 +22,8 @@ schema_version: 1                 # required; the project format version
 project:
   title: "Security Awareness in Twelve Stories"
   subtitle: "..."
+  title_translations: { hi-IN: "..." }       # optional: the title and subtitle in each other language
+  subtitle_translations: { hi-IN: "..." }    # (file names always use `title`)
   language: en-IN                 # the language scenes are written in
   languages: [en-IN, hi-IN]       # languages to build (each one is a separate film)
   missing_translation: error      # or `fallback` to use the main language where a line has no translation

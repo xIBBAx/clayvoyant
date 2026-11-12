@@ -59,7 +59,8 @@ def _layer(project, lang: str, caption: str | None) -> Image.Image:
     on = S.readable_on(pal.primary, "#FFFFFF")
     org = project.display("{org.name}", lang)
     d.text((40, 52), org, font=S.font_for(org, 30, "semibold"), fill=on)
-    f, lines, size = S.fit_text(d, project.title, W - 80, 110, start=58, minimum=36, weight="bold", max_lines=2)
+    title = project.title_for(lang)
+    f, lines, size = S.fit_text(d, title, W - 80, 110, start=58, minimum=36, weight="bold", max_lines=2)
     y = 100
     for ln in lines:
         d.text((40, y), ln, font=f, fill=on)

@@ -215,6 +215,14 @@ class Project:
     def title(self) -> str:
         return self.data["project"]["title"]
 
+    def title_for(self, lang: str) -> str:
+        """The film's title as people of `lang` read it (`project.title_translations`), tokens resolved."""
+        return self.display((self.data["project"].get("title_translations") or {}).get(lang) or self.title, lang)
+
+    def subtitle_for(self, lang: str) -> str:
+        p = self.data["project"]
+        return self.display((p.get("subtitle_translations") or {}).get(lang) or p.get("subtitle", ""), lang)
+
     @property
     def language(self) -> str:
         return self.data["project"]["language"]

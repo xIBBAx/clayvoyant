@@ -80,3 +80,12 @@ def test_the_closing_card_names_the_real_portal_not_a_placeholder_address(india)
     project.org["security_email"] = "help@example.com"
     _, outro = bookends(project, "en-IN")
     assert (outro.beats[0].extra["contact"], outro.beats[0].extra["url"]) == ("cybercrime.gov.in", "")
+
+
+def test_the_hindi_film_opens_on_its_hindi_title(india):
+    from sastudio.build import bookends
+
+    project = load_project(india)
+    intro, _ = bookends(project, "hi-IN")
+    assert intro.title == "ज़रा ठहरिए" and intro.beats[0].extra["subtitle"].startswith("पाँच ठगी")
+    assert bookends(project, "en-IN")[0].title == "Not So Fast"
