@@ -25,6 +25,7 @@ the first table is promised or scheduled. Each item says how we would know it wo
 | Lip sync and lettering in nine Indian scripts | done in 0.3 |
 | A writing brief for any person or chat assistant (`sastudio brief`) | done in 0.3 |
 | Posters: each scene's lesson as an A4 or Letter page and a PDF, in every language (`sastudio posters`) | done in 0.3 |
+| Phone films: upright, large captions, under a size limit, and a copy without burned-in subtitles (`sastudio share`) | done after 0.3 |
 
 What the 0.1 films are, measured on the reference film: 94 % of the running time is still frames
 (illustrated cards with hard cuts), and the offline placeholder voice is silent.
@@ -82,8 +83,8 @@ the renderer already draws could be exported as A4 or Letter posters (PNG and PD
 boards, in every language of the project. *Done when:* the starter prints twelve posters that pass
 the same contrast checks as the film.
 
-**C. Vertical clips for messaging apps.** *(The most useful next step for India, where these films
-travel through family and society WhatsApp groups.)* Small organisations often share video through
+**C. Vertical clips for messaging apps.** *(Done after 0.3: `sastudio share` makes one upright film
+per language with large captions under a size limit. Still open: one clip per scene.)* Small organisations often share video through
 messaging apps on phones. One short 9:16 clip per scene, with large subtitles, would fit how such films are
 actually passed around. *Done when:* each starter scene exports as a vertical clip under 16 MB.
 

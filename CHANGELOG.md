@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- **`sastudio share PROJECT`**: the film laid out for a phone held upright (720x1280): the organisation and title at
+  the top, the film across the middle over a blurred copy of itself, each line's words below it in large type in its
+  own script, and where to report along the foot; encoded under `--max-mb` (15 MB by default). It also leaves the
+  film without subtitles in the picture, with its `.srt`, in `build/clean/`. Every voice and filmed shot is reused.
+- `tools/make_showcase_media.py` takes `--lang`, `--name` and `--no-gif`, so any sample film gets a sheet.
+- `--version` prints the project's name; the command's description says what it makes.
+
 ## 0.3.0 (2026-11-12)
 
 ### Solid contact

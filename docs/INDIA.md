@@ -87,6 +87,11 @@ British voice.
   ([how](WRITING_WITH_AN_ASSISTANT.md)). Look up every fact it writes.
 - **Your screens.** Films play from a laptop, a projector or a phone. The subtitles are in the
   picture, so a muted WhatsApp video still works.
+- **Your phones.** `sastudio share my-film` lays each film out for a phone held upright: your name
+  and the title at the top, the film across the middle, each line's words below it in large type in
+  its own script, and where to report along the foot, encoded to stay under 15 MB (`--max-mb`).
+  It also leaves a copy without subtitles in the picture, with its `.srt`, for players that show
+  their own captions.
 - **Your walls.** `sastudio posters my-film` prints each scene's lesson as an A4 page (or `--size
   letter`), in every language of the project: your name and colours, the topic, the headline, the
   key point, the people from the scene, and where to report. One PNG per scene for a WhatsApp

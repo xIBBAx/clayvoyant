@@ -87,6 +87,22 @@ After encoding, the build checks the film with `ffprobe`: the number of video fr
 the timeline, and the audio must last as long as the video. If either check fails, the build stops
 with an error instead of leaving a broken file.
 
+### For phones and walls
+
+Two more commands make other shapes of the same project, reusing everything already built:
+
+```
+sastudio share my-film                # build/<lang>/<film>.<lang>.phone.mp4, and build/clean/<lang>/
+sastudio posters my-film              # build/<lang>/posters/: one PNG per scene and posters.<lang>.pdf
+```
+
+`share` builds the film once more without subtitles in the picture (into `build/clean/<lang>/`,
+with its `.srt`, for players that show their own captions), then lays it out at 720x1280 for a
+phone held upright: the organisation and the title at the top, the film across the middle, each
+line's words below it in large type set in the font its script needs, and where to report along
+the foot. The encode is sized to stay under `--max-mb` (15 MB by default). `posters` prints each
+scene's headline and key point as an A4 or Letter page at 300 dpi.
+
 ## Only what changed is rendered again
 
 Each scene video is stored in `.studio/work/<language>/scenes/` with a key made from everything

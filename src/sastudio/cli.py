@@ -288,6 +288,17 @@ def cmd_brief(a) -> int:
     return 0
 
 
+def cmd_share(a) -> int:
+    from .share import share
+
+    p = _load(a.project)
+    if not 1 <= a.max_mb <= 500:
+        raise StudioError("--max-mb must be between 1 and 500.")
+    for lang in ([a.lang] if a.lang else p.languages):
+        share(p, lang, a.max_mb)
+    return 0
+
+
 def cmd_posters(a) -> int:
     from .posters import make
 
@@ -489,8 +500,8 @@ def cmd_clean(a) -> int:
 
 
 def parser() -> argparse.ArgumentParser:
-    ap = argparse.ArgumentParser(prog="sastudio", description="Build captioned security-awareness training films.")
-    ap.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
+    ap = argparse.ArgumentParser(prog="sastudio", description="Clay stop-motion films, written as plain text.")
+    ap.add_argument("--version", action="version", version=f"Clayvoyant {__version__}")
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     s = sub.add_parser("init", help="create a new project from a template")
@@ -528,6 +539,13 @@ def parser() -> argparse.ArgumentParser:
     s.add_argument("--seconds", type=int, default=40, help="about how long each scene runs (default 40)")
     s.add_argument("--out", metavar="FILE.md", help="write the brief to a file instead of printing it")
     s.set_defaults(fn=cmd_brief)
+
+    s = sub.add_parser("share", help="the film laid out for a phone held upright, with large captions, small enough "
+                                     "to forward; and a copy without subtitles in the picture")
+    s.add_argument("project")
+    s.add_argument("--lang", help="one language (default: every language of the project)")
+    s.add_argument("--max-mb", type=float, default=15.0, help="the largest the phone film may be (default 15 MB)")
+    s.set_defaults(fn=cmd_share)
 
     s = sub.add_parser("posters", help="print each scene's lesson as a poster (A4 or Letter PNG, and a PDF) for a "
                                        "notice board or a phone")
