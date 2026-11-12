@@ -2,7 +2,7 @@
 
 What was checked before the reference films were attached to the release, and how. Every film was
 rendered from this repository alone by `tools/make_reference_media.py`, with
-`sastudio 0.3.0`, Pillow 13.0.0 and ffmpeg version 6.1.1-3ubuntu5, on the machine described in
+`sastudio 0.3.1`, Pillow 13.0.0 and ffmpeg version 6.1.1-3ubuntu5, on the machine described in
 [REQUIREMENTS.md](../../REQUIREMENTS.md).
 
 **What the films are.** Illustrated cards with hard cuts: whoever is speaking, the line in large
@@ -17,10 +17,10 @@ dialogue is in the burned-in text and in the `.srt` and `.vtt` files beside each
 | Film | Release file | Made from | Size | Duration | Frames | Bytes | SHA-256 |
 |---|---|---|---|---|---|---|---|
 | Starter film (master) | `Security_Awareness_in_Twelve_Stories.en-IN.mp4` | starter template, Quillmere branding, `cutout` style, `--preset final` | 1920x1080 | 862.625 s | 20,703 | 55,680,755 | `cae727ab6e244752…` |
-| Trailer, v1 sketch | `Security_Awareness_Trailer.v1-sketch.en-IN.mp4` | 5 starter scenes, `sketch` style, `--preset final` | 1920x1080 | 83.250 s | 1,998 | 4,123,665 | `5798b0a9d3681478…` |
-| Trailer, v2 flat | `Security_Awareness_Trailer.v2-flat.en-IN.mp4` | 5 starter scenes, `flat` style, `--preset final` | 1920x1080 | 83.250 s | 1,998 | 3,019,589 | `f995ce3b55df61d4…` |
-| Trailer, v3 cutout | `Security_Awareness_Trailer.v3-cutout.en-IN.mp4` | 5 starter scenes, `cutout` style, `--preset final` | 1920x1080 | 83.250 s | 1,998 | 4,019,275 | `ba5e2eb70b592cc3…` |
-| Trailer, v4 clay | `Security_Awareness_Trailer.v4-clay.en-IN.mp4` | 5 starter scenes, `clay` style, `--preset final` | 1920x1080 | 83.250 s | 1,998 | 3,636,518 | `6eee4b363a0b2120…` |
+| Trailer, v1 sketch | `Security_Awareness_Trailer.v1-sketch.en-IN.mp4` | 5 starter scenes, `sketch` style, `--preset final` | 1920x1080 | 83.250 s | 1,998 | 4,117,033 | `3419e1770fd6a8f5…` |
+| Trailer, v2 flat | `Security_Awareness_Trailer.v2-flat.en-IN.mp4` | 5 starter scenes, `flat` style, `--preset final` | 1920x1080 | 83.250 s | 1,998 | 3,012,957 | `406d759811bc1b18…` |
+| Trailer, v3 cutout | `Security_Awareness_Trailer.v3-cutout.en-IN.mp4` | 5 starter scenes, `cutout` style, `--preset final` | 1920x1080 | 83.250 s | 1,998 | 4,012,643 | `498da870d319bcfb…` |
+| Trailer, v4 clay | `Security_Awareness_Trailer.v4-clay.en-IN.mp4` | 5 starter scenes, `clay` style, `--preset final` | 1920x1080 | 83.250 s | 1,998 | 3,629,886 | `7c3a73de91667990…` |
 | Example, English | `Example_Quillmere_Security_Essentials.en-IN.mp4` | `examples/quillmere`, `cutout` style, its own `draft` preset | 960x540 | 260.667 s | 6,256 | 2,331,879 | `9973d8d5080c2b98…` |
 | Example, Hindi | `Example_Quillmere_Security_Essentials.hi-IN.mp4` | `examples/quillmere`, `--lang hi-IN` | 960x540 | 312.375 s | 7,497 | 2,616,394 | `fa33132799dac441…` |
 

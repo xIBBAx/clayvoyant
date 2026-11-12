@@ -142,7 +142,9 @@ Every character is solid, and so is every piece of the set. Nothing is placed by
 the film does and intersects every triangle of every character with the set and with each other.
 Touching is allowed; any intersection is listed with its frame, and the command fails. On the sample
 film, sampling every sixth drawing of all seventeen shots (116 drawings): 0 intersections, against 192
-in the render before the last round of fixes and over two thousand before this work began.
+in the render before the last round of fixes and over two thousand before this work began. The
+sofa of the `home_desk` set is not clean yet: a seated body sinks into its cushion
+([#28](https://github.com/xIBBAx/clayvoyant/issues/28)).
 
 ## Guests
 
