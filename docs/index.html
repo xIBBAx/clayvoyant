@@ -41,6 +41,9 @@
   ul { margin: 10px 0; padding: 0; list-style: none; }
   li { position: relative; margin: 6px 0; padding-left: 1.6em; }
   li::before { content: "\2726"; font-family: var(--symbol); color: var(--accent); position: absolute; left: 0; }
+  .x-film { display: flex; flex-direction: column; align-items: center; margin: 28px 0 0; }
+  .x-film blockquote { margin: 0; padding: 12px 16px; border-left: 3px solid var(--accent); color: var(--muted); max-width: 550px; }
+  .x-film figcaption { text-align: center; }
   footer { margin-top: 64px; padding-top: 18px; border-top: 1px solid var(--rule); font-size: 16px; color: var(--muted); }
   .sep { font-family: var(--symbol); color: var(--accent); margin: 0 .55em; }
 </style>
@@ -60,7 +63,21 @@
   <h2 id="where-clayvoyant-began">Where Clayvoyant began</h2>
   <p>I first made a 29-minute clay stop-motion film to teach information security at my father's workplace. It was hard to build: I had to join many tools together, work around the limits of my hardware, and write my own pipeline to sculpt, animate, voice, light and film every scene.</p>
   <p>Nobody making an awareness or classroom film should have to rebuild all of that, or spend a paid video-generation quota on every scene. So I turned what I built into Clayvoyant and made it open source. You write the people, their lines and the places in a few text files; it sculpts the cast, builds the set, directs the cameras, voices the lines and puts the film together on your own computer.</p>
-  <p>It still needs Python, FFmpeg and, for clay, Blender, and rendering takes time: this film took 55 minutes on a laptop graphics card. What it saves you is the patchwork of tools, and with the free voices there is nothing to pay per film. The original film stays private, as it carries the workplace's name and people.</p>
+  <p>It still needs Python, FFmpeg and, for clay, Blender, and rendering takes time: The Fast One took 55 minutes on a laptop graphics card. What it saves you is the patchwork of tools, and with the free voices there is nothing to pay per film.</p>
+
+  <figure class="x-film">
+    <blockquote class="twitter-video" data-status="hidden" data-dnt="true"><p lang="en" dir="ltr">7 days. One laptop. A GTX 1660 Ti with 6GB VRAM and 7.7GB usable RAM.<br><br>41,562 frames. 28 minutes, 51 seconds.<br><br>Been working nonstop with opus 5.5 max on a clay-style stop motion film about Information Security Management and it&#39;s finally finished.<br><br>The idea was to create&hellip; <a href="https://t.co/iyL3YVG1Go">https://t.co/iyL3YVG1Go</a> <a href="https://t.co/49i99ubw8n">pic.twitter.com/49i99ubw8n</a></p>&mdash; Ibrahim Sultan (@Ibrahimsultan__) <a href="https://x.com/Ibrahimsultan__/status/2120085613441696069?ref_src=twsrc%5Etfw">November 10, 2026</a></blockquote>
+    <figcaption>The original film, complete: 28 minutes 51 seconds. <a href="https://x.com/Ibrahimsultan__/status/2120085613441696069">Watch on X</a></figcaption>
+  </figure>
+  <script>
+    (function () {
+      var q = document.querySelector(".x-film blockquote");
+      if (q && window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches) q.setAttribute("data-theme", "dark");
+      var s = document.createElement("script");
+      s.async = true; s.src = "https://platform.twitter.com/widgets.js"; s.charset = "utf-8";
+      document.body.appendChild(s);
+    })();
+  </script>
 
   <details>
     <summary>What went into the original, and what Clayvoyant does now</summary>
@@ -97,7 +114,7 @@
   <figure><img src="media/proof/steam-and-clock.jpg" alt="Left: steam rising off a mug on a cafe table. Right: a wall clock reading five past seven." loading="lazy">
     <figcaption><code>direction.dressing: [steam]</code> and <code>direction.clock: "07:05"</code>.</figcaption></figure>
 
-  <footer>Everything on this page was rendered by the code in the repository. <a href="https://github.com/xIBBAx/clayvoyant">Source, documentation and the sample project</a><span class="sep" aria-hidden="true">✦</span>MIT License<span class="sep" aria-hidden="true">✦</span>Ibrahim Sultan</footer>
+  <footer>Everything on this page apart from the original film was rendered by the code in the repository. <a href="https://github.com/xIBBAx/clayvoyant">Source, documentation and the sample project</a><span class="sep" aria-hidden="true">✦</span>MIT License<span class="sep" aria-hidden="true">✦</span>Ibrahim Sultan</footer>
 </main>
 </body>
 </html>
