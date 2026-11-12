@@ -911,3 +911,81 @@ def cloud(x, y, z, sc=1.0, seed=1):
         blob('cl', ((i - 2) * 1.1 * sc, r.uniform(-.3, .3), r.uniform(-.2, .35) * sc), (1.3 * sc * r.uniform(.7, 1.1), .7 * sc, .8 * sc * r.uniform(.7, 1.1)),
              '#ffffff', g, lumps=.1, rough=.9, mat=clay('#fbf7ef', .9, False, .2))
     return g
+
+
+# ------------------------------------------------------------------ dressing that moves (direction.dressing)
+def _vapour():
+    """Soft vapour for Cycles: white, fully rough, its opacity falling off towards each puff's silhouette (no hard
+    rim, no glass bubble) and scaled by the object's own alpha, which the animator sets as a puff rises and thins."""
+    m = bpy.data.materials.get('vapour')
+    if m:
+        return m
+    m = bpy.data.materials.new('vapour')
+    m.use_nodes = True
+    nt = m.node_tree
+    b = nt.nodes['Principled BSDF']
+    b.inputs['Base Color'].default_value = (1, 1, 1, 1)
+    b.inputs['Roughness'].default_value = 1.0
+    lw = nt.nodes.new('ShaderNodeLayerWeight')
+    lw.inputs['Blend'].default_value = .5
+    inv = nt.nodes.new('ShaderNodeMath')
+    inv.operation, inv.inputs[0].default_value = 'SUBTRACT', 1.0
+    nt.links.new(lw.outputs['Facing'], inv.inputs[1])
+    pw = nt.nodes.new('ShaderNodeMath')
+    pw.operation, pw.inputs[1].default_value = 'POWER', 2.2
+    nt.links.new(inv.outputs[0], pw.inputs[0])
+    oi = nt.nodes.new('ShaderNodeObjectInfo')
+    mu = nt.nodes.new('ShaderNodeMath')
+    mu.operation = 'MULTIPLY'
+    nt.links.new(pw.outputs[0], mu.inputs[0])
+    nt.links.new(oi.outputs['Alpha'], mu.inputs[1])
+    mk = nt.nodes.new('ShaderNodeMath')
+    mk.operation, mk.inputs[1].default_value = 'MULTIPLY', .16
+    nt.links.new(mu.outputs[0], mk.inputs[0])
+    nt.links.new(mk.outputs[0], b.inputs['Alpha'])
+    return m
+
+
+def steam(loc, n=14, seed=8):
+    """Vapour off a hot drink: puffs that leave the surface small, swell, drift and thin out as they rise, each on
+    its own clock. Returns the per-frame animator."""
+    r = random.Random(seed)
+    mat = _vapour()
+    puffs = []
+    for i in range(n):
+        o = blob('steam', (0, 0, -50), (.1, .1, .1), '#ffffff', None, lumps=.01, mat=mat)
+        o.visible_shadow = False
+        puffs.append((o, (i + r.uniform(0, .6)) / n, r.uniform(-.6, .6), r.uniform(.8, 1.2)))
+    x, y, z = loc
+
+    def anim(f):
+        for o, ph, dx, sp in puffs:
+            t = (f / 60.0 * sp + ph) % 1.0
+            o.location = (x + dx * .14 * t + .035 * math.sin(f / 9 + ph * 7), y + .04 * math.sin(f / 13 + ph * 5), z + .05 + .8 * t)
+            sc = .025 + .11 * t
+            o.scale = (sc, sc, sc * 1.4)
+            o.color = (1, 1, 1, math.sin(math.pi * t) ** 1.5 * (1 - .5 * t))
+    return anim
+
+
+def birds(back, outdoor=False, n=4, seed=2):
+    """A few birds crossing the sky outside: seen through the windows of a room, or over a street. Wings beat, each
+    bird on its own line, height and speed. Returns the per-frame animator."""
+    r = random.Random(seed)
+    y, z = (back + 26, 11.0) if outdoor else (back + 14, 6.2)
+    x0, x1 = -34, 34
+    flock = []
+    for i in range(n):
+        g = group('bird', (0, y, z))
+        wl = tube('wing', [(-.55, 0, .14), (-.22, 0, 0), (0, 0, -.04)], .045, '#2b2b30', g)
+        wr = tube('wing', [(.55, 0, .14), (.22, 0, 0), (0, 0, -.04)], .045, '#2b2b30', g)
+        flock.append((g, wl, wr, r.uniform(0, 1), r.uniform(.6, 1.1), r.uniform(-1.2, 1.4)))
+
+    def anim(f):
+        for g, wl, wr, ph, sp, dz in flock:
+            t = (f * .0016 * sp + ph) % 1.0
+            g.location = (x0 + (x1 - x0) * t, y + 2.5 * math.sin(t * 6), z + dz + .4 * math.sin(f / 30 + ph * 6))
+            flap = .5 * math.sin(f / 2.2 + ph * 20)
+            wl.rotation_euler = (0, flap, 0)
+            wr.rotation_euler = (0, -flap, 0)
+    return anim

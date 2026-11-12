@@ -246,6 +246,7 @@ def scene_job(project, scene, plan: D.ScenePlan, spans: list[Span], lang: str | 
     clock = D.clock_time(scene)
     return {"set": {"name": plan.set, "palette": org.get("palette") or {}, "org": org.get("short_name") or org.get("name"),
                     **({"clock": clock} if clock else {}),
+                    **({"dressing": sorted(set(d["dressing"]))} if d.get("dressing") else {}),
                     "seed": int(hashlib.sha256(scene.id.encode()).hexdigest()[:6], 16) % 997 + 1,
                     "time": (scene.setting or {}).get("time_of_day", "day")},
             "lighting": dict(D.LIGHTING[plan.lighting], name=plan.lighting, **D.light_overrides(scene)),

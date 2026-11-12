@@ -218,6 +218,29 @@ for ln in JOB.get('lines') or []:
 for nm, t in STG['things'].items():
     PERF.things[nm] = t
 
+# ------------------------------------------------------------------ dressing that moves (direction.dressing)
+ANIMATORS = []
+DRESS = set(SET.get('dressing') or [])
+
+
+def _where(t):
+    return tuple(t.matrix_world.translation) if hasattr(t, 'matrix_world') else tuple(t)
+
+
+if 'steam' in DRESS:
+    # every puff is two transparent surfaces and they overlap: past the bounce limit Cycles draws black, not vapour
+    s.cycles.transparent_max_bounces = 32
+    for nm, t in STG['things'].items():
+        if nm == 'mug' or nm.startswith('mug_'):
+            ANIMATORS.append(K.steam(_where(t), seed=7 + len(ANIMATORS)))
+if 'birds' in DRESS and (STG['outdoor'] or STG['windows']):
+    ANIMATORS.append(K.birds(STG['back'], outdoor=STG['outdoor'], seed=int(SET.get('seed', 1))))
+
+
+def dress_at(f):
+    for anim in ANIMATORS:
+        anim(f)
+
 
 def desk_hands(a):
     """Where the hands rest on the table this actor sits at: world positions for the left and the right."""
@@ -567,6 +590,7 @@ if MODE in ('portrait', 'sheet'):
     PERF.pose(FRAMES[0])
     held_at(FRAMES[0])
     door_at(FRAMES[0])
+    dress_at(FRAMES[0])
     bpy.context.view_layer.update()
     if OPENING:
         camera_at(FRAMES[0])
@@ -622,6 +646,7 @@ for n, f in enumerate(frames):
     PERF.pose(f)
     door_at(f)
     held_at(f)
+    dress_at(f)
     bpy.context.view_layer.update()
     camera_at(f)
     t2 = time.time()

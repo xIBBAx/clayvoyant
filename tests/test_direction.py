@@ -284,3 +284,20 @@ def test_a_line_that_names_its_camera_is_not_cut_in_two(tmp_path):
     (root / "studio.yaml").write_text(t.replace(f'say: "{long}" }}', f'say: "{long}", camera: close_up }}'), encoding="utf-8")
     named = [s for s in D.plan(load_project(root))[0].shots if "l2" in s.lines]
     assert len(named) == 1 and named[0].camera == "close_up" and not named[0].part
+
+
+def test_dressing_is_asked_for_by_name_and_checked(tmp_path):
+    from sastudio import stopmotion as SM
+
+    def set_of(proj):
+        scene, plan = proj.scenes[0], D.plan(proj)[0]
+        return SM.scene_job(proj, scene, plan, SM.spans_estimated(proj, scene))["set"]
+
+    cafe = _scene(write_project(tmp_path / "a"), "    direction:\n      set: cafe\n      dressing: [steam, birds]\n")
+    assert _errors(cafe) == [] and set_of(cafe)["dressing"] == ["birds", "steam"]
+    plain = _scene(write_project(tmp_path / "b"), "    direction:\n      set: cafe\n")
+    assert "dressing" not in set_of(plain), "no dressing asked for: the job (and the cache) is unchanged"
+    odd = _scene(write_project(tmp_path / "c"), "    direction:\n      set: corridor\n      dressing: [birds, fog]\n")
+    probs = D.validate(odd)
+    assert any(p.level == "error" and "Unknown dressing 'fog'" in p.message for p in probs)
+    assert any(p.level == "warning" and "no window" in p.message for p in probs)

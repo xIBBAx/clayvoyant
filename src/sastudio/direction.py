@@ -134,6 +134,14 @@ SETS: dict[str, dict] = {
                   "props": ["board", "laptop", "map", "phone"], "door": True, "clock": True},
     "studio": {"marks": ["centre"], "seats": [], "props": [], "door": False},
 }
+# Dressing that moves, asked for by name (`direction.dressing`). Built by code; nothing is loaded.
+DRESSING: dict[str, str] = {
+    "steam": "vapour rising off every hot drink on the set",
+    "birds": "birds crossing the sky outside the windows (or over a street)",
+}
+
+WINDOWED = {"office", "reception", "home_desk", "cafe"}   # sets with a window in the back wall
+
 # What a wall clock reads when the scene does not say (`direction.clock: "17:45"`): the scene's time of day.
 CLOCK_AT = {"morning": "08:40", "day": "13:15", "evening": "18:25", "night": "22:50"}
 
@@ -270,6 +278,14 @@ def validate(project) -> list[Problem]:
             out.append(Problem("error", f"{where}.end_with.camera", f"Unknown camera '{end['camera']}'.", _suggest(end["camera"], SHOTS)))
         if end.get("move") and end["move"] not in MOVES:
             out.append(Problem("error", f"{where}.end_with.move", f"Unknown camera move '{end['move']}'.", _suggest(end["move"], MOVES)))
+        for item in d.get("dressing") or []:
+            if item not in DRESSING:
+                out.append(Problem("error", f"{where}.dressing", f"Unknown dressing '{item}'.", _suggest(item, DRESSING)))
+            elif item == "birds" and set_name not in WINDOWED and set_name != "street":
+                out.append(Problem("warning", f"{where}.dressing", f"The {set_name} set has no window to see birds through.",
+                                   "Birds show in: " + ", ".join(sorted(WINDOWED | {"street"})) + "."))
+            elif item == "steam" and "mug" not in set_info["props"]:
+                out.append(Problem("warning", f"{where}.dressing", f"The {set_name} set has no mug to steam."))
         if d.get("clock") and not SETS.get(set_name, {}).get("clock"):
             out.append(Problem("warning", f"{where}.clock", f"The {set_name} set has no wall clock; `clock` does nothing here.",
                                "Clocks hang in: " + ", ".join(k for k, v in SETS.items() if v.get("clock")) + "."))
