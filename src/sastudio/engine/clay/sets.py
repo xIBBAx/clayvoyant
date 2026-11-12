@@ -20,7 +20,11 @@ def _c(C, key, default):
     return (C.get('palette') or {}).get(key) or default
 
 
-def mark(x, y, face=0.0, seat=None, **more):
+def mark(x, y, face=None, seat=None, **more):
+    """A place to stand or sit. A seat faces its table (0.0, the lens, unless told); a standing mark leaves the facing
+    open, so whoever stands there turns towards the person who matters (acting.res_face) instead of the lens."""
+    if face is None and seat is not None:
+        face = 0.0
     return dict(pos=(x, y), face=face, seat=seat, **more)
 
 

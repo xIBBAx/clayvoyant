@@ -499,7 +499,9 @@ def pose_actor(S_, a, f):
         face = k_.get('face', None)
         if face is None:
             lk_ = k_.get('look')
-            face = lk_ if isinstance(lk_, str) and lk_ in S_.actors and S_.actors[lk_].P.vis else 0
+            # someone the camera does not show in this shot (culled, not drawn) is still in the room: keep turning to them
+            other = S_.actors.get(lk_) if isinstance(lk_, str) else None
+            face = lk_ if other is not None and (other.P.vis or getattr(other, 'cull', False)) else 0
         if isinstance(face, str):
             tp = S_.actors[face].head_pos() if face in S_.actors else None
             face = clamp(math.atan2(tp.x - pos[0], -(tp.y - pos[1])) * .62, -.68, .68) if tp is not None else 0

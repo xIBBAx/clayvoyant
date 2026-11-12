@@ -167,7 +167,9 @@ def where(c):
     """-> (x, y), facing, seat height or None"""
     m = MARKS.get(c.get('mark') or '')
     if m:
-        return m['pos'], c.get('face', m.get('face', 0.0)), (m.get('seat') if c.get('seat', True) else None)
+        # a seat faces its table; on a standing mark nobody is pinned to the lens: they turn to whoever matters (acting.res_face)
+        seat = m.get('seat') if c.get('seat', True) else None
+        return m['pos'], c.get('face', m.get('face')), seat
     if c.get('pos'):
         return tuple(c['pos']), c.get('face', 0.0), (A.SEAT_H if c.get('seat') is True else None)
     return (spots.pop(0) if spots else (0, 0)), c.get('face', None), None
@@ -261,7 +263,7 @@ for k in JOB.get('keys') or []:
         if m and m.get('seat') and k.pop('sit', True) and not getattr(a.P, 'guest', False):
             a.key(end - 8, dict(seat=m['seat'], face=m.get('face', 0)))
         elif m:
-            a.key(end - 10, dict(face=m.get('face', 0)))
+            a.key(end - 10, dict(face=m.get('face')))     # arrived on a standing mark: free to turn to whoever matters
     if to_mark is not None:
         a.mark = to_mark
     if k.get('g') in ('typing', 'desk'):
