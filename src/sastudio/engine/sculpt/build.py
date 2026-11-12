@@ -2,7 +2,7 @@
 
     python engine/sculpt/build.py <characters folder or .json> <output rig folder> [ids] [--jobs N]
 
-Needs numpy, scipy and scikit-image (`pip install security-awareness-studio[clay]`).
+Needs numpy, scipy and scikit-image (`pip install clayvoyant[clay]`).
 Each character file is JSON: {"head": {..., "hairstyle": one of hair.STYLE}, "body": {..., "torso": one of TORSO}}.
 Output: <rig>/<id>/*.npz and <rig>/meta.json, which engine/clay/puppet.py loads inside Blender.
 """

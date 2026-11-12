@@ -58,7 +58,7 @@ checks each voice against the provider's catalogue before anything is sent.
 A free neural voice with no account, no key and no network once installed.
 
 ```bash
-pip install "security-awareness-studio[voices]"     # the kokoro-onnx package
+pip install "clayvoyant[voices]"     # the kokoro-onnx package
 sastudio voices install kokoro                      # the model, once: about 350 MB, checked by SHA-256
 ```
 

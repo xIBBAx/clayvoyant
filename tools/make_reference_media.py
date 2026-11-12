@@ -208,7 +208,7 @@ def projects(work: Path) -> None:
     text = replace_once(
         text,
         '  announcement: "Watch in order or pick any scene. Each one stands on its own unless it says otherwise."',
-        '  announcement: "A preview of the starter film made with Security Awareness Studio."',
+        '  announcement: "A preview of the starter film made with Clayvoyant."',
     )
     text, n = re.subn(
         r"scenes:\n(  - file: .*\n)+",

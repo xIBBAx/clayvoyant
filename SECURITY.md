@@ -4,7 +4,7 @@
 
 Please report security problems privately, not in a public issue. Use GitHub's
 **Report a vulnerability** button on the repository's Security tab, or email
-**ibrahimsultan4705@gmail.com** with "Security Awareness Studio" in the subject.
+**ibrahimsultan4705@gmail.com** with "Clayvoyant" in the subject.
 
 Include what you found, how to reproduce it and what it affects. I will reply as soon as I
 can and credit you in the release notes if you would like that.

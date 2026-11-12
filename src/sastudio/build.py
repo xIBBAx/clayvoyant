@@ -445,7 +445,7 @@ def build(project: Project, *, language: str | None = None, scene_ids=None, pres
     if placeholders:
         result.warnings.append("Placeholder reporting contacts, which nobody receives: " + "; ".join(placeholders) + ".")
     manifest = {
-        "tool": "Security Awareness Studio", "version": __version__, "built": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "tool": "Clayvoyant", "version": __version__, "built": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "language": lang, "preset": preset, "renderer": renderer, "fps": FPS,
         "scenes": [{"id": t.id, "frames": t.frames, "seconds": round(t.seconds, 3)} for t in sequence],
         "rendered": sorted(result.rendered), "reused": sorted(result.reused),

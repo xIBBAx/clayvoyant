@@ -1,4 +1,4 @@
-# Security Awareness Studio project file.
+# Clayvoyant project file.
 # Everything your film says and shows is set here and in scenes/*.yaml.
 # Reference: docs/CONFIGURATION.md. Check your edits with:  sastudio validate .
 schema_version: 1

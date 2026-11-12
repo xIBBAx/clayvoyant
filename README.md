@@ -2,9 +2,10 @@
   <img src="docs/media/brand/mark-clay-512.png" width="168" alt="The project's mark, sculpted in clay by the engine itself: a round teal disc pressed with the ridges of a thumbprint, which circle an orange eye.">
 </p>
 
-<h1 align="center">Security Awareness Studio</h1>
+<h1 align="center">Clayvoyant</h1>
 
 <p align="center">
+  <b>See the scam coming.</b><br>
   <b>Clay stop-motion films, written as plain text.</b><br>
   Describe the people, write what they say, choose where it happens.<br>
   The studio sculpts the cast, builds the set, lights it, films it and gives it a voice.
@@ -19,8 +20,8 @@
 </p>
 
 <p align="center">
-  <a href="https://cdn.jsdelivr.net/gh/xIBBAx/security-awareness-studio@324ac19/docs/media/the-fast-one.mp4"><img src="docs/media/film/the-fast-one.gif" width="800" alt="A few seconds of the sample film The Fast One: in a cafe at dusk, Tara, a clay figure with a ponytail and a mustard jacket, sits at a round table with a laptop and talks with Odile, who runs the cafe. Their mouths move with the words, they turn to each other and gesture, and the camera cuts between a two-shot and close-ups."></a><br>
-  <a href="https://cdn.jsdelivr.net/gh/xIBBAx/security-awareness-studio@324ac19/docs/media/the-fast-one.mp4"><b>Watch the whole film</b></a> (82 seconds) ·
+  <a href="https://cdn.jsdelivr.net/gh/xIBBAx/clayvoyant@324ac19/docs/media/the-fast-one.mp4"><img src="docs/media/film/the-fast-one.gif" width="800" alt="A few seconds of the sample film The Fast One: in a cafe at dusk, Tara, a clay figure with a ponytail and a mustard jacket, sits at a round table with a laptop and talks with Odile, who runs the cafe. Their mouths move with the words, they turn to each other and gesture, and the camera cuts between a two-shot and close-ups."></a><br>
+  <a href="https://cdn.jsdelivr.net/gh/xIBBAx/clayvoyant@324ac19/docs/media/the-fast-one.mp4"><b>Watch the whole film</b></a> (82 seconds) ·
   <a href="docs/SHOWCASE.md"><b>Before and after, frame by frame</b></a>
 </p>
 
@@ -32,12 +33,15 @@ room is built by code; every shot is planned like a film and can be changed in a
 
 ## Make a film
 
+Clayvoyant was called Security Awareness Studio until November 2026; old links redirect here. The
+command is `sastudio`, and `clayvoyant` works the same.
+
 You need Python 3.11+, FFmpeg and [Blender](https://www.blender.org/download/) 4.2 or newer
 ([installing them](docs/INSTALLATION.md)). A GPU makes it quicker; it is not required.
 
 ```bash
-git clone https://github.com/xIBBAx/security-awareness-studio
-cd security-awareness-studio
+git clone https://github.com/xIBBAx/clayvoyant
+cd clayvoyant
 python3 -m venv .venv && . .venv/bin/activate      # Windows: .venv\Scripts\activate
 pip install -e ".[clay,voices]"
 
@@ -53,7 +57,7 @@ account and no API key. Edit a line and only the shots it can affect are filmed 
   <img src="docs/media/film/the-fast-one-sheet.jpg" width="100%" alt="Twelve frames from The Fast One. A cafe at dusk with the city in the window: Tara at a table with her laptop and Odile behind the counter, seen whole; Tara listening in close-up while Odile explains which Wi-Fi is hers; Tara reading out what the other network wants; the two of them at the table; Odile in close-up, smiling. A key point card. Then an office in morning light: Tara arriving at Bashir's desk; Bashir, bearded and in glasses, asking what stopped her; Tara explaining with her palms open; Bashir standing to make his point; the two of them as he offers to buy the coffee. A last key point card.">
 </p>
 
-**[Watch The Fast One](https://cdn.jsdelivr.net/gh/xIBBAx/security-awareness-studio@324ac19/docs/media/the-fast-one.mp4)** (82 seconds, 6.4 MB; it opens and plays in the browser, subtitles in
+**[Watch The Fast One](https://cdn.jsdelivr.net/gh/xIBBAx/clayvoyant@324ac19/docs/media/the-fast-one.mp4)** (82 seconds, 6.4 MB; it opens and plays in the browser, subtitles in
 the picture; the file is [`docs/media/the-fast-one.mp4`](docs/media/the-fast-one.mp4), with
 [WebVTT subtitles](docs/media/the-fast-one.en-GB.vtt)). It is exactly what the command above
 makes with `--preset preview`: 1280x720 at 24 frames a second, 1,974 frames, two scenes, seventeen

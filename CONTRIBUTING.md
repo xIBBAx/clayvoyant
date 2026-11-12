@@ -11,8 +11,8 @@ documentation are all welcome.
 ## Set up
 
 ```bash
-git clone https://github.com/xIBBAx/security-awareness-studio
-cd security-awareness-studio
+git clone https://github.com/xIBBAx/clayvoyant
+cd clayvoyant
 python -m venv .venv && . .venv/bin/activate      # Windows: .venv\Scripts\activate
 pip install -e . pytest ruff
 pytest

@@ -41,7 +41,7 @@ def engine_included() -> bool:
 
 def require_engine() -> None:
     if not engine_included():
-        raise ToolMissing("The clay engine files are missing from this installation of Security Awareness Studio.",
+        raise ToolMissing("The clay engine files are missing from this installation of Clayvoyant.",
                           "Reinstall the package, or use the cards renderer: sastudio render <project>.")
 
 
@@ -89,7 +89,7 @@ def build_rigs(project, ids: list[str] | None = None, jobs: int = 2, log=print) 
         import skimage  # noqa: F401
     except ImportError:
         raise ToolMissing("Sculpting clay characters needs numpy, scipy and scikit-image.",
-                          "Install them with: pip install \"security-awareness-studio[clay]\"")
+                          "Install them with: pip install \"clayvoyant[clay]\"")
     root = rig_dir(project)
     root.mkdir(parents=True, exist_ok=True)
     todo = []

@@ -230,7 +230,7 @@ def cmd_doctor(a) -> int:
     from .doctor import format_checks, run_checks
 
     checks = run_checks(Path(a.project) if a.project else None)
-    print(f"Security Awareness Studio {__version__}")
+    print(f"Clayvoyant {__version__}")
     print(format_checks(checks))
     return 1 if any(c.status == "fail" for c in checks) else 0
 
