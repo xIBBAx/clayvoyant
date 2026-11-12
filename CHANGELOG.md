@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+### Solid contact
+
+- **Nothing passes through anything.** Feet come down on the real surface under the whole sole (floor,
+  rug, a table's base); a seated body rests on the seat and its thighs on the cushion; hands laid on a
+  table rest on its top, with the forearms clear of its edge; feet and shins are moved out of chair
+  bases and table feet; a gesturing hand is nudged out of a mug or a machine. Every correction is
+  measured on the posed geometry and kept for that seat, table or spot.
+- Chairs are shallower than a thigh is long, so knees clear the front edge.
+- People walk around furniture: each walk is routed on a top-down map of the set (a body's width kept clear of
+  every table, chair and counter), and an entrance starts early enough for the longer way round.
+- `tools/check_contacts.py PROJECT` reports any character triangle inside the set or another
+  character, frame by frame, and fails if there is one.
+
 ## 0.3.0 (2026-11-12)
 
 ### Clay films
