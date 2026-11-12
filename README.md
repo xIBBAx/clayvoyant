@@ -19,7 +19,9 @@
 </p>
 
 <p align="center">
-  <img src="docs/media/film/the-fast-one.gif" width="800" alt="A few seconds of the sample film The Fast One: in a cafe at dusk, Tara, a clay figure with a ponytail and a mustard jacket, sits at a round table with a laptop and talks with Odile, who runs the cafe. Their mouths move with the words, they turn to each other and gesture, and the camera cuts between a two-shot and close-ups.">
+  <a href="docs/media/the-fast-one.mp4"><img src="docs/media/film/the-fast-one.gif" width="800" alt="A few seconds of the sample film The Fast One: in a cafe at dusk, Tara, a clay figure with a ponytail and a mustard jacket, sits at a round table with a laptop and talks with Odile, who runs the cafe. Their mouths move with the words, they turn to each other and gesture, and the camera cuts between a two-shot and close-ups."></a><br>
+  <a href="docs/media/the-fast-one.mp4"><b>Watch the whole film</b></a> (82 seconds) ·
+  <a href="docs/SHOWCASE.md"><b>Before and after, frame by frame</b></a>
 </p>
 
 It began as a tool for security-awareness training, and it still makes that better than anything
@@ -51,8 +53,8 @@ account and no API key. Edit a line and only the shots it can affect are filmed 
   <img src="docs/media/film/the-fast-one-sheet.jpg" width="100%" alt="Twelve frames from The Fast One. A cafe at dusk with the city in the window: Tara at a table with her laptop and Odile behind the counter, seen whole; Tara listening in close-up while Odile explains which Wi-Fi is hers; Tara reading out what the other network wants; the two of them at the table; Odile in close-up, smiling. A key point card. Then an office in morning light: Tara arriving at Bashir's desk; Bashir, bearded and in glasses, asking what stopped her; Tara explaining with her palms open; Bashir standing to make his point; the two of them as he offers to buy the coffee. A last key point card.">
 </p>
 
-**[Watch The Fast One](https://github.com/xIBBAx/security-awareness-studio/releases/latest/download/The_Fast_One.en-GB.mp4)** (82 seconds, 6.5 MB; attached to the release
-with its [subtitles](https://github.com/xIBBAx/security-awareness-studio/releases/latest/download/The_Fast_One.en-GB.srt)). It is exactly what the command above
+**[Watch The Fast One](docs/media/the-fast-one.mp4)** (82 seconds, 6.4 MB, plays on GitHub; subtitles
+in [WebVTT](docs/media/the-fast-one.en-GB.vtt)). It is exactly what the command above
 makes with `--preset preview`: 1280x720 at 24 frames a second, 1,974 frames, two scenes, seventeen
 filmed shots (two of them reactions cut into the middle of a line), thirteen Kokoro lines at -16
 LUFS. Filming every shot from nothing took 55 minutes on a laptop GeForce GTX 1660 Ti.

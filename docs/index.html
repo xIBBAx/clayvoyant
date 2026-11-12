@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Fast One · Security Awareness Studio</title>
+<meta name="description" content="An 82-second clay stop-motion film made entirely by Security Awareness Studio from two scene files and one page of character descriptions.">
+<style>
+  :root { --bg: #f6f3ee; --ink: #1c1c1e; --muted: #5b5b60; --rule: #ddd6cb; --accent: #23493b; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #141518; --ink: #ecebe8; --muted: #a3a29e; --rule: #2c2d31; --accent: #8cc3ae; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 17px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1040px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: clamp(28px, 5vw, 44px); line-height: 1.1; margin: 0 0 8px; letter-spacing: -0.01em; }
+  h2 { font-size: 22px; margin: 48px 0 8px; }
+  p { margin: 8px 0; color: var(--muted); }
+  a { color: var(--accent); }
+  video { width: 100%; height: auto; display: block; border-radius: 10px; background: #000; margin: 24px 0 12px; }
+  .specs { font-size: 15px; color: var(--muted); }
+  figure { margin: 24px 0 0; }
+  figure img { width: 100%; height: auto; display: block; border-radius: 8px; }
+  figcaption { font-size: 15px; color: var(--muted); margin-top: 8px; }
+  code { font-size: 15px; }
+  footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--rule); font-size: 15px; color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <h1>The Fast One</h1>
+  <p>A clay stop-motion short made by <a href="https://github.com/xIBBAx/security-awareness-studio">Security Awareness Studio</a> from two scene files and one page of character descriptions. Nobody opened Blender, drew anything or recorded a voice.</p>
+
+  <video controls preload="metadata" playsinline poster="media/film/the-fast-one-poster.jpg">
+    <source src="media/the-fast-one.mp4" type="video/mp4">
+    <track kind="subtitles" src="media/the-fast-one.en-GB.vtt" srclang="en" label="English" default>
+    Your browser cannot play this video. <a href="media/the-fast-one.mp4">Download it</a> (6.4 MB).
+  </video>
+  <p class="specs">1280x720, 24 frames a second, 82.25 seconds, 1,974 frames. Seventeen filmed shots, thirteen lines voiced by Kokoro on the computer that made it, -16 LUFS. Made with <code>sastudio film examples/the-fast-one --preset preview</code> in 55 minutes on a laptop GeForce GTX 1660 Ti.</p>
+
+  <h2>What changed, frame by frame</h2>
+  <p>Each pair is two real renders of the same moment: on the left before a fix, on the right after it.</p>
+
+  <figure><img src="media/proof/eyelines.jpg" alt="Left: Tara stands square to the camera while Bashir talks to her. Right: the same frame after the fix, Tara turned towards Bashir." loading="lazy">
+    <figcaption>People turn to the person they talk to. Every standing spot used to pin a body to the lens.</figcaption></figure>
+  <figure><img src="media/proof/framing-wide.jpg" alt="Left: the speaker cut in half by the left edge of a wide shot. Right: the same wide with her fully inside the frame." loading="lazy">
+    <figcaption>Everyone a shot is on stays inside the frame: heads are projected through the real lens.</figcaption></figure>
+  <figure><img src="media/proof/over-the-shoulder.jpg" alt="Left: an over-the-shoulder shot that shows the back of the speaker's head. Right: the same line filmed from the front, her face and her phone visible." loading="lazy">
+    <figcaption>No shot shows the back of a speaker's head.</figcaption></figure>
+  <figure><img src="media/proof/reaction-cut.jpg" alt="Left: Odile speaking behind the counter. Right: the cut to Tara listening while Odile's line continues." loading="lazy">
+    <figcaption>A long line cuts to the listener between two words, where the speaker's mouth rests.</figcaption></figure>
+
+  <h2>Things a scene file can ask for</h2>
+  <figure><img src="media/proof/light-tuned.jpg" alt="Left: a close-up under the preset light. Right: the same close-up with a low warm key from the other side." loading="lazy">
+    <figcaption><code>direction.light</code>: the preset on the left, a low warm key from camera right on the right.</figcaption></figure>
+  <figure><img src="media/proof/laptop-closes.jpg" alt="A home office: Bashir's laptop is open at the start of the shot and closed at the end." loading="lazy">
+    <figcaption><code>direction.props</code>: Bashir's laptop closes as Tara arrives.</figcaption></figure>
+  <figure><img src="media/proof/steam-and-clock.jpg" alt="Left: steam rising off a mug on a cafe table. Right: a wall clock reading five past seven." loading="lazy">
+    <figcaption><code>direction.dressing: [steam]</code> and <code>direction.clock: "07:05"</code>.</figcaption></figure>
+
+  <footer>Everything on this page was rendered by the code in the repository. <a href="https://github.com/xIBBAx/security-awareness-studio">Source, documentation and the sample project</a> · MIT License · Ibrahim Sultan</footer>
+</main>
+</body>
+</html>
