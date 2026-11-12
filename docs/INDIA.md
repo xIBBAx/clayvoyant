@@ -46,7 +46,7 @@ filmed in clay in both languages.
 [English](https://cdn.jsdelivr.net/gh/xIBBAx/clayvoyant@4f9cbbc/docs/media/nineteen-thirty.en-IN.mp4) ·
 [Hindi in Roman letters](https://cdn.jsdelivr.net/gh/xIBBAx/clayvoyant@4f9cbbc/docs/media/nineteen-thirty.hi-Latn.mp4) ·
 Hindi in Devanagari and the phone versions are on the
-[latest release](https://github.com/xIBBAx/clayvoyant/releases/latest).
+[0.3.1 release](https://github.com/xIBBAx/clayvoyant/releases/tag/v0.3.1).
 
 This is the template exactly as `init` makes it, rendered in Hindi with drawn characters on a
 laptop processor (5 minutes 53 seconds of film in under four minutes, no graphics card):
