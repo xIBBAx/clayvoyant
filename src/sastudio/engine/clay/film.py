@@ -218,6 +218,134 @@ for ln in JOB.get('lines') or []:
 for nm, t in STG['things'].items():
     PERF.things[nm] = t
 
+# ------------------------------------------------------------------ solid contact: nothing passes through anything
+# Everything built so far is the set: floors, rugs, furniture, props. Its surfaces are ray-cast to put feet on the floor
+# (or the rug, or a table's base) and seated bodies on the seat, and hands that rest on a table on its top.
+import numpy as _np  # noqa: E402
+from mathutils.bvhtree import BVHTree as _BVH  # noqa: E402
+
+
+def _solid_tree():
+    verts, polys, n0 = [], [], 0
+    door = STG.get('door')
+    skip = {o.name for a in PERF.actors.values() for o in getattr(a.P, 'parts', [])}      # the cast is not the set
+    for a in PERF.actors.values():
+        root = getattr(a.P, 'root', None)
+        if root is not None:
+            skip |= {c.name for c in root.children_recursive}
+    if door is not None:
+        skip |= {door.name} | {c.name for c in door.children_recursive}
+    for o in bpy.data.objects:
+        if o.type != 'MESH' or o.name in skip or o.hide_render:
+            continue
+        me = o.data
+        co = _np.empty(len(me.vertices) * 3, _np.float32)
+        me.vertices.foreach_get('co', co)
+        M = _np.array(o.matrix_world, dtype=_np.float32)
+        co = co.reshape(-1, 3) @ M[:3, :3].T + M[:3, 3]
+        verts.extend(map(tuple, co))
+        polys.extend(tuple(v + n0 for v in p.vertices) for p in me.polygons)
+        n0 += len(me.vertices)
+    return _BVH.FromPolygons(verts, polys) if polys else None
+
+
+bpy.context.view_layer.update()
+SOLID = _solid_tree()
+
+
+def surface_under(x, y, z_from, reach):
+    """The top of the first solid surface straight under (x, y, z_from), no further down than reach."""
+    if SOLID is None:
+        return None
+    hit = SOLID.ray_cast(V((x, y, z_from)), V((0, 0, -1)), reach)
+    return hit[0].z if hit[0] is not None else None
+
+
+def _ground(x, y):
+    z = surface_under(x, y, .35, .6)     # from below a seat: the floor, a rug, the foot of a table
+    return z if z is not None else 0.0
+
+
+PERF.ground = _ground
+CLEAR = .004      # how far above a surface a resting body or hand sits: touching, never inside
+
+
+def _lowest(o):
+    """The lowest point of one of a puppet's parts, as it is posed now (world space)."""
+    ev = o.evaluated_get(bpy.context.evaluated_depsgraph_get())
+    me = ev.to_mesh()
+    try:
+        if not len(me.vertices):
+            return None
+        co = _np.empty(len(me.vertices) * 3, _np.float32)
+        me.vertices.foreach_get('co', co)
+    finally:
+        ev.to_mesh_clear()
+    M = _np.array(o.matrix_world, dtype=_np.float32)
+    co = co.reshape(-1, 3) @ M[:3, :3].T + M[:3, 3]
+    return V(co[int(_np.argmin(co[:, 2]))])
+
+
+def _part(a, suffix):
+    return next((o for o in getattr(a.P, 'parts', []) if o.type == 'MESH' and o.name.endswith(suffix)), None)
+
+
+def _gap(o, up):
+    """(how far the part's lowest point is above the surface under it, minus CLEAR) or None with nothing under it."""
+    low = _lowest(o) if o is not None else None
+    if low is None:
+        return None
+    surf = surface_under(low.x, low.y, low.z + up, up + .25)
+    return None if surf is None else low.z - surf - CLEAR
+
+
+def _seated_for(a, f):
+    on, since = False, None
+    for k in a.keys:
+        if k[0] > f:
+            break
+        now = bool(k[1].get('seat'))
+        if now and not on:
+            since = k[0]
+        on = now
+    return (f - since) if on and since is not None else 0
+
+
+def settle(f):
+    """After everyone is posed: a seated body rests on its seat (not in it, not above it) and a hand laid on a table rests
+    on the top. What is measured is kept (seat_lift, hand_lift), so the next frames start right and seldom pose twice."""
+    bpy.context.view_layer.update()
+    again = []
+    for a in PERF.actors.values():
+        if getattr(a.P, 'guest', False) or getattr(a, 'cull', False) or not a.P.vis:
+            continue
+        cur = a.state(f)[1][1]
+        moved = False
+        if cur.get('seat'):
+            g_ = _gap(_part(a, '_torso'), .3)
+            # up out of the seat at any time; down onto it only once they have been sitting a second (sitting down
+            # passes above the seat, and that is not hovering)
+            if g_ is not None and (g_ < -.002 or (g_ > .003 and _seated_for(a, f) > 24)):
+                a.seat_lift = getattr(a, 'seat_lift', 0.0) - g_
+                moved = True
+        if cur.get('hL') is not None or cur.get('hR') is not None:
+            lifts = getattr(a, 'hand_lift', {})
+            for side in ('L', 'R'):
+                g_ = _gap(_part(a, '_h' + side), .25)
+                if g_ is not None and g_ < -.002:
+                    lifts[side] = lifts.get(side, 0.0) - g_
+                    moved = True
+            a.hand_lift = lifts
+        if moved:
+            again.append(a)
+    for a in again:
+        PERF.pose_one(a, f)
+    if again:
+        bpy.context.view_layer.update()
+
+
+PERF.settle = settle
+
 # ------------------------------------------------------------------ dressing that moves (direction.dressing)
 ANIMATORS = []
 DRESS = set(SET.get('dressing') or [])

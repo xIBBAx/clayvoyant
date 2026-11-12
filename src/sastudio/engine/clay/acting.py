@@ -188,6 +188,7 @@ TALK = ['talk', 'talkR', 'chest', 'talkWide', 'weigh', 'talkL', 'palmsDown', 'pr
 STYLE = dict(amp=1.0, loose=1.0, bend=0.0, stance=.24, speed=.075, step=.9, bob=.045, contra=.8)
 KEYS = ('g', 'f', 'look', 'face', 'on', 'lean', 'seat', 'nod', 'turn', 'tilt', 'ly', 'hL', 'hR', 'pL', 'pR', 'bkL', 'bkR', 'cL', 'cR')
 SEAT_H = .82      # an ordinary chair: where the top of the seat is
+SOLE = .004       # the shoe's lowest point sits this far under the foot's target: lift it so the sole rests on top
 
 
 def _wph(e, n):
@@ -362,6 +363,8 @@ class Performance:
 
     def __init__(s, fps=24, floor=0.0):
         s.fps, s.floor = fps, floor
+        s.ground = None     # f(x, y) -> the height of whatever solid surface is under that point (set by the film)
+        s.settle = None     # f(frame): after everyone is posed, measure contacts and correct them (set by the film)
         s.actors, s.lines, s.things = {}, [], {}
         s.cam = None
 
@@ -442,6 +445,17 @@ class Performance:
             return None
         return V(t)
 
+    def ground_at(s, x, y):
+        """Where a foot set down at (x, y) comes to rest: the top of the floor, the rug or the base it stands on."""
+        return s.floor if s.ground is None else s.ground(x, y)
+
+    def ground_foot(s, x, y, yaw):
+        """A foot is not a point: it rests on the highest thing under its heel, its middle or its toe."""
+        if s.ground is None:
+            return s.floor
+        fx, fy = math.sin(yaw), -math.cos(yaw)
+        return max(s.ground(x + fx * d, y + fy * d) for d in (-.12, 0.0, .2))
+
     def pose(s, f):
         # two passes on the first frame, so that everyone knows where everyone's head is before they look at each other
         if not getattr(s, '_primed', False):
@@ -450,6 +464,8 @@ class Performance:
                 s.pose_one(a, f)
         for a in s.actors.values():
             s.pose_one(a, f)
+        if s.settle is not None:
+            s.settle(f)     # nothing solid passes through anything else: measured, and put right
 
     def pose_one(s, a, f):
         if getattr(a.P, 'guest', False):
@@ -489,7 +505,7 @@ def pose_actor(S_, a, f):
     g1 = GEST[cur[1]['g']]
     Mo = {k: fold(lambda m_, k=k: MOOD[K_[m_][1]['f']][k], 13) for k in MOOD['neutral']}
     pos, feet, yaw_w, walk_amt = a.locate(f)
-    pos = (pos[0], pos[1], pos[2] + S_.floor)
+    pos = (pos[0], pos[1], pos[2] + S_.ground_at(pos[0], pos[1]))
     S = S_.speaking(a.name, f)
     str_ = S_.stress(a.name, f)
     seed = a.seed
@@ -574,11 +590,11 @@ def pose_actor(S_, a, f):
         sR = (x + rgt[0] * .27 + fwd[0] * for_, y + rgt[1] * .27 + fwd[1] * for_, 0)
         fL = tuple(lerp(p_, q_, seatA) for p_, q_ in zip(fL, sL))
         fR = tuple(lerp(p_, q_, seatA) for p_, q_ in zip(fR, sR))
-        z = z - seatA * max(0, (hip + .09) - (seat_h + .15))
+        z = z - seatA * max(0, (hip + .09) - (seat_h + .15)) + seatA * getattr(a, 'seat_lift', 0.0)
         bendf += .03 * seatA
-    if fz:
-        fL = (fL[0], fL[1], fL[2] + fz)
-        fR = (fR[0], fR[1], fR[2] + fz)
+    # each foot comes down on the solid surface under it (floor, rug, a table's base), not through it
+    fL = (fL[0], fL[1], fL[2] + S_.ground_foot(fL[0], fL[1], yaw) - S_.floor + fz + SOLE)
+    fR = (fR[0], fR[1], fR[2] + S_.ground_foot(fR[0], fR[1], yaw) - S_.floor + fz + SOLE)
     # stand tall: the leg slack exists for the stride; standing, the knees are all but straight
     slack_ = 2 * P.legl - (hip + .09 - .27) - .012
     z = z + max(0, slack_) * (1 - seatA)
@@ -605,7 +621,8 @@ def pose_actor(S_, a, f):
         k_ = K_[m_][1]
         A_ = k_.get('h' + side)
         if A_ is not None:
-            return Mi_ @ V(A_) - V((0, 0, sz))
+            # a hand laid on a table rests on it: lifted by what the last measurement found inside the top
+            return Mi_ @ (V(A_) + V((0, 0, getattr(a, 'hand_lift', {}).get(side, 0.0)))) - V((0, 0, sz))
         return V(P.place(k_['g'], side, GEST[k_['g']][side]))
 
     def durh(side, m_):

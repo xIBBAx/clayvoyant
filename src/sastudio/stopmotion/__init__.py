@@ -28,7 +28,7 @@ from ..render import clay
 
 FPS = 24
 STEP = 2
-ENGINE_VERSION = "7"  # bump when the engine changes what it draws: every cached shot is filmed again
+ENGINE_VERSION = "8"  # bump when the engine changes what it draws: every cached shot is filmed again
 PRESETS = {"draft": (960, 540, 6), "preview": (1280, 720, 12), "final": (1920, 1080, 24)}
 LEAD = 3              # frames of breath before a line when there is no recorded audio to time it
 SPEAKER_UNTIL = "speaker_until"   # in a line's folder: the first frame of the line that does not show its speaker
