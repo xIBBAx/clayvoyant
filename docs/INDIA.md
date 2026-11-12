@@ -35,6 +35,20 @@ Hindi:
 The sample film [Nineteen Thirty](../examples/nineteen-thirty/) is the first scene on its own,
 filmed in clay in both languages.
 
+This is the template exactly as `init` makes it, rendered in Hindi with drawn characters on a
+laptop processor (5 minutes 53 seconds of film in under four minutes, no graphics card):
+
+![Ten frames of the Hindi film: the title card, then Gopal and Ira, Farhan and Arjun, Kamala and Lakshmi, Gopal and Arjun, Lakshmi and Farhan in their scenes, each with its headline at the top and a Devanagari subtitle, a key point card, and the closing card that names cybercrime.gov.in.](media/india/not-so-fast-sheet.hi-IN.jpg)
+
+The same film from `sastudio share`, for a phone held upright, and two pages from `sastudio posters`:
+
+![Four frames of the upright phone film in Hindi: the association's name and the title at the top, the film across the middle, the line being said in large Devanagari type below it, and "cybercrime.gov.in" along the foot.](media/india/phone-film.hi-IN.jpg)
+
+<p>
+  <img src="media/india/poster-the-call.hi-IN.jpg" width="49%" alt="An A4 poster in Hindi: the association's name on a teal band, the topic डिजिटल अरेस्ट, the headline वीडियो कॉल पर किसी की गिरफ़्तारी नहीं होती, the key point telling people to report the caller on sancharsaathi.gov.in and to call 1930 at once if money has gone, Gopal and Ira drawn below, and cybercrime.gov.in along the foot.">
+  <img src="media/india/poster-pin.en-IN.jpg" width="49%" alt="An A4 poster in English: the topic UPI PIN, the headline Receiving money never needs your PIN, the key point that a UPI PIN is only for paying, Farhan and Arjun drawn below, and cybercrime.gov.in along the foot.">
+</p>
+
 ## Where the advice comes from
 
 Every line of advice in the template follows a public advisory. Each scene's `policy_note` names
