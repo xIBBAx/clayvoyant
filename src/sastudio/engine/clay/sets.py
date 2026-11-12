@@ -219,7 +219,9 @@ def home_desk(C):
     for i in range(3):
         K.glow('rled', (-.18 + i * .09, -.2, 0), (.012, .006, .012), (.3, 1, .45), 5, router)
     K.pendant(1.5, 1.5, 6.9, shade='#e9d9b6', e=90, drop=1.5)
-    marks = dict(desk=mark(-3.9, 2.75, math.pi, .82, table=1.525), sofa=mark(3.4, 3.75, 0, .82), window=mark(-1.0, 4.3, -.4))
+    # sofa_side: standing by the sofa, close enough to talk to whoever sits on it
+    marks = dict(desk=mark(-3.9, 2.75, math.pi, .82, table=1.525), sofa=mark(3.4, 3.75, 0, .82), window=mark(-1.0, 4.3, -.4),
+                 sofa_side=mark(1.85, 3.0))
     return stage(marks, [(-1.2, .7), (1.5, .7), (-2.9, 1.4), (3.2, 1.3)],
                  dict(laptop=lap, phone=(3.2, 3.7, 1.0), mug=(3.7, 1.6, .95), plant=(-8.3, 4.5, 2.2), router=router), None, windows=True, back=back)
 

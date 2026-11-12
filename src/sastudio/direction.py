@@ -120,7 +120,7 @@ SETS: dict[str, dict] = {
     "meeting_room": {"marks": ["head_of_table", "left_seat", "right_seat", "screen", "door"],
                      "seats": ["head_of_table", "left_seat", "right_seat"],
                      "props": ["laptop", "phone", "mug", "screen", "poster"], "door": True},
-    "home_desk": {"marks": ["desk", "sofa", "window"], "seats": ["desk", "sofa"],
+    "home_desk": {"marks": ["desk", "sofa", "sofa_side", "window"], "seats": ["desk", "sofa"],
                   "props": ["laptop", "phone", "mug", "plant", "router"], "door": False, "clock": True},
     "cafe": {"marks": ["table_left", "table_right", "table_left_2", "table_right_2", "counter", "door"],
              "seats": ["table_left", "table_right", "table_left_2", "table_right_2"],
@@ -454,6 +454,20 @@ def _present(scene, d: dict) -> list[str]:
     return seen
 
 
+def _on_stage(scene, present: list[str]) -> list[list[str]]:
+    """Who is in the room for each line: someone who walks in is not there before their entrance line, and someone
+    who walks out is gone after their exit line. Shots before an entrance never frame the empty spot they arrive at."""
+    arrives, leaves = {}, {}
+    for i, ln in enumerate(scene.lines):
+        acts = ln.act or []
+        if "walk_in" in acts and ln.who and ln.who not in arrives:
+            arrives[ln.who] = i
+        if "walk_out" in acts and ln.who:
+            leaves[ln.who] = i
+    return [[c for c in present if arrives.get(c, -1) <= i and leaves.get(c, len(scene.lines)) >= i]
+            for i in range(len(scene.lines))]
+
+
 def plan(project) -> list[ScenePlan]:
     """Direct every enabled scene: explicit shots where given, varied defaults everywhere else."""
     plans: list[ScenePlan] = []
@@ -464,6 +478,7 @@ def plan(project) -> list[ScenePlan]:
         set_name = d.get("set") or _default_set(s)
         present = _present(s, d)
         sides = {cid: ("left" if i % 2 == 0 else "right") for i, cid in enumerate(present)}  # screen direction holds
+        stage = _on_stage(s, present)
         explicit: dict[str, list[dict]] = {}
         for shot in d.get("shots") or []:
             for lid in shot.get("lines") or []:
@@ -488,12 +503,13 @@ def plan(project) -> list[ScenePlan]:
             if ln.is_card:
                 shots.append(_shot(s, [ln.id], "insert", [], None, "static", {}, "an on-screen card"))
                 continue
+            here = stage[i] or present
             if ln.id == last_id and shots and not ln.camera:
-                cam, on, move, reason = _ending(d, ln, present, prev_end, seed)
+                cam, on, move, reason = _ending(d, ln, here, prev_end, seed)
                 prev_end = (cam, move)
             else:
-                cam, on, move, reason = _choose(s, d, ln, i, shots, present, prev_set, set_name, last_id, seed)
-            react = _reaction(d, ln, cam, present, shots, last_id, seed + i)
+                cam, on, move, reason = _choose(s, d, ln, i, shots, here, prev_set, set_name, last_id, seed)
+            react = _reaction(d, ln, cam, here, shots, last_id, seed + i)
             if react:
                 listener, at = react
                 shots.append(_shot(s, [ln.id], cam, on, ln.who, move, {"part": [0, at]}, reason))

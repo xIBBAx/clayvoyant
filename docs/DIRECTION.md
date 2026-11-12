@@ -274,7 +274,7 @@ character is given another.
 | `office` | *desk*, *desk_2*, standing_left, standing_right, window, door | laptop, laptop_2, phone, mug, badge, printer, plant, poster | yes |
 | `reception` | counter, visitor, standing_left, standing_right, door | badge, badge_reader, phone, visitor_book, plant, poster, monitor | yes |
 | `meeting_room` | *head_of_table*, *left_seat*, *right_seat*, screen, door | laptop, phone, mug, screen, poster | yes |
-| `home_desk` | *desk*, *sofa*, window | laptop, phone, mug, plant, router | no |
+| `home_desk` | *desk* (faces the window), *sofa* (faces the room), sofa_side, window | laptop, phone, mug, plant, router | no |
 | `cafe` | *table_left*, *table_right*, *table_left_2*, *table_right_2*, counter, door | laptop, phone, mug, wifi_sign | yes |
 | `corridor` | left, centre, right, door | badge, phone, poster, badge_reader | yes |
 | `street` | pavement_left, pavement_right, *bench*, bus_stop, shop_door, far_left, far_right | phone, car, bus_stop | no |

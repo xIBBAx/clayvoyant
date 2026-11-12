@@ -156,6 +156,11 @@ def _apply_design(data: dict, d: dict, given: dict | None = None) -> None:
             head.pop("bindi", None)
         body["necklace"] = 1 if "necklace" in ex else 0
         body["pin"] = 1 if "lapel_pin" in ex else 0
+        if body.get("torso") == "knit_vest":
+            body["lanyard"] = 1 if "lanyard" in ex else 0     # an ID card is worn to work, not with every vest
+        if body.get("torso") == "kurta":
+            # named, so a kurta sculpted with the old hem (over the tops of the legs) is sculpted again
+            body.setdefault("kurta_hem", .06)
 
 
 def _shape(data: dict, d: dict) -> None:
