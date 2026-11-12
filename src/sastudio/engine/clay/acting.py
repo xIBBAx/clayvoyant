@@ -459,7 +459,7 @@ class Performance:
             return s.floor
         fx, fy = math.sin(yaw), -math.cos(yaw)
         rx, ry = -fy, fx
-        return max(s.ground(x + fx * d + rx * w, y + fy * d + ry * w) for d in (-.12, 0.0, .2) for w in (-.07, .07))
+        return max(s.ground(x + fx * d + rx * w, y + fy * d + ry * w) for d in (-.16, 0.0, .12, .24) for w in (-.1, 0.0, .1))
 
     def pose(s, f):
         # two passes on the first frame, so that everyone knows where everyone's head is before they look at each other
@@ -606,6 +606,9 @@ def pose_actor(S_, a, f):
             fL = (fL[0] + pl_[0], fL[1] + pl_[1], fL[2])
         if pr_:
             fR = (fR[0] + pr_[0], fR[1] + pr_[1], fR[2])
+    if walk_amt < .05 and getattr(a, 'foot_lift', None):
+        fL = (fL[0], fL[1], fL[2] + a.foot_lift.get((here_, 'L'), 0.0))
+        fR = (fR[0], fR[1], fR[2] + a.foot_lift.get((here_, 'R'), 0.0))
     # each foot comes down on the solid surface under it (floor, rug, a table's base), not through it
     fL = (fL[0], fL[1], fL[2] + S_.ground_foot(fL[0], fL[1], yaw) - S_.floor + fz + SOLE)
     fR = (fR[0], fR[1], fR[2] + S_.ground_foot(fR[0], fR[1], yaw) - S_.floor + fz + SOLE)

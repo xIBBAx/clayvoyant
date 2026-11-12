@@ -411,9 +411,24 @@ def settle(f, depth=0):
         if not a.walking(f):
             here = getattr(a, 'spot', None)
             push = getattr(a, 'foot_push', {})
+            flift = getattr(a, 'foot_lift', {})
             for side in ('L', 'R'):
                 shoe = _part(a, '_s' + side)
-                pts, co = _inside(shoe, -1.0, .6)
+                # in the floor (a plank standing proud, a bump in a rug): measured under its lowest points, and lifted
+                low_pts, low_co = _inside(shoe, -1.0, .08)
+                if len(low_pts) and low_co is not None and here is not None:
+                    sole = low_co[low_co[:, 2] < low_co[:, 2].min() + .05]      # the whole sole, not just its lowest point
+                    lows = sole[:: max(1, len(sole) // 400)]
+                    pen = 0.0
+                    for vx, vy, vz in lows:
+                        sz_ = surface_under(float(vx), float(vy), float(vz) + .1, .2)
+                        if sz_ is not None:
+                            pen = max(pen, sz_ - float(vz))
+                    if pen > 0 and flift.get((here, side), 0.0) < .1:
+                        flift[(here, side)] = flift.get((here, side), 0.0) + pen + .002
+                        moved = True
+                        continue
+                pts, co = _inside(shoe, .08, .6)
                 if not len(pts):
                     # a shin through a chair's leg or a table's foot: the foot moves, and the shin with it
                     pts, _ = _inside(_part(a, '_l' + side), -1.0, .55)
@@ -428,6 +443,7 @@ def settle(f, depth=0):
                         push[(here, side)] = (px + .05 * d[0] / n, py + .05 * d[1] / n)
                         moved = True
             a.foot_push = push
+            a.foot_lift = flift
         if moved:
             again.append(a)
     for a in again:
