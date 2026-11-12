@@ -2,7 +2,7 @@
 
 What was checked before the reference films were attached to the release, and how. Every film was
 rendered from this repository alone by `tools/make_reference_media.py`, with
-`sastudio 0.2.0`, Pillow 13.0.0 and ffmpeg version 6.1.1-3ubuntu5, on the machine described in
+`sastudio 0.3.0`, Pillow 13.0.0 and ffmpeg version 6.1.1-3ubuntu5, on the machine described in
 [REQUIREMENTS.md](../../REQUIREMENTS.md).
 
 **What the films are.** Illustrated cards with hard cuts: whoever is speaking, the line in large
