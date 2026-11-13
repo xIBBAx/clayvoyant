@@ -1,0 +1,54 @@
+id: held_door
+title: Held Door
+topic: tailgating
+summary: Kofi held the door for somebody this morning. Nadia asks the question that matters.
+headline: Kind is not the same as safe
+setting: { backdrop: office, time_of_day: morning }
+takeaway: "Holding a door is kind. Letting someone in without a badge is not: point them to reception."
+direction:
+  set: office
+  lighting: daylight
+  transition_in: fade_from_black
+  blocking: { nadia: desk }
+  business: { nadia: typing }
+  props:
+    - { thing: laptop, line: hd_06, at: 0.4, do: close }
+  sound:
+    cues:
+      - { sound: notification, line: hd_04, at: 0, offset: -0.8 }
+lines:
+  - id: hd_01
+    who: kofi
+    to: nadia
+    emotion: happy
+    act: [walk_in, wave]
+    say: "Morning, {nadia}. Somebody held the door for me downstairs. Then I held it for them."
+  - id: hd_02
+    who: nadia
+    to: kofi
+    emotion: suspicious
+    say: "Did they show you a badge?"
+  - id: hd_03
+    who: kofi
+    to: nadia
+    emotion: hesitate
+    go: desk_2
+    say: "No. They had coffee in both hands. It seemed rude to ask."
+  - id: hd_04
+    who: nadia
+    to: kofi
+    emotion: worried
+    act: [check_phone]
+    say: "Reception says nobody new signed in this morning."
+  - id: hd_05
+    who: kofi
+    to: nadia
+    emotion: embarrassed
+    act: [laugh]
+    say: "So I held the door for a stranger. Twice."
+  - id: hd_06
+    who: nadia
+    to: kofi
+    emotion: confident
+    act: [stand_up]
+    say: "Then let's tell reception, while they're still in the building."

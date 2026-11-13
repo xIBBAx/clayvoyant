@@ -175,7 +175,8 @@ Sitting down, one foot steps back and then the other, the same foot first all th
 on the side the body moves to): never both off the floor at once, and a foot turns to the seat's
 way only while it is in the air. Somebody who walks into a room with no door comes through an opening in its side wall. Walks are routed round the furniture with room for the legs
 and their stride. A standing place too close to furniture or to another person is moved the least
-distance that clears it, and the log says so.
+distance that clears it, and the log says so: clear of furniture by the body's footprint, and of
+other people by the room a standing body takes with its hands hanging at its sides.
 
 **The set itself.** Every loose thing a set puts down (a mug, a laptop, papers, books, a phone, a
 monitor, a plant) rests on the highest point under it, and things that share a surface keep out of

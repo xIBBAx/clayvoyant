@@ -1,0 +1,38 @@
+id: reception
+title: Reception
+topic: tailgating
+summary: Nadia reports it. Sana knows exactly what to do.
+headline: Say it while it matters
+setting: { backdrop: reception, time_of_day: morning }
+takeaway: "Report a stranger without a badge straight away, to {org.security_team} or reception."
+direction:
+  set: reception
+  lighting: daylight
+  blocking: { sana: counter }
+  sound:
+    cues:
+      - { sound: phone_ring, line: rc_04, at: 0, offset: -2.3, seconds: 2.1 }     # rings until Sana answers it
+lines:
+  - id: rc_01
+    who: nadia
+    to: sana
+    emotion: worried
+    act: [walk_in]
+    say: "{sana}, somebody followed my colleague in this morning, without a badge."
+  - id: rc_02
+    who: sana
+    to: nadia
+    emotion: concern
+    say: "Thank you for coming straight down. What did they look like?"
+  - id: rc_03
+    who: nadia
+    to: sana
+    emotion: think
+    act: [hand_on_chin]
+    say: "Grey coat. Two coffees. Very good at looking like they belong."
+  - id: rc_04
+    who: sana
+    to: nadia
+    emotion: confident
+    act: [phone_to_ear]
+    say: "That will be security calling back. We'll find them."
