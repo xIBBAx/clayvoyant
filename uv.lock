@@ -21,6 +21,8 @@ version = "0.4.0"
 source = { editable = "." }
 dependencies = [
     { name = "jsonschema" },
+    { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
+    { name = "numpy", version = "2.5.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "pillow" },
     { name = "pyyaml" },
 ]
@@ -58,6 +60,7 @@ requires-dist = [
     { name = "clayvoyant", extras = ["clay", "voices"], marker = "extra == 'all'" },
     { name = "jsonschema", specifier = ">=4.18,<5" },
     { name = "kokoro-onnx", marker = "extra == 'voices'", specifier = ">=0.6" },
+    { name = "numpy", specifier = ">=1.26" },
     { name = "numpy", marker = "extra == 'clay'", specifier = ">=1.26" },
     { name = "numpy", marker = "extra == 'voices'", specifier = ">=1.26" },
     { name = "pillow", specifier = ">=13.0,<14" },

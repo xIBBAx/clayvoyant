@@ -869,6 +869,103 @@
               },
               "maxProperties": 8,
               "description": "What people are doing when the scene opens: character id -> a gesture that holds (typing, hold_mug, check_phone, arms_folded ...)."
+            },
+            "sound": {
+              "type": "object",
+              "additionalProperties": false,
+              "description": "This scene's sound: its air, music on or off, kinds of effect to leave out, cues (docs/SOUND.md#a-scenes-sound).",
+              "properties": {
+                "ambience": {
+                  "oneOf": [
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "string",
+                      "maxLength": 200
+                    }
+                  ]
+                },
+                "ambience_db": {
+                  "type": "number",
+                  "minimum": -40,
+                  "maximum": 20
+                },
+                "music": {
+                  "oneOf": [
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "string",
+                      "enum": [
+                        "on",
+                        "off"
+                      ]
+                    }
+                  ]
+                },
+                "effects": {
+                  "type": "boolean"
+                },
+                "mute": {
+                  "type": "array",
+                  "uniqueItems": true,
+                  "maxItems": 20,
+                  "items": {
+                    "type": "string",
+                    "maxLength": 30
+                  }
+                },
+                "cues": {
+                  "type": "array",
+                  "maxItems": 60,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "sound",
+                      "line"
+                    ],
+                    "properties": {
+                      "sound": {
+                        "type": "string",
+                        "maxLength": 200
+                      },
+                      "line": {
+                        "$ref": "#/$defs/id"
+                      },
+                      "at": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 1
+                      },
+                      "offset": {
+                        "type": "number",
+                        "minimum": -30,
+                        "maximum": 30
+                      },
+                      "seconds": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 120
+                      },
+                      "volume_db": {
+                        "type": "number",
+                        "minimum": -40,
+                        "maximum": 20
+                      },
+                      "who": {
+                        "$ref": "#/$defs/id"
+                      },
+                      "thing": {
+                        "type": "string",
+                        "maxLength": 40
+                      }
+                    }
+                  }
+                }
+              }
             }
           }
         }
@@ -1524,6 +1621,144 @@
           "type": "number",
           "minimum": -60,
           "maximum": 0
+        }
+      }
+    },
+    "sound": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The soundtrack beyond the dialogue: effects, the air of each place, music, levels, mastering (docs/SOUND.md).",
+      "properties": {
+        "effects": {
+          "type": "boolean",
+          "description": "Sounds of what happens on screen (clay films): footsteps, seats, doors, chairs, laptops, typing."
+        },
+        "ambience": {
+          "type": "boolean",
+          "description": "The air of each place, from its set."
+        },
+        "library": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/relpath"
+            },
+            {
+              "type": "array",
+              "maxItems": 8,
+              "items": {
+                "$ref": "#/$defs/relpath"
+              }
+            }
+          ],
+          "description": "Your own recordings, by kind (docs/SOUND.md#your-own-recordings), or an installed pack's name."
+        },
+        "music": {
+          "type": "array",
+          "maxItems": 40,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "file"
+            ],
+            "properties": {
+              "file": {
+                "$ref": "#/$defs/relpath"
+              },
+              "scenes": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/id"
+                },
+                "uniqueItems": true,
+                "maxItems": 200
+              },
+              "start": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 36000
+              },
+              "volume_db": {
+                "type": "number",
+                "minimum": -40,
+                "maximum": 20
+              },
+              "fade_in": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 30
+              },
+              "fade_out": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 30
+              },
+              "loop": {
+                "type": "boolean"
+              }
+            }
+          }
+        },
+        "levels": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "effects_db": {
+              "type": "number",
+              "minimum": -40,
+              "maximum": 20
+            },
+            "ambience_db": {
+              "type": "number",
+              "minimum": -40,
+              "maximum": 20
+            },
+            "music_db": {
+              "type": "number",
+              "minimum": -40,
+              "maximum": 20
+            },
+            "duck_db": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 30
+            }
+          }
+        },
+        "master": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "loudness": {
+              "type": "number",
+              "minimum": -31,
+              "maximum": -9
+            },
+            "true_peak": {
+              "type": "number",
+              "minimum": -9,
+              "maximum": 0
+            },
+            "bitrate": {
+              "type": "integer",
+              "enum": [
+                96,
+                128,
+                160,
+                192,
+                256,
+                320
+              ]
+            }
+          }
+        },
+        "credits": {
+          "type": "array",
+          "maxItems": 50,
+          "items": {
+            "type": "string",
+            "maxLength": 300
+          }
         }
       }
     }

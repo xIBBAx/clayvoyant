@@ -56,6 +56,32 @@ Bodies that do not pass through things, and people who move like themselves. The
   typing away from a desk, a line spoken after its speaker walked out, an imported model sent to sit.
 - **The shot cache** is keyed by the engine's code as well as `ENGINE_VERSION` (now 11): a forgotten bump can no
   longer leave stale shots behind.
+- **Hands keep to their owner.** A gesture made beside somebody (open palms next to a person on a sofa, an arm swinging
+  past someone on a bench) ends short of their body, their head and their arms; folded arms lie one on the other; a
+  body comes down onto a hard seat exactly, measured where it rests, never hovering over it.
+
+### Sound
+
+The film now sounds like what it shows ([docs/SOUND.md](SOUND.md)).
+
+- **What happens is heard.** Every footstep where a foot comes down, on what it comes down on; a body arriving on a
+  seat or leaving it; a chair drawn in; a door's latch, swing and shut; a laptop's lid; hands typing. Read from the
+  scene's own plan, once per scene, so a sound lands on the drawing that shows its cause and is never played twice
+  by two shots. Nothing is added because of a word in the dialogue.
+- **Cues** for what no motion makes (a phone ringing or buzzing, a message, a knock, your own file), at a moment of a
+  line: `direction.sound.cues`.
+- **Rooms and their air.** Effects ring in a room the size of the set (Sabine's formula from its real dimensions);
+  every place has its room tone, made the length of the scene, never looped, crossfaded at a change of place.
+- **Music** from one file or many, per scene or under the whole film, matched in loudness, faded and crossfaded,
+  dipping under speech by an envelope with look-ahead and hold that cannot pump. `render.music` still works.
+- **Mastered and measured as heard.** -16 LUFS and -1.5 dBTP by default (`sound.master`), with a look-ahead true-peak
+  limiter; the encoded film is measured again and mastered again if the codec pushed a peak over. The manifest
+  says what the film measures, and says so when a target is not met.
+- **Your own recordings** by kind (`sound.library`), and `sastudio sounds install kenney` for Kenney's CC0
+  footsteps and doors, checked against pinned checksums; nothing is ever downloaded while filming.
+  `sastudio sounds list` and `sastudio sounds preview` name and play every sound.
+- Changing only the sound films nothing again: the scene's events are read once and kept.
+- numpy is now a dependency of the base package (the sound engine is written with it).
 
 ## 0.3.2 (2026-11-12)
 

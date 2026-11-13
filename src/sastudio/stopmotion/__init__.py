@@ -17,6 +17,7 @@ import math
 import os
 import shutil
 import subprocess
+import tempfile
 from dataclasses import dataclass, field
 from importlib import resources
 from pathlib import Path
@@ -25,6 +26,7 @@ from .. import claydesign, lipsync
 from .. import direction as D
 from ..errors import ConfigError, RenderError, ToolMissing
 from ..render import clay
+from ..safepath import atomic_write_text
 
 
 class ContactError(RenderError):
@@ -693,6 +695,51 @@ def film_scene(project, scene, plan: D.ScenePlan, spans: list[Span], preset: str
         away = [fr - sp.beat for _, held, shows in src if not shows for fr in held]
         (out[lid] / SPEAKER_UNTIL).write_text(str(min(away) if away else sp.frames))
     return out
+
+
+def scene_events(project, scene, plan: D.ScenePlan, spans: list[Span], total_frames: int, lang: str | None = None,
+                 phonemes: dict | None = None, log=print) -> list[dict]:
+    """What makes a sound in a scene (engine/clay/sounds.py), read from the scene's plan: one Blender run per scene,
+    nothing drawn, and kept, keyed by the scene's job, the rigs and the engine's code, so a change to the music or the
+    mix never runs it again. -> the engine's reports, in frame order."""
+    shots = [s for s in plan.shots if not is_card(s)]
+    if not shots or total_frames <= 0:
+        return []
+    clay.build_rigs(project, ids=list(plan.sides), log=log)
+    part = scene_job(project, scene, plan, spans, lang, phonemes)
+    job = shot_job(part, shots[0], list(range(0, total_frames)), "draft")
+    job.update(mode="events")
+    cast = [c["id"] for c in job["cast"]]
+    code = clay.ENGINE.joinpath("clay").joinpath("sounds.py")
+    key = hashlib.sha256((_digest(job, rig_stamps(project, cast)) + (code.read_text("utf-8") if code.is_file() else "")).encode()).hexdigest()[:20]
+    store = project.root / ".studio" / "cache" / "sound" / f"{scene.id}.{key}.json"
+    if store.is_file():
+        try:
+            return json.loads(store.read_text("utf-8"))
+        except ValueError:
+            store.unlink(missing_ok=True)       # a damaged record is made again
+    exe, wsl_win = find_blender()
+    conv = _winpath if wsl_win else str
+    job = dict(job, rig=conv(clay.rig_dir(project)), font=conv(_font()), device="CPU")
+    job["cast"] = [dict(c, model=conv(Path(c["model"]))) if c.get("model") else c for c in job.get("cast") or []]
+    log(f"  {scene.id}: reading what makes a sound ({total_frames} frames)")
+    with tempfile.TemporaryDirectory(prefix="sas-events-") as tmp:
+        jp = Path(tmp) / "job.json"
+        jp.write_text(json.dumps(job), "utf-8")
+        with resources.as_file(clay.ENGINE.joinpath("clay").joinpath("film.py")) as script:
+            try:
+                r = subprocess.run([exe, "-b", "--factory-startup", "-P", conv(Path(script)), "--", conv(jp)],
+                                   capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=3600)
+            except subprocess.TimeoutExpired:
+                raise RenderError(f"{scene.id}: reading the scene's sound events took over an hour.")
+    out = r.stdout or ""
+    if not any(ln.startswith("EVENTS done") for ln in out.splitlines()):
+        tail = "\n    ".join((out + (r.stderr or "")).strip().splitlines()[-12:])
+        raise RenderError(f"{scene.id}: Blender stopped before the scene's sound events were read (exit {r.returncode}):\n    {tail}")
+    events = [json.loads(ln[6:]) for ln in out.splitlines() if ln.startswith("EVENT ")]
+    store.parent.mkdir(parents=True, exist_ok=True)
+    atomic_write_text(store, json.dumps(events))
+    return events
 
 
 def _line_folder(project, folder, name: str, beat: int, frames: int) -> Path:

@@ -544,6 +544,7 @@ def validate(project: Project, *, only: Iterable[str] | None = None) -> list[Iss
                                     'Add `model_license: "..."` (for example "CC BY 4.0, author, link" or "made by me").'))
     if project.render_cfg.get("music"):
         _check_file(project, project.render_cfg["music"], "render.music", AUDIO_EXTS, issues)
+    _check_sound(project, issues)
     for s in project.scenes:
         if s.setting.get("image"):
             _check_file(project, s.setting["image"], f"{s.id}.setting.image", IMAGE_EXTS, issues)
@@ -629,6 +630,39 @@ def _check_tokens(text: str, ctx: tpl.TextContext, lang: str, where: str, issues
         tpl.resolve(text, ctx, lang)
     except TemplateError as e:
         issues.append(Issue("error", where, e.message, e.hint))
+
+
+def _check_sound(project: Project, issues: list[Issue]) -> None:
+    """The sound settings (docs/SOUND.md): every file there, readable as audio by its name, inside the project; every
+    scene, line and kind of sound they name real."""
+    from .sound import ambience
+    from .sound import config as sc
+
+    s = project.data.get("sound") or {}
+    for i, m in enumerate(s.get("music") or []):
+        _check_file(project, m["file"], f"sound.music[{i}].file", AUDIO_EXTS, issues, 500_000_000)
+    lib = s.get("library")
+    for i, item in enumerate([lib] if isinstance(lib, str) else (lib or [])):
+        if "/" not in item and not (project.root / item).exists() and (sc.PACKS_DIR / item).is_dir():
+            continue        # an installed pack (sastudio sounds install)
+        try:
+            p = resolve_inside(project.root, item, what=f"sound.library[{i}]", must_exist=True)
+            if not p.is_dir():
+                issues.append(Issue("error", f"sound.library[{i}]", f"'{item}' is not a folder.",
+                                    "A library is a folder of recordings by kind: footstep/wood/*.wav, door_close/*.wav..."))
+        except UnsafePathError as e:
+            issues.append(Issue("error", f"sound.library[{i}]", e.message,
+                                e.hint or "Name a folder inside the project, or a pack from `sastudio sounds list`."))
+    for sc_ in project.scenes:
+        d = sc.scene_sound(sc_)
+        a = d.get("ambience")
+        if isinstance(a, str) and a not in ("auto", "off", "none", "on") and a not in ambience.BEDS and "." in a:
+            _check_file(project, a, f"scenes.{sc_.id}.direction.sound.ambience", AUDIO_EXTS, issues, 500_000_000)
+        for i, c in enumerate(d.get("cues") or []):
+            if "." in str(c.get("sound", "")):
+                _check_file(project, c["sound"], f"scenes.{sc_.id}.direction.sound.cues[{i}].sound", AUDIO_EXTS, issues)
+    for level, where, msg in sc.problems(project):
+        issues.append(Issue(level, where, msg))
 
 
 def _check_file(project: Project, raw: str, where: str, exts: set[str], issues: list[Issue],

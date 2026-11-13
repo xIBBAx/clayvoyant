@@ -31,6 +31,7 @@ dependencies = [
   "PyYAML>=6.0.1,<7",
   "jsonschema>=4.18,<5",
   "Pillow>=13.0,<14",  # 13.0 fixes known vulnerabilities in image decoding; project images are untrusted input
+  "numpy>=1.26",       # the sound engine (sastudio.sound): Foley, the mix and the master are made with it
 ]
 
 [project.optional-dependencies]

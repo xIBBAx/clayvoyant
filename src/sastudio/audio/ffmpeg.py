@@ -155,36 +155,3 @@ def write_wav(path: Path, pcm: bytes, rate: int = RATE) -> None:
     tmp = path.with_suffix(".part")
     tmp.write_bytes(buf.getvalue())
     os.replace(tmp, path)
-
-
-def master_audio(dialogue: Path, out: Path, *, music: Path | None = None, music_db: float = -24.0,
-                 target_lufs: float = -16.0, peak: float = -1.5) -> dict:
-    """Mix dialogue (and an optional music bed that ducks under speech) and normalise the film.
-
-    Two-pass loudnorm: the first pass measures, the second applies a linear gain so the
-    result is consistent and never clips.
-    """
-    if music:
-        graph = (f"[1:a]aresample={RATE},aformat=channel_layouts=stereo,volume={music_db}dB[m];"
-                 f"[0:a]aformat=channel_layouts=stereo,asplit=2[d][sc];"
-                 f"[m][sc]sidechaincompress=threshold=0.03:ratio=6:attack=40:release=400[md];"
-                 f"[d][md]amix=inputs=2:duration=first:normalize=0[mix]")
-        args = [ffmpeg_exe(), "-hide_banner", "-loglevel", "error", "-y", "-i", str(dialogue),
-                "-stream_loop", "-1", "-i", str(music), "-filter_complex", graph, "-map", "[mix]"]
-    else:
-        args = [ffmpeg_exe(), "-hide_banner", "-loglevel", "error", "-y", "-i", str(dialogue),
-                "-af", "aformat=channel_layouts=stereo"]
-    premix = out.with_name(out.stem + ".premix.wav")
-    run(args + ["-ar", str(RATE), "-c:a", "pcm_s24le", str(premix)], what="Mixing")
-    lufs, tp = loudness(premix)
-    if lufs is None:  # silent film (offline 'silence' voices): nothing to normalise
-        os.replace(premix, out)
-        return {"lufs": None, "true_peak": None, "gain_db": 0.0}
-    gain = target_lufs - lufs
-    if tp is not None:
-        gain = min(gain, peak - tp)
-    run([ffmpeg_exe(), "-hide_banner", "-loglevel", "error", "-y", "-i", str(premix),
-         "-af", f"volume={gain:.2f}dB", "-ar", str(RATE), "-c:a", "pcm_s24le", str(out)], what="Normalising")
-    premix.unlink(missing_ok=True)
-    lufs2, tp2 = loudness(out)
-    return {"lufs": lufs2, "true_peak": tp2, "gain_db": round(gain, 2)}

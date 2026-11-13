@@ -468,6 +468,55 @@ def cmd_voices(a) -> int:
     return 2
 
 
+def cmd_sounds(a) -> int:
+    from .sound import ambience, events, packs
+
+    if a.action == "list":
+        print("Placed from what happens on screen (clay films):  " + ", ".join(events.ENGINE_KINDS))
+        print("Asked for by a scene (direction.sound.cues):      " + ", ".join(k for k in events.CUE_KINDS if k != "file")
+              + ", or a sound file of your own")
+        print("The air of a place (direction.sound.ambience):    " + ", ".join(ambience.BEDS))
+        have = packs.installed()
+        for name, spec in packs.PACKS.items():
+            state = f"installed in {have[name]}" if name in have else f"not installed: sastudio sounds install {name}"
+            print(f"Pack '{name}': {spec['title']} ({state})")
+        return 0
+    if a.action == "install":
+        name = a.name or "kenney"
+        print(f"Downloading the '{name}' sound pack (checked against its pinned SHA-256; its licence is kept with it).")
+        d = packs.install(name)
+        print(f"Ready in {d}. Use it in a project:  sound: {{ library: {name} }}")
+        return 0
+    if a.action == "preview":
+        import numpy as np
+
+        from .sound import dsp, master
+        from .sound.events import Event
+        from .sound.kit import Kit
+
+        if not a.name or a.name not in events.KINDS or a.name == "file":
+            raise StudioError(f"Say which sound: one of {', '.join(k for k in events.KINDS if k != 'file')}.",
+                              "For example: sastudio sounds preview footstep --surface tile")
+        lib = [packs.installed()[a.pack]] if a.pack else []
+        kit = Kit(lib)
+        n = max(1, a.count)
+        parts = []
+        for i in range(n):
+            e = Event(kind=a.name, t=i * .6, scene="preview", who="you", surface=a.surface, duration=a.seconds,
+                      params={"soft": .055 if a.surface == "sofa" else 0.0})
+            x, src = kit.clip(e)
+            parts.append((i * .6, x))
+        out = np.zeros(dsp.samples(max(t + len(x) / dsp.RATE for t, x in parts) + .3))
+        for t, x in parts:
+            j = dsp.samples(t)
+            out[j:j + len(x)] += x[: len(out) - j]
+        path = Path(a.out or f"{a.name}.wav")
+        master.write_wav(path, dsp.to_stereo(out * .5))
+        print(f"Wrote {path} ({src})")
+        return 0
+    return 2
+
+
 def cmd_credentials(a) -> int:
     from .voices.engine import credentials, redact
 
@@ -652,6 +701,16 @@ def parser() -> argparse.ArgumentParser:
     s.add_argument("--lang")
     s.add_argument("--scenes")
     s.set_defaults(fn=cmd_script)
+
+    s = sub.add_parser("sounds", help="the sounds the engine makes: list them, hear one, or install a pack of recordings")
+    s.add_argument("action", choices=["list", "preview", "install"])
+    s.add_argument("name", nargs="?", help="preview: the kind of sound (footstep, sit, door_close...); install: the pack")
+    s.add_argument("--surface", help="preview: what it happens on (wood, tile, carpet, rug, stone, pavement)")
+    s.add_argument("--seconds", type=float, default=2.0, help="preview: how long, for sounds that last")
+    s.add_argument("--count", type=int, default=1, help="preview: how many, 0.6 s apart (a few footsteps)")
+    s.add_argument("--pack", help="preview: take the recording from an installed pack")
+    s.add_argument("-o", "--out", help="preview: the WAV file to write")
+    s.set_defaults(fn=cmd_sounds)
 
     s = sub.add_parser("voices", help="plan or generate dialogue audio")
     s.add_argument("action", choices=["plan", "generate", "lexicon", "install"])
