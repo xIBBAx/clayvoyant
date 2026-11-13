@@ -571,14 +571,15 @@ def turn_spot(a, p, S, f=0):
     """Where to stand to turn round and sit on S, near p (the place right in front of it): clear of the furniture by a
     body's width, of anything at floor level by a turning shoe's sweep, and of everyone else. p when it already is;
     the nearest such place within a step's reach otherwise (they back onto the seat from there)."""
-    r = a.body.space() if getattr(a, 'body', None) else .42
+    r = a.body.footprint() if getattr(a, 'body', None) else .42
+    rp = a.body.space() if getattr(a, 'body', None) else .42      # from other people: the hands hang wider than the hips
     fw, rg = _np.array(S['fwd']), _np.array(S['right'])
     g = _np.arange(-.75, .76, .05)
     off = _np.stack(_np.meshgrid(_np.arange(0, 1.01, .05), g), -1).reshape(-1, 2)
     q = _np.array(p) + off[:, :1] * fw + off[:, 1:] * rg
     cost = off[:, 0] + 1.6 * _np.abs(off[:, 1])          # a straight step back beats a sideways one
     q = q[_np.argsort(cost, kind='stable')]
-    ok = (_clear('high').at(q) >= r) & (_clear('low').at(q) >= BODY.TURN_ROOM) & (_people_gap(a, f, q, 0.0) >= r)
+    ok = (_clear('high').at(q) >= r) & (_clear('low').at(q) >= BODY.TURN_ROOM) & (_people_gap(a, f, q, 0.0) >= rp)
     i = _np.nonzero(ok)[0]
     if not len(i):
         print(f"FILM {a.name}: no room to turn round in front of {S['name']}: turning where they stand", flush=True)
@@ -687,9 +688,12 @@ def occupied(a, f):
                 ll = S['lat'] + l_
                 out.append((ox + fw[0] * u + rg[0] * ll, oy + fw[1] * u + rg[1] * ll, r))
             if not S.get('movable'):
-                # ...and the place they will stand up into, in front of their seat: nobody waits in it
-                us = BODY.stand_point(b.body, S, sol)
-                out.append((ox + fw[0] * us + rg[0] * S['lat'], oy + fw[1] * us + rg[1] * S['lat'], b.body.space()))
+                # ...and the place they will stand up into, where they sat down from (seat_ground): nobody waits in it
+                si = getattr(b, 'stand_into', {}).get(S.get('id'))
+                if si is None:
+                    us = BODY.stand_point(b.body, S, sol)
+                    si = (ox + fw[0] * us + rg[0] * S['lat'], oy + fw[1] * us + rg[1] * S['lat'])
+                out.append((si[0], si[1], b.body.space()))
         else:
             p = b.locate(f)[0] if b.walks else b.pos0
             out.append((p[0], p[1], b.body.space() if getattr(b, 'body', None) else .42))
@@ -773,17 +777,18 @@ def clear_spot(a, p, f=0, what='a mark'):
     room. Logged when it moves."""
     p = (float(p[0]), float(p[1]))
     r = a.body.footprint() if getattr(a, 'body', None) else .42
+    rp = a.body.space() if getattr(a, 'body', None) else .42      # from other people: the hands hang wider than the hips
     C_ = _clear('high')
 
-    def room(q):
-        return _np.minimum(C_.at(q), _people_gap(a, f, q, 0.0))
-    if room(_np.array([p]))[0] >= r:
+    def fits(q):
+        return (C_.at(q) >= r) & (_people_gap(a, f, q, 0.0) >= rp)
+    if fits(_np.array([p]))[0]:
         return p
     g = _np.arange(-2.4, 2.41, .05)
     off = _np.stack(_np.meshgrid(g, g), -1).reshape(-1, 2)
     off = off[_np.argsort((off ** 2).sum(1), kind='stable')]
     q = off + _np.array(p)
-    ok = room(q) >= r
+    ok = fits(q)
     half = STG.get('half')
     if half:
         ok &= (_np.abs(q[:, 0]) < half - .3) & (q[:, 1] < STG['back'] - .3)
@@ -1058,6 +1063,8 @@ for c in JOB.get('cast') or []:
         a.st['step'] = round(a.st['step'] * max(.85, min(1.18, bd['thigh'] / .72)), 4)
         a.st['bob'] = round(a.st['bob'] * max(.85, min(1.2, (bd['hw'] / .33) ** .7)), 4)
     home = seat_ground(seat, bd, a) if isinstance(seat, dict) and bd is not None else pos
+    if isinstance(seat, dict) and bd is not None:
+        a.stand_into = {seat.get('id'): tuple(home[:2])}
     p0 = MARKS[start]['pos'] if start in MARKS else (offscreen(home) if start else home)
     a.pos0 = tuple(p0) + ((0,) if len(p0) == 2 else ())
     a.home = home
@@ -1144,6 +1151,7 @@ for a in PERF.actors.values():
             a.init['seat'] = S2_
             a.keys = [(-999, dict(a.init))]
             a.home = seat_ground(S2_, a.body, a)
+            a.stand_into = {S2_.get('id'): tuple(a.home[:2])}
             a.pos0 = tuple(a.home[:2]) + tuple(a.pos0[2:])
 
 
@@ -2135,6 +2143,7 @@ for k in JOB.get('keys') or []:
             S = fit_chair(a, S)
         if S is not None and getattr(a, 'body', None) is not None:
             dest = seat_ground(S, a.body, a, f)    # in front of the seat with room to turn, or where a chair was
+            a.stand_into = {**getattr(a, 'stand_into', {}), S.get('id'): tuple(dest[:2])}
         elif m:
             dest = clear_spot(a, m['pos'], f, to)
         elif to == 'home':

@@ -256,6 +256,25 @@ def _seg_point(p, a, b):
     return a + ab * t
 
 
+def _hair_points(P):
+    """Some of the points of a puppet's hair where it is posed now (world), kept until it is posed again: enough of them
+    that a hand kept a few centimetres off each is kept off the hair (personal_space)."""
+    o = getattr(P, 'hair', None)
+    if o is None or o.hide_render or not len(o.data.vertices):
+        return []
+    key = (getattr(P, 'ver', None), tuple(o.matrix_world.translation))
+    got = getattr(P, '_hair_pts', None)
+    if got is not None and got[0] == key:
+        return got[1]
+    co = np.empty(len(o.data.vertices) * 3)
+    o.data.vertices.foreach_get('co', co)
+    co = co.reshape(-1, 3)[::max(1, len(o.data.vertices) // 160)]
+    Mw = np.array(o.matrix_world)
+    pts = [V(tuple(p_)) for p_ in co @ Mw[:3, :3].T + Mw[:3, 3]]
+    P._hair_pts = (key, pts)
+    return pts
+
+
 def personal_space(S_, a, q, M, sz, side_x, hs, margin=.03):
     """A hand target q (actor space, from the shoulder line; the target is the wrist) moved, if it must be, out of every
     other person in the scene, as they are posed now. The hand is taken as what it can reach: a ball round the wrist as
@@ -301,6 +320,9 @@ def personal_space(S_, a, q, M, sz, side_x, hs, margin=.03):
             hw_ = getattr(Pb, 'head_world', None)
             if hw_ is not None:
                 caps.append((V(hw_), V(hw_), .3 * Pb.m.get('hscale', 1.0)))
+            # their hair as it is posed now (a ponytail reaches well past the head), a point every few centimetres
+            for hp_ in _hair_points(Pb):
+                caps.append((hp_, hp_, .03))
             for sd in ('L', 'R'):
                 sh_ = getattr(Pb, 'shw', {}).get(sd)
                 el_ = getattr(Pb, 'armlog', {}).get(sd)
