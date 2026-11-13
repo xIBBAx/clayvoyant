@@ -335,6 +335,87 @@ def test_a_route_that_doubles_back_turns_on_the_spot_and_the_feet_never_touch():
     assert res["slide"] < 1e-6 and res["turn"] < 1e-6, res
 
 
+_FEET_LOOP = """
+        st = a.st['stance']
+        prev, worst_slide, worst_turn, closest, jump, last = None, 0.0, 0.0, 9.0, 0.0, None
+        for f in range(-2, a.walks[-1][1] + 20):
+            pos, feet, _h, _m = a.locate(f)
+            if last is not None:
+                jump = max(jump, math.hypot(pos[0] - last[0], pos[1] - last[1]))
+            last = pos
+            if feet:
+                mv, sd, side, lift = feet[:4]
+                yw = feet[5] if len(feet) > 5 else (None, None)
+                foot = {side: (mv, lift, yw[0]), -side: (sd, 0.0, yw[1])}
+            else:
+                psi = a.stance(f)
+                foot = {s: (A.standing_foot(pos, s, psi, st), 0.0, psi) for s in (-1, 1)}
+            if foot[1][2] is not None and foot[-1][2] is not None:
+                closest = min(closest, Bd.feet_gap(foot[1][0], foot[1][2], foot[-1][0], foot[-1][2])[0])
+            if prev is not None:
+                for s in (-1, 1):
+                    (p0, l0, y0), (p1, l1, y1) = prev[s], foot[s]
+                    if l0 < 1e-9 and l1 < 1e-9:
+                        worst_slide = max(worst_slide, math.hypot(p1[0] - p0[0], p1[1] - p0[1]))
+                        if y0 is not None and y1 is not None:
+                            worst_turn = max(worst_turn, abs(A._ang(y1 - y0)))
+            prev = foot
+"""
+
+
+def test_a_new_order_replaces_what_the_last_one_still_had_planned():
+    """Told to go elsewhere before a route is walked: its later legs, the turn at its end and the sit that was to follow
+    are dropped (nobody walks two plans at once, or sits down after being sent away); the direction's own keys stay."""
+    res = _engine("""
+        import math, acting as A, body as Bd
+        class P: pass
+        a = A.Actor('x', P(), (0, 0))
+        e1 = a.walk(0, (3.0, 0.0))
+        e2 = a.walk(e1, (3.0, 3.0))
+        t = a.turn(e2 + 2, 0.0)
+        a.plan(e2 - 10, dict(face=0.0))
+        a.plan(t + 2, dict(seat=1.0, face=0.0))
+        a.key(t + 5, dict(g='wave'))                # given by the direction itself: it stays
+        f = e1 + 6                                  # a new order before the route is done
+        gone_w, gone_k = a.supersede(f)
+        a.walk(f, (-2.0, 0.0))
+        a.finish()
+    """ + _FEET_LOOP + """
+        print(json.dumps(dict(gone_w=len(gone_w), gone_k=len(gone_k), seat=any(st_.get('seat') for _f, st_ in a.keys),
+                              wave=any(st_.get('g') == 'wave' for _f, st_ in a.keys), jump=jump, closest=closest,
+                              slide=worst_slide, turn=worst_turn, end=list(a.locate(a.walks[-1][1] + 12)[0][:2]))))
+    """)
+    # the turn not yet begun, and the face and the sit; the leg under way stays until the new walk takes it over
+    assert res["gone_w"] == 1 and res["gone_k"] == 2, res
+    assert not res["seat"] and res["wave"], res
+    assert res["jump"] < .2, res                               # leaves from where the feet are: nothing jumps
+    assert abs(res["end"][0] + 2.0) < .05 and abs(res["end"][1]) < .05, res
+    assert res["closest"] >= .019 and res["slide"] < 1e-6 and res["turn"] < 1e-6, res
+
+
+def test_sent_back_mid_stride_a_walker_stops_turns_round_and_walks_back():
+    """Reversing in the air would swing one leg through the other: the foot that is up comes down, the other joins it,
+    the body turns on the spot, and then walks back. The feet never touch, slide or swivel, and nothing jumps."""
+    res = _engine("""
+        import math, acting as A, body as Bd
+        class P: pass
+        a = A.Actor('x', P(), (0, 0))
+        e = a.walk(0, (4.0, 0.0))
+        mid = e // 2
+        a.supersede(mid)
+        a.walk(mid, (-2.0, 0.0))                    # back the way they came, mid-stride
+        a.finish()
+    """ + _FEET_LOOP + """
+        print(json.dumps(dict(turns=sum(w[8] == 'turn' for w in a.walks), jump=jump, closest=closest, slide=worst_slide,
+                              turn=worst_turn, end=list(a.locate(a.walks[-1][1] + 12)[0][:2]))))
+    """)
+    assert res["turns"] >= 1, res
+    assert res["closest"] >= .019, res
+    assert res["slide"] < 1e-6 and res["turn"] < 1e-6, res
+    assert res["jump"] < .2, res
+    assert abs(res["end"][0] + 2.0) < .05 and abs(res["end"][1]) < .05, res
+
+
 def test_an_imported_model_in_the_shot_is_measured_without_breaking_the_check(tmp_path):
     """An imported model is measured whole against the set and the cast; the check (and so filming) must not stop at it."""
     pytest.importorskip("skimage", reason="needs the clay extra: pip install -e '.[clay]'")

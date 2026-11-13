@@ -77,19 +77,11 @@ def seat_moments(G, a, frames):
 
 
 def chair_moves(G, frames):
-    """A chair drawn in under somebody or pushed back as they stand: the frames it moves, how far and on what."""
-    A = G['A']
+    """A chair drawn in under somebody or pushed back as they stand: the frames it moves, how far and on what (where
+    film.chair_off puts it, the same as the picture)."""
     out = []
     for ch in G.get('CHAIRS') or []:
-        offs = []
-        for f in frames:
-            s_ = 0.0
-            for a in ch['users']:
-                p = a.locate(f)[0]
-                if math.hypot(p[0] - ch['pos'][0], p[1] - ch['pos'][1]) < .7:
-                    s_ = max(s_, a.seat_amt(f))
-            off = ch['pull'] * A.clamp(1 - (s_ - .55) / .35) + ch['stand'] * max((a.stood_up(f) for a in ch['users']), default=0.0)
-            offs.append(off)
+        offs = [G['chair_off'](ch, f) for f in frames]
         moving = None
         for i in range(1, len(offs)):
             d = abs(offs[i] - offs[i - 1])

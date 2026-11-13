@@ -67,6 +67,16 @@ class Body(dict):
         """How far from its centre a standing body reaches across the floor: hips and trouser legs, planted feet."""
         return max(.36, self['hipw'] + self['thigh_r'] + .06, self['hw'] + .08)
 
+    def shoulders(self):
+        """How far from its centre a body reaches at the shoulders, or across the floor where that is wider: what two
+        people seated side by side, their hands in their laps, need between them."""
+        return max(self.footprint(), self['shoulder'] + .05)
+
+    def space(self):
+        """How far from its centre a standing body reaches at any height: its footprint, its shoulders, or the hands
+        hanging at its sides, whichever is widest (people standing side by side meet at the hands first)."""
+        return max(self.shoulders(), REST_REACH)
+
 
 def seated(body, seat, prefer=None, recline=True):
     """Where everything goes when this body sits on this seat. Returns a dict:
@@ -232,6 +242,8 @@ def personal_space(a, b):
 
 
 # ---------------------------------------------------------------- feet on the floor
+REST_REACH = .6              # how far out a standing body's hands hang at its sides: acting.GEST['rest'] puts the
+                             # wrists .54 out from the middle, and the hand is a little wider than the wrist
 SHOE = (.166, .389, .14)     # a shoe from its ankle: back to the heel, forward to the toe, half its width (shoe.npz)
 
 

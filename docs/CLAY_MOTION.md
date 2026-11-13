@@ -146,14 +146,20 @@ backrest; at a desk they sit up. Whatever stands on the floor in front of a seat
 foot, a rail between a desk's legs) is measured too, and the feet draw back from it, the shins
 leaning back as far as they leaned forward, or further on the toes when that is not enough. A
 chair's legs stand out at the sides, so feet can draw in under it; a sofa's base keeps them in front.
+A chair is drawn in only as far as the legs let it: when the knees or the feet would meet a table's
+edge or its foot even drawn back, the chair stays that much further out and the body sits with it.
 A ponytail or a head that would touch a chair's back sits a little further forward instead.
 
-**Getting to a seat.** A sofa and a bench seat two side by side; a chair or a stool, one.
+**Getting to a seat.** A sofa and a bench seat two side by side, a shoulder's width apart and a
+little more, so either can sit down or get up beside the other; a chair or a stool, one.
 Somebody walks to a place in front of the seat with room to turn round,
 turns with small steps, steps back and lowers: the hips go back before they go down, and the chest
 comes forward over the feet. Getting up is the same in reverse, and someone seated who is sent
 somewhere stands up first. Somebody blocked on a seat who walks in sits down when they get there.
-A chair at a table is pulled out for them and drawn in under them.
+A chair at a table is pulled out for them and drawn in under them. Somebody told to get up, or sent
+somewhere else, before they reach their seat does not sit down when they get there: a new direction
+replaces whatever the last one still had planned (the rest of the route, the turn, the sit), and the
+log says so, because it usually means the lines leave too little time for the walk.
 
 **Standing and walking.** Feet come down on the real surface under the whole sole. A planted foot
 never skates or swivels: a walk ends with the feet side by side across the way they walked, a walk
@@ -161,7 +167,9 @@ that turns a corner or is sent somewhere else carries on from where the feet are
 spot goes in pairs of steps of at most 60 degrees, the leading foot opening out and the other coming
 beside it, never past it. Round a corner the foot on the side turned to steps out first and the other
 comes round outside it (a step turn); setting off behind or well to one side, the body turns on the
-spot first. Each footfall is planned clear of the other foot, and a stepping foot goes round the
+spot first. Sent back the way they came in the middle of a stride, a walker never reverses in the
+air: the foot that is up comes down, the other joins it, they turn round on the spot and walk back.
+Each footfall is planned clear of the other foot, and a stepping foot goes round the
 standing one: the two shoes never touch, measured as the shapes they are on the floor.
 Sitting down, one foot steps back and then the other, the same foot first all the way down (the one
 on the side the body moves to): never both off the floor at once, and a foot turns to the seat's
@@ -181,9 +189,17 @@ goes round it, a hand laid on the chest rests on it, and hands resting on the th
 sit far enough out that the forearms clear the stomach, whatever the build. Seated, hands that
 would hang at the sides rest on the thighs. A hand on the face rests on the outside of that head,
 its hair and its glasses, whatever their shape. A carried mug or phone sits against the fingers of
-the hand that holds it, and never goes into the body carrying it. Hands that meet by design (palms
-together, clasped) touch, one never inside the other, and a hand resting close to the other arm
-never sinks into its sleeve.
+the hand that holds it, and never goes into the body carrying it; it is in the hand once the fingers
+have closed round it and gone as soon as they open, never through a hand still closing. Hands that
+meet by design (palms together, clasped) touch, one never inside the other, and a hand resting close
+to the other arm never sinks into its sleeve. A gesture made beside somebody ends short of them: the
+hand, and the arm that carries it, give way by as much as they must, a little at a time. A hand never
+goes through anything between one drawing and the next either: up out of a lap past a table's edge,
+it comes up nearer the body, the side of the edge that is always clear.
+
+**Hair.** Hair is soft. A ponytail, a bun or long hair that meets a wall or a chair's back lies
+against it, the ends laid on its surface and the hair just behind them giving a little, as a cushion
+gives under a body; nothing of it passes through. Each drawing starts from the hair as sculpted.
 
 **Checked before anything is drawn.** Before a shot is filmed, every drawing is posed and measured
 (`engine/clay/contacts.py`), triangle against triangle: each character against the set and the

@@ -345,6 +345,7 @@ class Actor:
         st.update({k: v for k, v in init.items() if k in KEYS})
         a.init = st
         a.raw = []          # (frame, what changes), in the order they were given
+        a.planned = []      # the entries of raw that follow from an order (plan), not given by the direction itself
         a.keys = [(-999, st)]
         a.walks = []        # (f0, f1, p0, p1, plants, distance, stance before, stance after, 'walk' | 'turn')
         fc_ = st.get('face')
@@ -358,11 +359,50 @@ class Actor:
         Keys may be given in any order; a later call wins a tie."""
         a.raw.append((int(f), {k: v for k, v in d.items() if k in KEYS}))
 
+    def plan(a, f, d):
+        """A key that follows from an order rather than being given by the direction: where to face on arriving,
+        sitting down once there, going out of sight after leaving. Kept like any key, and dropped if a new order comes
+        before its frame (supersede)."""
+        a.key(f, d)
+        a.planned.append(a.raw[-1])
+
+    def supersede(a, f, moves=True):
+        """A new order at frame f replaces what an earlier one planned from f on: the legs of a route and the turns not
+        yet begun (with moves), and the keys that were to follow it (plan). A walk under way when the order comes is
+        left as it is: locate takes the new walk from f, leaving from where the feet are then (walk), so nothing
+        jumps. -> (the moves dropped, the keys dropped)."""
+        f = int(f)
+        gone_w = [w for w in a.walks if w[0] >= f] if moves else []
+        gone_k = [k_ for k_ in a.planned if k_[0] >= f]
+        if gone_w:
+            a.walks = [w for w in a.walks if w[0] < f]
+        if gone_k:
+            ids = {id(k_) for k_ in gone_k}
+            a.raw = [k_ for k_ in a.raw if id(k_) not in ids]
+            a.planned = [k_ for k_ in a.planned if id(k_) not in ids]
+        if gone_w or gone_k:
+            a.finish()
+        return gone_w, gone_k
+
     def walk(a, f, to, snap=False, speed=None):
         p0 = a.walks[-1][3] if a.walks else a.pos0
-        if a.walks and f < a.walks[-1][1] and a.walks[-1][1] > a.walks[-1][0]:
+        mid_ = bool(a.walks) and f < a.walks[-1][1] and a.walks[-1][1] > a.walks[-1][0]
+        if mid_:
             # told to go somewhere else before arriving: leave from where the feet actually are
             p0 = tuple(a.locate(f)[0])
+            lw_ = a.walks[-1]
+            if not snap and lw_[8] == 'walk' and math.hypot(to[0] - p0[0], to[1] - p0[1]) >= .05:
+                hw_ = math.atan2(lw_[3][0] - lw_[2][0], -(lw_[3][1] - lw_[2][1]))      # the way they are walking
+                if abs(_ang(math.atan2(to[0] - p0[0], -(to[1] - p0[1])) - hw_)) > 1.75:
+                    # sent back the way they came, mid-stride: nobody reverses in the air. The foot that is up comes
+                    # down a little further on and the other joins it (or, nearly there, they arrive), then they turn
+                    # round on the spot and walk back: one foot never swings through the other
+                    left_ = math.hypot(lw_[3][0] - p0[0], lw_[3][1] - p0[1])
+                    if left_ < a.st['step'] * .6:
+                        return a.walk(lw_[1], to, speed=speed)
+                    u_ = a.st['step'] * .5
+                    stop_ = (p0[0] + math.sin(hw_) * u_, p0[1] - math.cos(hw_) * u_)
+                    return a.walk(a.walk(f, stop_, speed=speed), to, speed=speed)
         to = tuple(to) + ((p0[2],) if len(to) == 2 else ())
         d = math.hypot(to[0] - p0[0], to[1] - p0[1])
         psi = a.stance(f)
@@ -1154,10 +1194,14 @@ def pose_actor(S_, a, f):
                 stepR_ = math.hypot(sf_[0] - fR[0], sf_[1] - fR[1])
                 fR = tuple(lerp(p_, q_, sm(fe_)) for p_, q_ in zip(fR, sf_))
                 lfR = lfR + math.sin(math.pi * fe_) * min(.07, .03 + stepR_ * .12)
-        lfL = lerp(lfL, sol['lift'], seatA)
-        lfR = lerp(lfR, sol['lift'], seatA)
-        rollL = lerp(rollL, sol['toe'], seatA)
-        rollR = lerp(rollR, sol['toe'], seatA)
+        # the heels come up (toes down, on a seat too high for the legs) only once the seat carries the weight, the
+        # last tenth of the way down, and are back on the floor before the body leaves it: until then the feet hold
+        # the body up, flat on the floor
+        on_ = sm(clamp((seatA - .9) / .1))
+        lfL = lerp(lfL, sol['lift'], on_)
+        lfR = lerp(lfR, sol['lift'], on_)
+        rollL = lerp(rollL, sol['toe'], on_)
+        rollR = lerp(rollR, sol['toe'], on_)
     elif seatA > 0:
         # somewhere to sit with nothing measured under it (a seat given by height only): the pelvis lowers to that
         # height, the feet come forward of the knees and stay on the floor
@@ -1363,6 +1407,10 @@ def pose_actor(S_, a, f):
             sh0_ = .35 * sc_ * math.sin(f / 2.6)
         sh = np.concatenate([fold(lambda m_, i_=i_: fs(m_)[i_ * 3:i_ * 3 + 3], dfs, delay=late + 1 + (3 - i_) * .7) for i_ in range(4)]
                             + [fold(lambda m_: fs(m_)[12:], dfs, delay=late + 1)])
+        if side == 'R':
+            # whether this hand is holding: told to carry (cR), and the fingers have closed into the shape that asks
+            # for. A thing carried in it is shown only then (film.held_at): never in a hand still closing or opening
+            a.grip_done, a.grip_f = bool(K_[ki][1].get('cR')) and bool(np.linalg.norm(sh - fs(ki)) <= .1), f
         if K_[ki][1].get(kp) in (None, 'relax', 'open') and GEST[K_[ki][1]['g']].get(kp, 'relax') in ('relax', 'open'):
             sh[:12] += .035 * noise(f / 43, seed + 51 + sg_)
         if sh0_:

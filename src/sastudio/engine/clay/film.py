@@ -571,7 +571,7 @@ def turn_spot(a, p, S, f=0):
     """Where to stand to turn round and sit on S, near p (the place right in front of it): clear of the furniture by a
     body's width, of anything at floor level by a turning shoe's sweep, and of everyone else. p when it already is;
     the nearest such place within a step's reach otherwise (they back onto the seat from there)."""
-    r = a.body.footprint() if getattr(a, 'body', None) else .42
+    r = a.body.space() if getattr(a, 'body', None) else .42
     fw, rg = _np.array(S['fwd']), _np.array(S['right'])
     g = _np.arange(-.75, .76, .05)
     off = _np.stack(_np.meshgrid(_np.arange(0, 1.01, .05), g), -1).reshape(-1, 2)
@@ -686,9 +686,13 @@ def occupied(a, f):
                              (sol['ankle'][0] + .1, -hw, .24), (sol['ankle'][0] + .1, hw, .24)):
                 ll = S['lat'] + l_
                 out.append((ox + fw[0] * u + rg[0] * ll, oy + fw[1] * u + rg[1] * ll, r))
+            if not S.get('movable'):
+                # ...and the place they will stand up into, in front of their seat: nobody waits in it
+                us = BODY.stand_point(b.body, S, sol)
+                out.append((ox + fw[0] * us + rg[0] * S['lat'], oy + fw[1] * us + rg[1] * S['lat'], b.body.space()))
         else:
             p = b.locate(f)[0] if b.walks else b.pos0
-            out.append((p[0], p[1], b.body.footprint() if getattr(b, 'body', None) else .42))
+            out.append((p[0], p[1], b.body.space() if getattr(b, 'body', None) else .42))
     return out
 
 
@@ -929,7 +933,7 @@ for _n, _m in MARKS.items():
         _m['seat_aff'] = measure_seat(_f[0], _f[1], _f[2], _n)
 
 
-def seat_ground(S, body, actor=None):
+def seat_ground(S, body, actor=None, f=0):
     """Where someone stands to sit down on S, or stands after getting up: at a chair, where the chair was (it is pulled
     back out of the way); in front of anything that stays put, far enough out to turn round without a foot sweeping
     into it. Sitting down from there is a small step back and down (acting: the seated block)."""
@@ -939,7 +943,7 @@ def seat_ground(S, body, actor=None):
         return (ox + fw[0] * u + rg[0] * S['lat'], oy + fw[1] * u + rg[1] * S['lat'])
     u = BODY.stand_point(body, S, BODY.seated(body, S, prefer=S['prefer']))
     p = (ox + fw[0] * u + rg[0] * S['lat'], oy + fw[1] * u + rg[1] * S['lat'])
-    return turn_spot(actor, p, S) if actor is not None else p
+    return turn_spot(actor, p, S, f) if actor is not None else p
 
 
 SEATED = {}     # seat mark -> the actors sitting on it now (a bench or a sofa has room for two)
@@ -967,7 +971,9 @@ def seat_for(a, name, m):
     if sd is None:
         return S
     used = [getattr(b, 'seat_lat', S['lat']) for b in there]
-    step = (a.body.footprint() + max(b.body.footprint() for b in there if getattr(b, 'body', None))) * 1.1 if getattr(a, 'body', None) else 1.0
+    # a shoulder's width apart and a little more, not a hip's: either can stand up, or sit down, beside the other
+    # without an elbow in the way (body.shoulders)
+    step = (a.body.shoulders() + max(b.body.shoulders() for b in there if getattr(b, 'body', None))) * 1.15 if getattr(a, 'body', None) else 1.0
     for lat in sorted((u_ + sg * step for u_ in used for sg in (1, -1)), key=abs):
         if abs(lat) <= sd['half_width'] and all(abs(lat - u_) >= step - 1e-6 for u_ in used):
             a.seat_lat = lat
@@ -1103,6 +1109,44 @@ def _chair_room(ch):
     return 0.0
 
 
+def fit_chair(a, S):
+    """A chair is drawn in under somebody only as far as their legs let it: when their knees or feet would meet what
+    stands in front of the seat where it stands on the set (a table's edge, a table's foot), the seat is taken that much
+    further out, up to as far as the chair can be pushed back. -> S, or S moved out (S['sit_back'] says how far)."""
+    if not (isinstance(S, dict) and S.get('movable')) or getattr(a, 'body', None) is None:
+        return S
+
+    def cramped(S_):
+        return [n for n in BODY.seated(a.body, S_, prefer=S_['prefer'])['notes'] if n.startswith('no room for the')]
+    why = cramped(S)
+    if not why:
+        return S
+    ch = _chair_at(S['origin'])
+    room = _chair_room(ch) if ch is not None else PULL
+    fw = S['fwd']
+    for d in _np.arange(.02, room + 1e-6, .02):
+        d = float(round(d, 2))
+        S2 = dict(S, origin=(S['origin'][0] - fw[0] * d, S['origin'][1] - fw[1] * d), sit_back=d, id=f"{S['id']}+{d:.2f}",
+                  feet_ahead=[(dl, u + d) for dl, u in S.get('feet_ahead') or ()],
+                  ahead=None if S.get('ahead') is None else S['ahead'] + d)
+        if not cramped(S2):
+            print(f"FILM {a.name}: the chair at {S['name']} is drawn in {d:.2f} less, for the legs ({why[0]})", flush=True)
+            return S2
+    print(f"FILM {a.name}: the chair at {S['name']} cannot go back far enough for the legs ({why[0]})", flush=True)
+    return S
+
+
+for a in PERF.actors.values():
+    S_ = a.init.get('seat')
+    if isinstance(S_, dict) and S_.get('movable') and not getattr(a, 'entering', False):
+        S2_ = fit_chair(a, S_)
+        if S2_ is not S_:
+            a.init['seat'] = S2_
+            a.keys = [(-999, dict(a.init))]
+            a.home = seat_ground(S2_, a.body, a)
+            a.pos0 = tuple(a.home[:2]) + tuple(a.pos0[2:])
+
+
 def _seat_side(m, other):
     """Where to step in beside the chair at seat mark m (or step out to), on the side nearer `other`: people get into
     a chair from its side, not through its back or over the table."""
@@ -1168,20 +1212,36 @@ def route_length(a, f, dest, m=None):
     return sum(math.hypot(q[0] - p[0], q[1] - p[1]) for p, q in zip(pts, pts[1:]))
 
 
+def chair_off(ch, f):
+    """How far chair ch is out from where it stands on the set at frame f: pushed back while somebody stands at it (and
+    left there when they go, and waiting there before they come), drawn in under them as they sit, as far as their legs
+    let it (fit_chair: S['sit_back'])."""
+    s_, home_ = 0.0, 0.0
+    for a in ch['users']:
+        amt_ = a.seat_amt(f)
+        if amt_ <= s_:
+            continue
+        ST_ = a.seat_info(f)
+        if isinstance(ST_, dict) and ST_.get('group') is not None:
+            here_ = ST_['group'] is ch['g']         # sitting on (or getting into, or out of) this very chair
+        else:
+            p = a.locate(f)[0]
+            here_ = math.hypot(p[0] - ch['pos'][0], p[1] - ch['pos'][1]) < .7
+        if here_:
+            s_ = amt_
+            home_ = float(ST_.get('sit_back', 0.0)) if isinstance(ST_, dict) else 0.0
+    # it stays out until they have turned to it, stepped their feet where they will sit (acting: one foot and then
+    # the other, done by .54 of the way) and begun to lower, and is in before they are all the way down
+    return (home_ + (ch['pull'] - home_) * A.clamp(1 - (s_ - .55) / .35)
+            + ch['stand'] * max((a.stood_up(f) for a in ch['users']), default=0.0))
+
+
 def chairs_at(f):
-    """A chair somebody uses is where their body needs it: pushed back while they stand at it (and left there when they
-    go, and waiting there before they come), drawn in under them as they sit."""
+    """Every chair somebody uses where chair_off puts it at frame f."""
     global SOLID
     moved = False
     for ch in CHAIRS:
-        s_ = 0.0
-        for a in ch['users']:
-            p = a.locate(f)[0]
-            if math.hypot(p[0] - ch['pos'][0], p[1] - ch['pos'][1]) < .7:
-                s_ = max(s_, a.seat_amt(f))
-        # it stays out until they have turned to it, stepped their feet where they will sit (acting: one foot and then
-        # the other, done by .54 of the way) and begun to lower, and is home before they are all the way down
-        off = ch['pull'] * A.clamp(1 - (s_ - .55) / .35) + ch['stand'] * max((a.stood_up(f) for a in ch['users']), default=0.0)
+        off = chair_off(ch, f)
         if abs(off - ch['off']) > 1e-4:
             ch['off'] = off
             ch['g'].location = (ch['pos'][0] + ch['back'][0] * off, ch['pos'][1] + ch['back'][1] * off, ch['z'])
@@ -1476,6 +1536,28 @@ def settle(f, depth=0):
                     if math.sqrt(nx * nx + ny * ny + nz * nz) < .6:
                         nudges[key] = (nx + .04 * d[0] / n, ny + .04 * d[1] / n, nz + .04 * d[2] / n)
                         moved = True
+        # ...and a hand never goes through anything on its way from the last drawing to this one (up out of a lap past
+        # a table's edge): the contact check's own test (contacts.Probe, 'between'). While the way is not clear, this
+        # drawing's hand comes back towards the body, the side of any edge that is always clear, a little at a time;
+        # the next drawing carries on from there, as above
+        was_ = getattr(a, 'hand_was', {})
+        for side in ('L', 'R'):
+            w_ = was_.get(side)
+            if cur.get('h' + side) is not None or not w_ or not 0 < f - w_[0] <= 4:
+                continue
+            o_ = _part(a, '_h' + side)
+            co_ = _part_tree(o_)[1] if o_ is not None else None
+            if co_ is None or not len(co_) or not _through(w_[1], co_.mean(axis=0)):
+                continue
+            c_ = co_.mean(axis=0)
+            r_ = a.P.root.matrix_world.translation
+            d = _np.array([r_.x - c_[0], r_.y - c_[1], 0.0])
+            n = float(_np.linalg.norm(d))
+            d, n = (d, n) if n > 1e-4 else (_np.array([0.0, 0.0, 1.0]), 1.0)
+            nx, ny, nz = now[side]
+            if math.sqrt(nx * nx + ny * ny + nz * nz) < .6:
+                now[side] = (nx + .04 * d[0] / n, ny + .04 * d[1] / n, nz + .04 * d[2] / n)
+                moved = True
         a.hand_nudge = nudges
         a.hand_now = now
         # seated, a hand resting on a thigh rests on it: found inside it, it comes up a little; and two hands that rest
@@ -1796,6 +1878,90 @@ def _press(o, sitters, soft):
 _PRESS_REST = {}
 
 
+HAIR_CLEAR = .006    # how far off a surface pressed hair lies
+HAIR_GIVE = .06      # how deep into the hair, from what it meets, the pressing is shared out
+
+
+def press_hair(f):
+    """Hair is soft: where a ponytail, a bun or long hair meets something solid on the set (the wall behind somebody
+    standing close to it), the ends that would be inside it are laid against its surface and the hair just behind them
+    gives a little too, so it bends instead of passing through. Along the face of what it meets, near where it meets
+    it, as a cushion gives under a body (press_cushions). What is pressed is what is drawn and what the checks measure;
+    every drawing starts again from the hair as posed."""
+    if SOLID is None:
+        return
+    for a in PERF.actors.values():
+        P = a.P
+        o = getattr(P, 'hair', None)
+        if o is None or getattr(P, 'guest', False) or getattr(a, 'cull', False) or not P.vis or o.hide_render:
+            continue
+        for _ in range(4):
+            t, co = _part_tree(o)
+            pairs = t.overlap(SOLID) if t is not None and co is not None else []
+            if not pairs:
+                break
+            polys = _faces_of(o.data, o.name)
+            vi = _np.unique(_np.concatenate([_np.asarray(polys[i]) for i, _j in pairs]))
+            best = None
+            for i in vi:
+                p = V(tuple(co[i]))
+                loc, nrm, _j, _d = SOLID.find_nearest(p)
+                if loc is None:
+                    continue
+                d_ = (p - loc).dot(nrm)
+                if d_ < 0 and (best is None or d_ < best[0]):
+                    best = (d_, _np.array(loc), _np.array(nrm), _np.array(p))
+            if best is None:
+                break
+            deep, at, n, p0 = best
+            n = n / (float(_np.linalg.norm(n)) or 1.0)
+            s = (co - at) @ n                       # how far each point of the hair is in front of that face
+            side = co - p0
+            side -= _np.outer(side @ n, n)
+            w = _np.clip((.4 - _np.linalg.norm(side, axis=1)) / .2, 0.0, 1.0)
+            w = w * w * (3 - 2 * w)                 # all of it near where it meets, none of it a hand's width away
+            give = _np.where(s < HAIR_GIVE, HAIR_CLEAR + (s - deep) * (HAIR_GIVE - HAIR_CLEAR) / (HAIR_GIVE - deep), s)
+            new = co + _np.outer((give - s) * w, n)
+            Mi = _np.array(o.matrix_world.inverted())
+            o.data.vertices.foreach_set('co', (new @ Mi[:3, :3].T + Mi[:3, 3]).astype(_np.float32).ravel())
+            o.data.update()
+            _PT.pop(o.name, None)
+            # the puppet rewrites its head and hair only when they change: make the next pose start from the hair as
+            # made, so a pressed drawing never leaks into the next one, or from the check into the film
+            P.last_fc, P.last_hr = None, None
+            bpy.context.view_layer.update()
+
+
+def _through(p0, p1):
+    """Whether the straight way from p0 to p1 enters something solid on the set and leaves it again, more than 3 cm of
+    it: the contact check's test for a hand between two drawings (contacts.Probe, 'between')."""
+    if SOLID is None:
+        return False
+    d = V(tuple(p1)) - V(tuple(p0))
+    L = d.length
+    if L < .02:
+        return False
+    d = d / L
+    h1 = SOLID.ray_cast(V(tuple(p0)), d, L)
+    h2 = SOLID.ray_cast(V(tuple(p1)), -d, L)
+    return h1[0] is not None and h2[0] is not None and (h1[0] - h2[0]).length > .03
+
+
+def _remember_hands(f):
+    """Where each hand is, as drawn at f: the next drawing's hands must get there from here without passing through
+    anything (settle)."""
+    for a in PERF.actors.values():
+        if getattr(a.P, 'guest', False) or getattr(a, 'cull', False) or not a.P.vis:
+            continue
+        was = {}
+        for side in ('L', 'R'):
+            o_ = _part(a, '_h' + side)
+            co_ = _part_tree(o_)[1] if o_ is not None else None
+            if co_ is not None and len(co_):
+                was[side] = (f, co_.mean(axis=0).copy())
+        a.hand_was = was
+
+
 def settle_frame(f):
     # what is carried is put where it will be drawn first, so that settling sees it (a mug against a thigh lifts the
     # hand that holds it), and again after, where the hands ended up
@@ -1805,6 +1971,8 @@ def settle_frame(f):
     press_cushions(f)
     held_at(f)
     fit_grips(f)
+    press_hair(f)
+    _remember_hands(f)
 
 
 PERF.settle = settle_frame
@@ -1897,6 +2065,28 @@ for a in sorted(PERF.actors.values(), key=lambda a: 0 if a.init.get('seat') else
         a.home = spot
 
 
+DOOR_OF = {}    # id of a DOORS entry -> the actor whose walk out through the door opens it
+
+
+def supersede(a, f, what, moves=True):
+    """Somebody is given a new order at frame f before the last one is done (told to stand up on the way to a seat, sent
+    home before reaching it): what the last order planned from f on is dropped (acting.Actor.supersede), and with it the
+    seat it was taking and the door it was to open. Said in the log, because it usually means the lines leave too
+    little time for the walk."""
+    gone_w, gone_k = a.supersede(f, moves)
+    if not gone_w and not gone_k:
+        return
+    sat = any(k_[1].get('seat') for k_ in gone_k)
+    if sat:
+        for k_ in list(SEATED):
+            if a in SEATED[k_]:
+                SEATED[k_].remove(a)        # the seat they were going to is free again
+    for d_ in [d_ for d_ in DOORS if DOOR_OF.get(id(d_)) == a.name and d_[0] >= f]:
+        DOORS.remove(d_)
+    print(f"FILM {a.name}: told to {what} at frame {f}, before the last direction was done: "
+          f"{len(gone_w)} planned move(s){' and the sit' if sat else ''} dropped", flush=True)
+
+
 def stand_first(a, f):
     """Someone seated who is told to walk stands up first: -> the frame the walk can start."""
     a.finish()
@@ -1923,6 +2113,8 @@ for k in JOB.get('keys') or []:
     to_mark = None
     if 'walk' in k:
         to = k.pop('walk')
+        # a new order replaces whatever the last one still had planned (a route not yet walked, the sit at its end)
+        supersede(a, f, f'walk to {to}' if isinstance(to, str) else 'walk somewhere else')
         leave = k.pop('leave', False)
         sit = k.pop('sit', True)
         guest_ = getattr(a.P, 'guest', False)
@@ -1939,8 +2131,10 @@ for k in JOB.get('keys') or []:
         S = (seat_for(a, mname, m) if m and m.get('seat') and sit and not guest_ else m.get('seat_aff')) if m else None
         if not isinstance(S, dict):
             S = None
+        elif sit and not guest_:
+            S = fit_chair(a, S)
         if S is not None and getattr(a, 'body', None) is not None:
-            dest = seat_ground(S, a.body, a)    # in front of the seat with room to turn, or where a chair was
+            dest = seat_ground(S, a.body, a, f)    # in front of the seat with room to turn, or where a chair was
         elif m:
             dest = clear_spot(a, m['pos'], f, to)
         elif to == 'home':
@@ -1963,27 +2157,31 @@ for k in JOB.get('keys') or []:
         end = walk_route(a, f, dest, speed=speed, m=m)
         if to == 'door':
             DOORS.append([end - 34, end + 12])
+            DOOR_OF[id(DOORS[-1])] = a.name
         to_mark = m if m else dict(pos=dest)
         if leave:
-            a.key(end + 6, dict(on=False))
+            a.plan(end + 6, dict(on=False))
         if m and m.get('seat') and sit and not guest_:
             # turn round first, stepping, then sit: the hips go back and down over feet that are already in place
             yaw_s = S['yaw'] if S else (m.get('face') or 0.0)
             face_ = m.get('face', yaw_s)
             done = a.turn(end + 2, yaw_s)
-            a.key(end - 10, dict(face=face_))
+            a.plan(end - 10, dict(face=face_))
             # once the feet are still: after the turn, or after the closing step when there was nothing to turn
-            a.key(max(end + 9, done), dict(seat=S or m['seat'], face=face_))
+            a.plan(max(end + 9, done), dict(seat=S or m['seat'], face=face_))
         elif m:
             fc_ = m.get('face')
             if not leave and not guest_:
                 a.turn(end + 2, fc_ if isinstance(fc_, (int, float)) else 0.0)
-            a.key(end - 10, dict(face=fc_))     # arrived on a standing mark: free to turn to whoever matters
+            a.plan(end - 10, dict(face=fc_))    # arrived on a standing mark: free to turn to whoever matters
         elif not leave and not guest_ and to == 'home':
             fc_ = (a.mark or {}).get('face')
             a.turn(end + 2, fc_ if isinstance(fc_, (int, float)) else 0.0)
     if to_mark is not None:
         a.mark = to_mark
+    if k.get('seat') is False:
+        # told to get up: a sit still to come from an earlier order (on the way to a seat) is not going to happen
+        supersede(a, f, 'stand up', moves=False)
     if k.get('g') in ('typing', 'desk'):
         h = desk_hands(a)
         if h:
@@ -2078,8 +2276,12 @@ def show_tree(o, on):
 
 
 def held_at(f):
-    for o, f0, f1, _who in HELD:
-        show_tree(o, f0 <= f < f1)
+    """Show each carried thing while it is held: from when the fingers have closed round it (acting.pose_actor sets
+    grip_done) until they start to open, never through a hand still closing or opening."""
+    for o, f0, f1, who_ in HELD:
+        a_ = PERF.actors.get(who_)
+        closed_ = a_ is None or getattr(a_, 'grip_f', None) != f or getattr(a_, 'grip_done', True)
+        show_tree(o, f0 <= f < f1 and closed_)
         if o.name in GRIP:
             o.location = GRIP[o.name][0] + GRIP[o.name][1]
 
@@ -2444,7 +2646,7 @@ PROBE = CT.Probe(PERF, lambda: [o for o in bpy.data.objects if o.type == 'MESH' 
                                 and _in_room(o)], held=[(c, who) for o, _a, _b, who in HELD for c in [o] + list(o.children_recursive)],
                  offstage=offstage)
 LEARNT = ('seat_lift', 'seat_rise', 'foot_push', 'foot_lift', 'hand_lift', 'hand_nudge', 'hand_now', 'walk_lift', 'last_head', 'last_yaw',
-          'last_hand', 'lap_lift', 'sit_fwd')
+          'last_hand', 'lap_lift', 'sit_fwd', 'hand_was', 'grip_done', 'grip_f')
 
 
 def forget():
