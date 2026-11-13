@@ -13,8 +13,8 @@ import math
 
 def _floor_under(G, x, y):
     """The name of what a foot standing at (x, y) stands on (a rug, a plank, a tile...), or None."""
-    hit = G['surface_under'](x, y, .35, .6, which=True)
-    return hit[1].name if hit and hit[1] is not None else None
+    hit = G['surface_under'](x, y, .35, .6, which=True)        # (height, the name of the object hit)
+    return hit[1] if hit and hit[1] is not None else None
 
 
 def _in_room(G, x, y):
