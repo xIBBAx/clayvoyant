@@ -1,0 +1,9 @@
+id: cafe
+title: Cafe
+direction: { set: cafe, blocking: { sana: table_left, kofi: table_right, mei: counter }, business: { sana: hold_mug } }
+lines:
+  - { id: c1, who: kofi, to: sana, emotion: happy, act: [walk_in, wave], say: "Is this seat taken? No? Good." }
+  - { id: c2, who: sana, to: kofi, emotion: grin, act: [sip], say: "Sit. The free Wi-Fi here is a trap, you know." }
+  - { id: c3, who: mei, to: sana, emotion: suspicious, act: [check_phone], say: "This one asks for my email to connect." }
+  - { id: c4, who: sana, to: mei, emotion: confident, act: [point], say: "Ask at the counter which network is really theirs." }
+  - { id: c5, who: kofi, to: sana, emotion: think, act: [hand_on_chin], say: "I never thought to ask." }

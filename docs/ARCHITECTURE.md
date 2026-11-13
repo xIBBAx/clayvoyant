@@ -71,10 +71,10 @@ flowchart TD
 | `claydesign.py` | From a character's `look.design` to sculpt parameters. |
 | `direction.py` | The planner and its vocabulary: sets and marks, cameras, light, gestures, openings, endings; validation of every `direction:` key. |
 | `models.py` | Your own 3D characters: inspect, import and export glTF/GLB, FBX and OBJ. |
-| `stopmotion/` | Writes a job per shot (set, light, cast, lines, acting keys, camera) and films it in Blender; shot cache. |
+| `stopmotion/` | Writes a job per shot (set, light, cast, lines, acting keys, camera) and films it in Blender; shot cache, keyed by the engine's code too. `stopmotion/check.py`: `sastudio check`, every drawing posed and measured, nothing drawn. |
 | `lipsync.py` | Mouth shapes from phoneme timings, or from the words (Latin and nine Indian scripts) and the loudness of the voice. |
 | `engine/sculpt/` | The sculptor: signed-distance forms and marching cubes (numpy, scipy, scikit-image). |
-| `engine/clay/` | What Blender runs: the puppet, the hand and face rigs, acting, sets, light, the film runner, guest models. |
+| `engine/clay/` | What Blender runs: the puppet, the hand and face rigs, acting, sets, light, the film runner, guest models. `body.py` is how a body of given proportions sits on a measured seat and how much room it needs (plain arithmetic, tested without Blender); `contacts.py` measures what passes through what in a posed drawing, before a shot is filmed. |
 | `build.py` | The pipeline above, incremental keys and the manifest. |
 | `doctor.py` | Environment checks. |
 | `safepath.py` | Keeps every path inside its folder; atomic writes. |
@@ -89,7 +89,7 @@ flowchart TD
 |---|---|
 | `examples/` | Complete projects: `the-fast-one` (the clay sample film), `nineteen-thirty` (the India sample, English and Hindi), `quillmere` (the cards renderer with a fictional company). |
 | `tests/` | The test suite. Tests that need Blender or FFmpeg skip with a reason when they are missing; none touch the network. |
-| `tools/` | Maintainer scripts, run from the repository root. `check_contacts.py` proves a filmed project has no intersections; the `make_*` scripts rebuild every picture and film in `docs/media` from the code, so none of them is hand-made. |
+| `tools/` | Maintainer scripts, run from the repository root. `check_contacts.py` checks a filmed (or planned) project for intersections; the `make_*` scripts rebuild every picture and film in `docs/media` from the code, so none of them is hand-made. |
 | `docs/` | The guides, `releases/` (the notes published with each version) and `media/` (everything the README shows). |
 
 ## A project folder

@@ -1,0 +1,8 @@
+id: class
+title: Class
+direction: { set: classroom, blocking: { sana: front_desk_left, kofi: front_desk_right, mei: teacher }, business: { sana: typing } }
+lines:
+  - { id: k1, who: mei, emotion: confident, act: [point], say: "A long password beats a clever one." }
+  - { id: k2, who: kofi, to: mei, emotion: think, act: [arms_folded], say: "How long is long?" }
+  - { id: k3, who: mei, to: kofi, emotion: happy, go: board, act: [open_palms], say: "Four random words. Long enough." }
+  - { id: k4, who: sana, to: mei, emotion: tender, act: [nod], say: "Mine has five." }

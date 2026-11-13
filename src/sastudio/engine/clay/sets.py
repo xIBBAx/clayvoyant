@@ -45,8 +45,13 @@ def _room(C, wallc, floor='wood', back=6.0, half=9.5, height=7.6, holes=(), side
     elif floor == 'stone':
         K.tiles(-half - 1, half + 1, -16, back, 2.2, ['#b9b3a8', '#aea79b', '#c2bcb1'], seed=r)
     K.wall('back', -half, half, back, height, wallc, holes=holes)
+    # a room with no door in its back wall has a way in at each side, out of the camera's sight, so that somebody who
+    # walks in comes through an opening, not through a wall
+    side = [(PASSAGE[0], PASSAGE[1], 0, 4.4)] if side_holes else []
+    if side_holes:
+        C['_passage'] = PASSAGE
     for sg in (-1, 1):
-        K.side_wall('side', sg * half, -16, back, height, K.mix(wallc, '#000000', .06))
+        K.side_wall('side', sg * half, -16, back, height, K.mix(wallc, '#000000', .06), holes=side)
     K.ceiling(-half, half, -16, back + .2, height)
     if skirt:
         xs = sorted({-half, half, *[h[0] for h in holes if h[2] <= .01], *[h[1] for h in holes if h[2] <= .01]})
@@ -54,6 +59,9 @@ def _room(C, wallc, floor='wood', back=6.0, half=9.5, height=7.6, holes=(), side
         for a, b in zip(xs, xs[1:]):
             if (a, b) not in doors:
                 K.skirting(a, b, back)
+
+
+PASSAGE = (1.0, 3.4)      # where the side walls of a room without a door are open: y from, to
 
 
 def _outside(C, back, kind='city'):
@@ -196,7 +204,7 @@ def home_desk(C):
     acc = _c(C, 'accent', '#E07A3F')
     back = 6.0
     holes = [(-6.2, -1.6, 1.8, 5.5)]
-    _room(C, '#e9d9c0', 'wood', back, holes=holes)
+    _room(C, '#e9d9c0', 'wood', back, holes=holes, side_holes=True)
     _outside(C, back, 'garden')
     K.window(-3.9, 3.65, back, 2.3, 1.85, panes=(2, 2), curtains='#b34d3f')
     d = K.desk(-3.9, 3.9, 1.7, .72, top='#b98a5e', drawers=False, user=-1)      # its chair is on the room side
@@ -389,4 +397,5 @@ SETS = dict(office=office, reception=reception, meeting_room=meeting_room, home_
 def build(name, C):
     st = SETS.get(name, office)(C)
     st.setdefault('half', C.get('_half'))
+    st.setdefault('passage', C.get('_passage'))
     return st

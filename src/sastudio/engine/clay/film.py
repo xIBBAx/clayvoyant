@@ -335,26 +335,18 @@ def turn_spot(a, p, S, f=0):
     body's width, of anything at floor level by a turning shoe's sweep, and of everyone else. p when it already is;
     the nearest such place within a step's reach otherwise (they back onto the seat from there)."""
     r = a.body.footprint() if getattr(a, 'body', None) else .42
-    _blocked()
-    if 'cells' not in _ROUTE:
-        _, x0, y0, _, _ = _ROUTE['grid']
-        _ROUTE['cells'] = _np.argwhere(_ROUTE['hard']) * CELL + _np.array((x0, y0))
-    hi_, lo_ = _ROUTE['cells'], _low()
-    hi_ = hi_[(_np.abs(hi_[:, 0] - p[0]) < 3) & (_np.abs(hi_[:, 1] - p[1]) < 3)]
-    lo_ = lo_[(_np.abs(lo_[:, 0] - p[0]) < 3) & (_np.abs(lo_[:, 1] - p[1]) < 3)]
+    hi_ = _boxes_near(p, 3.0)
+    lo_ = SOLID_BOX[(SOLID_BOX[:, 2] < .25) & (SOLID_BOX[:, 5] > .045)] if SOLID_BOX is not None else _np.zeros((0, 6))
+    lo_ = lo_[(lo_[:, 3] > p[0] - 3) & (lo_[:, 0] < p[0] + 3) & (lo_[:, 4] > p[1] - 3) & (lo_[:, 1] < p[1] + 3)][:, [0, 1, 3, 4]]
     people = _np.array([(x, y, rr + .06) for x, y, rr in occupied(a, f)]).reshape(-1, 3)
     fw, rg = _np.array(S['fwd']), _np.array(S['right'])
     g = _np.arange(-.75, .76, .05)
     off = _np.stack(_np.meshgrid(_np.arange(0, 1.01, .05), g), -1).reshape(-1, 2)
     q = _np.array(p) + off[:, :1] * fw + off[:, 1:] * rg
     cost = off[:, 0] + 1.6 * _np.abs(off[:, 1])          # a straight step back beats a sideways one
-    q, cost = q[_np.argsort(cost)], _np.sort(cost)
-
-    def gap(pts, cells, pad):
-        if not len(cells):
-            return _np.full(len(pts), 9.0)
-        return _np.sqrt(((pts[:, None, :] - cells[None, :, :]) ** 2).sum(-1)).min(1) - pad
-    ok = (gap(q, hi_, CELL * .72) >= r) & (gap(q, lo_, CELL * .72) >= BODY.TURN_ROOM)
+    order = _np.argsort(cost, kind='stable')
+    q = q[order]
+    ok = (_room_to(q, hi_) >= r) & (_room_to(q, lo_) >= BODY.TURN_ROOM)
     if len(people):
         ok &= (_np.sqrt(((q[:, None, :] - people[None, :, :2]) ** 2).sum(-1)) - people[None, :, 2]).min(1) >= r
     i = _np.nonzero(ok)[0]
@@ -371,6 +363,7 @@ def _block(bx0, by0, bx1, by1):
     g[max(0, int((bx0 - x0) / CELL)):max(0, min(nx, int((bx1 - x0) / CELL) + 1)),
       max(0, int((by0 - y0) / CELL)):max(0, min(ny, int((by1 - y0) / CELL) + 1))] = True
     _ROUTE['grid'] = (_near_map(g), x0, y0, nx, ny)
+    _ROUTE.pop('cells', None)
 
 
 def route(p0, p1):
@@ -469,24 +462,47 @@ def occupied(a, f):
     return out
 
 
+def _boxes_near(p, reach):
+    """The faces of the set between knee and head height near p, as 2-D boxes (x0, y0, x1, y1)."""
+    if SOLID_BOX is None:
+        return _np.zeros((0, 4))
+    B = SOLID_BOX[(SOLID_BOX[:, 5] > .2) & (SOLID_BOX[:, 2] < 2.6)]
+    B = B[(B[:, 3] > p[0] - reach) & (B[:, 0] < p[0] + reach) & (B[:, 4] > p[1] - reach) & (B[:, 1] < p[1] + reach)]
+    return B[:, [0, 1, 3, 4]]
+
+
+def _room_to(q, boxes):
+    """How far each point of q (n, 2) is from the nearest of the boxes."""
+    if not len(boxes):
+        return _np.full(len(q), 9.0)
+    dx = _np.maximum(_np.maximum(boxes[None, :, 0] - q[:, None, 0], q[:, None, 0] - boxes[None, :, 2]), 0)
+    dy = _np.maximum(_np.maximum(boxes[None, :, 1] - q[:, None, 1], q[:, None, 1] - boxes[None, :, 3]), 0)
+    return _np.sqrt(dx * dx + dy * dy).min(1)
+
+
+def _crosses(p, q, boxes):
+    """True for each point of q whose straight way from p runs through one of the boxes (a counter, a wall)."""
+    if not len(boxes):
+        return _np.zeros(len(q), bool)
+    t = _np.linspace(0, 1, 24)[None, :, None]
+    pts = _np.array(p)[None, None, :] + (q[:, None, :] - _np.array(p)[None, None, :]) * t       # (n, 24, 2)
+    flat = pts.reshape(-1, 2)
+    inside = ((flat[:, None, 0] >= boxes[None, :, 0]) & (flat[:, None, 0] <= boxes[None, :, 2])
+              & (flat[:, None, 1] >= boxes[None, :, 1]) & (flat[:, None, 1] <= boxes[None, :, 3])).any(1)
+    return inside.reshape(len(q), -1)[:, 1:].any(1)
+
+
 def clear_spot(a, p, f=0, what='a mark'):
-    """The nearest place to p where this body stands clear of the furniture (everything between knee and head height)
-    and of everyone else: p itself when it already is. Logged when it moves."""
+    """The nearest place to p where this body stands clear of the furniture (measured to every face between knee and
+    head height) and of everyone else: p itself when it already is. Never through a wall or a counter, never out of
+    the room. Logged when it moves."""
     p = (float(p[0]), float(p[1]))
     r = a.body.footprint() if getattr(a, 'body', None) else .42
-    _blocked()
-    hard = _ROUTE['hard']
-    if 'cells' not in _ROUTE:
-        _, x0, y0, _, _ = _ROUTE['grid']
-        _ROUTE['cells'] = _np.argwhere(hard) * CELL + _np.array((x0, y0))
-    cells = _ROUTE['cells']
-    near = cells[(_np.abs(cells[:, 0] - p[0]) < 3.2) & (_np.abs(cells[:, 1] - p[1]) < 3.2)]
+    boxes = _boxes_near(p, 3.2)
     people = _np.array([(x, y, rr + .06) for x, y, rr in occupied(a, f)]).reshape(-1, 3)
 
     def room(q):
-        d = _np.full(len(q), 9.0)
-        if len(near):
-            d = _np.minimum(d, _np.sqrt(((q[:, None, :] - near[None, :, :]) ** 2).sum(-1)).min(1) - CELL * .72)
+        d = _room_to(q, boxes)
         if len(people):
             d = _np.minimum(d, (_np.sqrt(((q[:, None, :] - people[None, :, :2]) ** 2).sum(-1)) - people[None, :, 2]).min(1))
         return d
@@ -496,11 +512,17 @@ def clear_spot(a, p, f=0, what='a mark'):
     off = _np.stack(_np.meshgrid(g, g), -1).reshape(-1, 2)
     off = off[_np.argsort((off ** 2).sum(1))]
     q = off + _np.array(p)
-    ok = _np.nonzero(room(q) >= r)[0]
-    if not len(ok):
+    ok = room(q) >= r
+    half = STG.get('half')
+    if half:
+        ok &= (_np.abs(q[:, 0]) < half - .3) & (q[:, 1] < STG['back'] - .3)
+    idx = _np.nonzero(ok)[0][:400]
+    if len(idx):
+        idx = idx[~_crosses(p, q[idx], boxes)]
+    if not len(idx):
         print(f'FILM {a.name}: no clear place to stand near {what} {tuple(round(v, 2) for v in p)}: left there', flush=True)
         return p
-    best = (float(q[ok[0], 0]), float(q[ok[0], 1]))
+    best = (float(q[idx[0], 0]), float(q[idx[0], 1]))
     print(f'FILM {a.name} stands clear of the furniture and the others: {what} moved {math.hypot(best[0] - p[0], best[1] - p[1]):.2f} '
           f'to {tuple(round(v, 2) for v in best)}', flush=True)
     return best
@@ -646,8 +668,10 @@ def where(c):
 
 
 def offscreen(pos):
-    """Out of sight, on the nearer side: where someone walks in from, or out to, when the set has no door."""
-    return ((-13.5 if pos[0] < 0 else 13.5), pos[1] + .6)
+    """Out of sight, on the nearer side: where someone walks in from, or out to, when the set has no door (through the
+    opening in that side wall, when the room has one)."""
+    ps = STG.get('passage')
+    return ((-13.5 if pos[0] < 0 else 13.5), (ps[0] + ps[1]) / 2 if ps else pos[1] + .6)
 
 
 TAKEN = {c.get('mark') for c in JOB.get('cast') or []}
@@ -846,6 +870,11 @@ def _lowest(o):
 _PT = {}       # part name -> (its puppet's pose count, tree, vertices): a part is measured once per pose, not per question
 
 
+def _faces_of(me, key):
+    import contacts as _ct
+    return _ct.faces_of(me, key)
+
+
 def _part_tree(o):
     """A part of a puppet as it is posed now: a tree of its faces, and its vertices (world). Puppet parts carry no
     modifiers (they are posed by moving their vertices), so their own mesh is what is drawn."""
@@ -862,16 +891,7 @@ def _part_tree(o):
     try:
         co = _np.empty(len(me.vertices) * 3, _np.float64)
         me.vertices.foreach_get('co', co)
-        lv = _np.empty(len(me.loops), _np.int64)
-        me.loops.foreach_get('vertex_index', lv)
-        lt = _np.empty(len(me.polygons), _np.int64)
-        me.polygons.foreach_get('loop_total', lt)
-        if len(lt) and (lt == lt[0]).all():
-            polys = lv.reshape(-1, int(lt[0])).tolist()
-        else:
-            ls = _np.empty(len(me.polygons), _np.int64)
-            me.polygons.foreach_get('loop_start', ls)
-            polys = [lv[a_:a_ + b_].tolist() for a_, b_ in zip(ls, lt)]
+        polys = _faces_of(me, o.name) if len(me.polygons) else []
     finally:
         if ev is not None:
             ev.to_mesh_clear()
@@ -1069,6 +1089,24 @@ def settle(f, depth=0):
                     nudges[(side, kf_)] = (nx + .015 * sg_ * d_[0], ny + .015 * sg_ * d_[1], nz)
                     moved = True
         a.hand_nudge = nudges
+        # a hand is never inside its own body: found in the chest, the belly or a hip (fingers that point at the body
+        # while the wrist is clear, an arm swinging past the hip), it goes out from the middle of the body, for this
+        # drawing, and a little less into the next
+        tt_, _tco = _part_tree(_part(a, '_torso')) if _part(a, '_torso') is not None else (None, None)
+        if tt_ is not None:
+            rt_ = a.P.root.matrix_world.translation
+            for side in ('L', 'R'):
+                if cur.get('h' + side) is not None or _part(a, '_h' + side) is None:
+                    continue
+                th_, hco_ = _part_tree(_part(a, '_h' + side))
+                if th_ is not None and th_.overlap(tt_):
+                    c_ = hco_.mean(axis=0)
+                    d_ = _np.array((c_[0] - rt_.x, c_[1] - rt_.y))
+                    d_ = d_ / (float(_np.linalg.norm(d_)) or 1.0)
+                    nx, ny, nz = now[side]
+                    if math.sqrt(nx * nx + ny * ny + nz * nz) < .45:
+                        now[side] = (nx + .025 * d_[0], ny + .025 * d_[1], nz)
+                        moved = True
         # a hand laid on the face rests on it, never in it: found inside the head, its hair or its glasses, that hand
         # goes further out, for as long as it is on that part of this face (puppet.on_face)
         for side in ('L', 'R'):
@@ -1177,11 +1215,16 @@ def _press(o, sitters, soft):
                       & (world[upper, 1] <= hi[1] + .05) & (world[upper, 2] + .2 >= lo[2])]
         for i in under:
             x, y, z = world[i]
-            for ox_, oy_ in ((0, 0), (.032, 0), (-.032, 0), (0, .032), (0, -.032)):
-                h = t.ray_cast(V((x + ox_, y + oy_, z - .9)), V((0, 0, 1)), 1.4)
-                if h[0] is not None and h[0].z < z + CLEAR + .004:
-                    dent[i] = max(dent[i], z + CLEAR + .004 - h[0].z)
+            h = t.ray_cast(V((x, y, z - .9)), V((0, 0, 1)), 1.4)
+            if h[0] is not None and h[0].z < z + CLEAR + .006:
+                dent[i] = max(dent[i], z + CLEAR + .006 - h[0].z)
     hit = _np.nonzero(dent > 0)[0]
+    if len(hit):
+        # between two vertices the body can dip lower than at either, and its sides curve down past its footprint:
+        # every vertex takes the deepest press found within a diagonal of the vertex spacing, before easing back up
+        near_ = ((world[upper, None, :2] - world[None, hit, :2]) ** 2).sum(-1) < .088 ** 2
+        dent[upper] = _np.maximum(dent[upper], _np.where(near_, dent[hit][None, :], 0).max(1))
+        hit = _np.nonzero(dent > 0)[0]
     if not len(hit):
         if o.get('pressed'):
             o.data.vertices.foreach_set('co', rest.astype(_np.float32).ravel())
@@ -1348,8 +1391,12 @@ for k in JOB.get('keys') or []:
             dest = offscreen(a.home) if isinstance(to, str) else clear_spot(a, tuple(to), f, 'where they were sent')
         speed = k.pop('speed', None)
         if k.pop('enter', False):
-            # f is when they should have arrived: leave early enough, and stay unseen until then
+            # f is when they should have arrived: leave early enough, and stay unseen until then. Somebody who comes
+            # in is already walking: the feet start out pointing the way they go
             here = a.locate(f)[0]
+            wp0 = route_to(a, f, dest, m)[0]
+            if math.hypot(wp0[0] - here[0], wp0[1] - here[1]) > .05:
+                a.psi0 = math.atan2(wp0[0] - here[0], -(wp0[1] - here[1]))
             f = f - int(route_length(a, f, dest, m) / (speed or a.st['speed'])) - 8
             a.key(-900, dict(on=False))
             a.key(f, dict(on=True))
@@ -1391,6 +1438,25 @@ for k in JOB.get('keys') or []:
     if isinstance(k.get('look'), list):
         k['look'] = tuple(k['look'])
     a.key(f, k)
+# a laptop that is closed, moved or taken away while somebody types on it: their hands come off it first, and go back
+# to the keys once it is open again (direction.props); a lid never comes down through fingers
+for name_, (o_, lid_, loc_, _r, _l, moves_) in TRACKS.items():
+    if not name_.startswith('laptop'):
+        continue
+    w_ = o_.matrix_world.translation
+    for mv in moves_:
+        if mv['do'] not in ('close', 'slide', 'turn', 'hide'):
+            continue
+        for a in PERF.actors.values():
+            a.finish()
+            st_ = a.state(mv['frame'])[1][1]
+            hs_ = [st_.get('hL'), st_.get('hR')]
+            if st_.get('g') in ('typing', 'desk') and any(h is not None and math.hypot(h[0] - w_.x, h[1] - w_.y) < 1.0 for h in hs_):
+                a.key(mv['frame'] - 12, dict(g='rest', hL=None, hR=None))
+                print(f"FILM {a.name} takes the hands off the {name_} before it {mv['do']}s", flush=True)
+                again_ = next((m for m in moves_ if m['do'] == 'open' and m['frame'] > mv['frame']), None)
+                if again_ is not None and mv['do'] == 'close':
+                    a.key(again_['frame'] + again_.get('frames', 14) + 4, {k: v for k, v in st_.items() if k in ('g', 'hL', 'hR')})
 PERF.finish()
 
 # whoever sits at some point uses the chair at that place: those chairs move with them, and are measured as they stand
@@ -1799,7 +1865,7 @@ import contacts as CT  # noqa: E402
 
 _CAST = {o.name for a in PERF.actors.values() for o in getattr(a.P, 'parts', [])}
 PROBE = CT.Probe(PERF, lambda: [o for o in bpy.data.objects if o.type == 'MESH' and o.name not in _CAST and o.visible_camera
-                                and _in_room(o)], held=[(o, who) for o, _a, _b, who in HELD])
+                                and _in_room(o)], held=[(c, who) for o, _a, _b, who in HELD for c in [o] + list(o.children_recursive)])
 LEARNT = ('seat_lift', 'foot_push', 'foot_lift', 'hand_lift', 'hand_nudge', 'hand_now', 'walk_lift', 'last_head', 'last_yaw',
           'last_hand', 'lap_lift')
 

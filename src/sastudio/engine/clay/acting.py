@@ -337,7 +337,9 @@ class Actor:
             after = lambda k: psi0 + D * (k + 1) / n if k >= 0 else psi0
             side = first if i % 2 == 0 else -first
             mv = tuple(lerp(u_, v_, sm(fr)) for u_, v_ in zip(stand(p0, side, after(i - 2)), stand(p0, side, after(i))))
-            return p0, (mv, stand(p0, -side, after(i - 1)), side, math.sin(math.pi * fr) * .07, fr), 0, 0
+            # each foot points the way it was put down; the moving one turns as it swings
+            yaws = (after(i - 2) + _ang(after(i) - after(i - 2)) * sm(fr), after(i - 1))
+            return p0, (mv, stand(p0, -side, after(i - 1)), side, math.sin(math.pi * fr) * .07, fr, yaws), 0, 0
         if cur is None or f >= cur[1]:
             if cur is not None:
                 p = cur[3]
@@ -721,8 +723,11 @@ def pose_actor(S_, a, f):
     a.spot = (round(x, 1), round(y, 1), bool(cur[1].get('seat')))
     wtw_ = 0.
     fz = S_.floor
+    shoeL = shoeR = None      # which way each shoe points: the stance's way when standing (the hips may turn further)
     if feet:
-        mv, stn, moving, lift, fr = feet
+        mv, stn, moving, lift, fr = feet[:5]
+        if len(feet) > 5:
+            shoeL, shoeR = (feet[5][0], feet[5][1]) if moving < 0 else (feet[5][1], feet[5][0])
         z_b = st_['bob'] * (math.sin(math.pi * fr) - .55) * walk_amt
         fL = mv if moving < 0 else stn
         fR = mv if moving > 0 else stn
@@ -753,6 +758,7 @@ def pose_actor(S_, a, f):
         cw_ = math.tanh(3 * noise(f / 300, seed + 5)) * st_.get('contra', 0)
         ps_ = a.stance(f)
         rx_, ry_, bx_, by_ = math.cos(ps_), math.sin(ps_), -math.sin(ps_), math.cos(ps_)    # the stance's right, and back
+        shoeL = shoeR = ps_
         bl_, br_ = .02 - .05 * max(0, cw_), -.03 - .05 * max(0, -cw_)
         fL = (x - rx_ * ss * .8 + bx_ * bl_, y - ry_ * ss * .8 + by_ * bl_, 0)
         fR = (x + rx_ * ss * .8 + bx_ * br_, y + ry_ * ss * .8 + by_ * br_, 0)
@@ -764,7 +770,12 @@ def pose_actor(S_, a, f):
     # standing still: whatever the gestures add, the torso's side lean stays small (walking and sitting keep theirs)
     standA = (1 - seatA) * (1 - walk_amt)
     sides = lerp(sides, .03 * math.tanh(sides / .03), standA)
+    if shoeL is not None and not (feet and len(feet) > 5):
+        # feet planted while the body turns to someone: the toes follow the hips a little, never across each other
+        dy_ = clamp(_ang(yaw - shoeL), -.3, .3) * .5
+        shoeL, shoeR = shoeL + dy_, shoeR + dy_
     if ST is not None:
+        shoeL = shoeR = None
         # a seated body faces the way its seat does: its legs are in the seat, so only its shoulders and head turn
         twist += clamp(_ang(yaw - ST['yaw']), -.6, .6) * .45 * seatA
         yaw = ST['yaw'] + _ang(yaw - ST['yaw']) * (1 - sm(clamp(seatA * 1.6)))
@@ -1098,7 +1109,7 @@ def pose_actor(S_, a, f):
            upper=Mo['u'], lower=Mo['l'], blink=bl, browL=Mo['bL'] + br, browR=Mo['bR'] + br * .9, tiltL=Mo['tL'], tiltR=Mo['tR'],
            fc=fc, handL=hL, handR=hR, jL=rig['L'][0], jR=rig['R'][0], shapeL=rig['L'][1], shapeR=rig['R'][1],
            faceL=rig['L'][2], faceR=rig['R'][2], elL=rig['L'][3], elR=rig['R'][3],
-           footL=fL, footR=fR, roll=(rollL, rollR), lift=(lfL, lfR),
+           footL=fL, footR=fR, roll=(rollL, rollR), lift=(lfL, lfR), shoeYaw=(shoeL, shoeR),
            sit=(.09 - a.body['seat_drop'] + .008, seatA) if sol is not None else None,
            capeSway=(.05 * noise(f / 30, 3) + .22 * walk_amt + .03 * S * noise(f / 11, 2)),
            hairJ=((.016 * math.sin(2 * math.pi * feet[4] - 1.1) * walk_amt if feet else 0) + .006 * str_ * S,

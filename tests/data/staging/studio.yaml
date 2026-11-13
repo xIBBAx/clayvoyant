@@ -1,0 +1,67 @@
+# A staging test: three people of different builds and habits sit, stand, turn, walk, laugh and handle things on five
+# sets. tests/test_contacts_blender.py poses every drawing of every planned shot and expects nothing to pass through
+# anything. It is never filmed; it is also a worked example of look.acting.
+schema_version: 1
+project:
+  title: "Staging"
+  language: en-GB
+organization:
+  name: "Test Org"
+  security_email: "security@example.com"
+  reporting_url: "https://example.com/report"
+characters:
+  - id: kofi
+    name: Kofi
+    pronouns: he
+    gender: masculine
+    voice: { provider: offline }
+    look:
+      style: clay
+      design:
+        skin: "#7A4E33"
+        hair: { style: short, color: "#2A2420" }
+        outfit: { style: blazer, color: "#3F5E78" }
+        body: { build: broad, height: tall }
+        extras: [glasses, beard]
+      acting: { manner: calm, age: older }
+  - id: mei
+    name: Mei
+    pronouns: she
+    gender: feminine
+    voice: { provider: offline }
+    look:
+      style: clay
+      design:
+        skin: "#E8C4A2"
+        hair: { style: ponytail, color: "#1A1414" }
+        outfit: { style: hoodie, color: "#C15A44" }
+        body: { build: slim, height: short }
+      acting: { manner: nervous, age: young }
+  - id: sana
+    name: Sana
+    pronouns: she
+    gender: feminine
+    voice: { provider: offline }
+    look:
+      style: clay
+      design:
+        skin: "#B07A55"
+        hair: { style: long, color: "#1C120D" }
+        outfit: { style: kurta, color: "#2F7F7A" }
+        body: { build: average }
+        extras: [earrings]
+      acting: { manner: lively }
+scenes:
+  - file: scenes/sofa.yaml
+  - file: scenes/cafe.yaml
+  - file: scenes/bench.yaml
+  - file: scenes/class.yaml
+  - file: scenes/meeting.yaml
+voices:
+  providers:
+    offline: { engine: silence }
+  budget: { max_characters: 0 }
+render:
+  preset: draft
+  renderer: clay
+  output: build

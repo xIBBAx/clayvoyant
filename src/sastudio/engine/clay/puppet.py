@@ -347,7 +347,7 @@ class Puppet:
     def pose(s, loc=(0, 0, 0), yaw=0, bend=(0, 0), twist=0, squash=0, head=(0, 0, 0), look=(0, 0), upper=-30, lower=50,
              blink=0, browL=0, browR=0, tiltL=0, tiltR=0, fc=None, handL=None, handR=None, poseL='relax', poseR='relax',
              backL=None, backR=None, footL=None, footR=None, roll=(0, 0), lift=(0, 0), capeSway=0, hairJ=(0, 0), dirL=None, dirR=None,
-             jL=None, jR=None, shapeL=None, shapeR=None, faceL=None, faceR=None, elL=None, elR=None, sit=None):
+             jL=None, jR=None, shapeL=None, shapeR=None, faceL=None, faceR=None, elL=None, elR=None, sit=None, shoeYaw=(None, None)):
         """handX/footX are world positions. Feet stay planted because the pelvis moves, not the feet."""
         s.ver += 1
         loc = V(loc)
@@ -468,10 +468,11 @@ class Puppet:
             hnd.matrix_world = Matrix.Translation(Cc) @ Matrix((d, Yv, Zv)).transposed().to_4x4()
             hnd.data = s.hmesh[side].get(ps, s.hmesh[side]['relax'])
         # legs: IK down to the ankle above a planted shoe
-        for side, ob, sh, ft, sg, rl, lf in (('L', s.legLt, s.shoeL, footL, -1, roll[0], lift[0]), ('R', s.legRt, s.shoeR, footR, 1, roll[1], lift[1])):
+        for side, ob, sh, ft, sg, rl, lf, sy in (('L', s.legLt, s.shoeL, footL, -1, roll[0], lift[0], shoeYaw[0]),
+                                                 ('R', s.legRt, s.shoeR, footR, 1, roll[1], lift[1], shoeYaw[1])):
             F = V(ft) if ft is not None else Mroot @ V((sg * .22, 0, 0))
             sh.location = F + V((0, 0, lf))
-            sh.rotation_euler = (rl, 0, yaw)
+            sh.rotation_euler = (rl, 0, yaw if sy is None else sy)
             A = Mtorso @ V((sg * s.hipw, 0, .09))
             Ank = F + V((0, 0, .27 + lf))
             pole = Mroot.to_3x3() @ V((sg * .10, -1, .1))

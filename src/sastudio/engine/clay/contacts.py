@@ -32,6 +32,8 @@ PARTS = {'torso': 'body', 'h': 'head', 'hair': 'hair', 'acc': 'glasses or earrin
          'cape': 'cape', 'model': 'body'}
 # parts that live inside or on another part of the same body by design, and are never measured against it
 INSIDE = {'eye', 'lu', 'll', 'bL', 'bR', 'tU', 'tL', 'tg', 'acc', 'cape'}
+# parts inside the head (eyes, lids, brows, teeth, tongue): nothing reaches them without going through the head first
+WITHIN = {'eye', 'lu', 'll', 'bL', 'bR', 'tU', 'tL', 'tg'}
 # pairs of one body's parts that are measured, and how near to the join between them a crossing is still the join
 SELF = [('hL', 'torso'), ('hR', 'torso'), ('hL', 'h'), ('hR', 'h'), ('hL', 'hR'), ('hL', 'aR'), ('hR', 'aL'),
         ('hL', 'lL'), ('hL', 'lR'), ('hR', 'lL'), ('hR', 'lR'), ('aL', 'aR'), ('aL', 'torso'), ('aR', 'torso'),
@@ -60,6 +62,28 @@ def _mesh_of(o, dg):
     return ev.to_mesh(), ev
 
 
+_TOPO = {}     # object name -> (vertex count, faces as lists): a part's faces never change, only where its vertices are
+
+
+def faces_of(me, key):
+    """The faces of a mesh as lists of vertex indices, read once per object."""
+    got = _TOPO.get(key)
+    if got is not None and got[0] == len(me.vertices) and got[2] == len(me.polygons):
+        return got[1]
+    lv = np.empty(len(me.loops), np.int64)
+    me.loops.foreach_get('vertex_index', lv)
+    lt = np.empty(len(me.polygons), np.int64)
+    me.polygons.foreach_get('loop_total', lt)
+    if len(lt) and (lt == lt[0]).all():
+        polys = lv.reshape(-1, int(lt[0])).tolist()
+    else:
+        ls = np.empty(len(me.polygons), np.int64)
+        me.polygons.foreach_get('loop_start', ls)
+        polys = [lv[a:a + b].tolist() for a, b in zip(ls, lt)]
+    _TOPO[key] = (len(me.vertices), polys, len(me.polygons))
+    return polys
+
+
 class Mesh:
     """One object as drawn this drawing: its vertices in the world and a box at once; its faces and a tree only when
     something near it needs them."""
@@ -73,13 +97,7 @@ class Mesh:
             co = np.empty(n * 3, np.float64)
             me.vertices.foreach_get('co', co)
             if n and len(me.polygons):
-                lv = np.empty(len(me.loops), np.int64)
-                me.loops.foreach_get('vertex_index', lv)
-                lt = np.empty(len(me.polygons), np.int64)
-                me.polygons.foreach_get('loop_total', lt)
-                ls = np.empty(len(me.polygons), np.int64)
-                me.polygons.foreach_get('loop_start', ls)
-                s._p = (lv, lt, ls)
+                s._p = faces_of(me, o.name)
         finally:
             if ev is not None:
                 ev.to_mesh_clear()
@@ -90,9 +108,6 @@ class Mesh:
 
     @property
     def p(s):
-        if isinstance(s._p, tuple):
-            lv, lt, ls = s._p
-            s._p = lv.reshape(-1, int(lt[0])).tolist() if (lt == lt[0]).all() else [lv[a:a + b].tolist() for a, b in zip(ls, lt)]
         return s._p or []
 
     def tree(s):
@@ -166,7 +181,7 @@ class Probe:
                 if o.type != 'MESH' or o.hide_render:
                     continue
                 sfx = _suffix(name, o.name)
-                if sfx is None:
+                if sfx is None or sfx in WITHIN:
                     continue
                 parts.setdefault(sfx, []).append(Mesh(o, dg))
             cast[name] = parts

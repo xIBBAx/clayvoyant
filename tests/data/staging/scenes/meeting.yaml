@@ -1,0 +1,10 @@
+id: meeting
+title: Meeting
+direction: { set: meeting_room, blocking: { kofi: head_of_table, sana: left_seat } }
+lines:
+  - { id: m1, who: mei, to: kofi, emotion: embarrassed, act: [walk_in], say: "Sorry I am late. I clicked a link." }
+  - { id: m2, who: kofi, to: mei, emotion: concern, act: [tilt_head], say: "Sit down. Which link?" }
+  - { id: m2b, who: mei, to: kofi, emotion: hesitate, act: [sit_down], say: "The one in the email about my pay." }
+  - { id: m3, who: sana, to: mei, emotion: grin, act: [laugh], say: "The one about the free holiday?" }
+  - { id: m4, who: mei, to: sana, emotion: sad, act: [stand_up], say: "Yes. I will tell the IT team now." }
+  - { id: m5, who: mei, to: kofi, emotion: relieved, act: [walk_out], say: "Back in five." }

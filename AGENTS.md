@@ -28,7 +28,8 @@ Clay films also need `pip install -e ".[clay,voices]"`, Blender 4.2 or newer and
    answer in. Write the scenes from that brief; do not invent fields.
 3. `sastudio validate my-film --strict` until it reports 0 errors and 0 warnings. Its messages say
    which line and how to fix it.
-4. `sastudio direct my-film` shows the shot plan before anything is filmed.
+4. `sastudio direct my-film` shows the shot plan before anything is filmed; `sastudio check my-film`
+   poses every drawing of it and reports anything passing through anything, without drawing.
 5. `sastudio render my-film --preset draft` (drawn characters, CPU only, minutes) or
    `sastudio film my-film --preset draft` (clay; needs Blender; the 82-second sample takes
    about 55 minutes at `preview` on a GTX 1660 Ti). Add `--lang` for each language.
@@ -60,7 +61,12 @@ Look at frames before saying a film is finished: `ffmpeg -ss 12 -i FILM.mp4 -fra
   looks or sounds like, bump the constant that keys its cache, or old results will be reused:
   `stopmotion.ENGINE_VERSION` (filmed shots), `render/clay.CLAY_VERSION` (sculpted characters),
   `render/figures.FIGURES_VERSION` (drawn characters), `voices/base.ADAPTER_VERSION` (audio).
-  If the picture does not change, do not bump them: a bump makes everyone film again.
+  If the picture does not change, do not bump them: a bump makes everyone film again. Filmed shots are
+  also keyed by the engine's code itself (`stopmotion.engine_fingerprint`), so a forgotten bump cannot
+  leave stale shots behind; comments and docstrings do not count.
+- A shot that would show a body inside something is refused before it is drawn (the log says who, which
+  part, in what and when). Fix the cause in the engine or the staging; do not reach for
+  `--allow-intersections` to make a film pass.
 - `src/sastudio/engine/` runs inside Blender's Python, not the project's. It cannot import the
   rest of the package, and Blender reads those files again for every shot, so do not edit them
   while a film is rendering from the same checkout.

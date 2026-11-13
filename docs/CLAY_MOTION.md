@@ -62,14 +62,21 @@ number, which is what makes shots cacheable and resumable.
 - **Walking.** Feet plant ahead of the hips and stay planted; the pelvis rises over the standing
   foot and sinks between steps; heel strikes, toe leaves; arms swing against the legs; a walk
   starts with a half step and ends with a settling one.
-- **Sitting.** The pelvis lowers to the seat, the feet come forward and stay on the floor.
+- **Sitting.** Worked out from each body's own legs and each seat's measured shape (below).
 - **Hands.** More than forty gestures, each a place for the hand, a finger shape and a wrist. Hands travel in
   arcs, arrive a beat apart, settle past their mark, and never snap when a new gesture interrupts.
 - **Speech in the body.** The stressed sounds of a line nod the head, lift the brows and beat the
   hands. A speaker changes gesture on the thought, not on a timer.
 - **Eyes.** Eyes lead, the head follows, the body last. Blinks, small saccades, a blink on every
-  big turn. Listeners look at the speaker and nod.
-- **Feelings.** Twenty-one faces, blended from one to the next, that stay under the words.
+  big turn. Listeners look at the speaker, nod as far as they agree with what they hear, and glance
+  away now and then if that is their habit or they are unsettled.
+- **Feelings.** Twenty-one faces, blended from one to the next, that stay under the words. How a
+  line is said decides what the speaker's hands do: open and easy, firm, unsettled (close to the
+  body, a hand to the chest) or thinking (a hand to the chin). A laugh is bursts of breath that move
+  the shoulders, the head and the jaw together, then fade.
+- **Habits.** Each character's manner and age (`look.acting`, [CHARACTERS.md](CHARACTERS.md)): how
+  steadily they look, how often they blink, how often and how big they gesture, how much they smile
+  and nod, how quickly they react, how long sitting down takes. Their own legs set their stride.
 - **Things.** A mug or a phone is carried in the palm; a hand that carries does not swing.
 
 Lip sync uses the nine mouth shapes of the Rhubarb alphabet. When the voice provider reports the
@@ -115,36 +122,57 @@ normalisation, the manifest with checksums ([RENDERING.md](RENDERING.md)).
 
 ## Nothing passes through anything
 
-Every character is solid, and so is every piece of the set. Nothing is placed by an assumed height:
+Every character is solid, and so is every piece of the set, measured on the surfaces as they are
+drawn: bevels, the lumps of handled clay, a cushion as it is pressed in.
 
-- Before the cast exists, the set's own geometry (floors, rugs, furniture, props; not the door that
-  swings) is built into a ray-cast tree. Each foot comes down on the highest point under six samples
-  across its sole: the floor, a rug, the base of a table. The body stands on what is under it.
-- After everyone is posed for a drawing, the film measures what touches what: a seated body's lowest
-  point and its thighs against the seat, a hand laid on a table and its forearm against the top, each
-  foot and shin against chair bases and table feet, a gesturing hand against the props around it.
-  Whatever is inside is moved out in small measured steps (a body up off the seat, hands up off the
-  table, a foot sideways out of a chair's base, a hand clear of a mug) and posed again. What is
-  learnt is kept for that seat, that table or that spot, so the next drawings start right.
-- Chairs are shallower than a thigh is long, so a sitter's knees clear the front edge and the shins
-  hang in front of the legs.
-- A chair is a thing people move. Somebody coming to sit finds it pulled back, comes to it from its
-  side and is drawn in under the table as they sit; somebody standing up pushes it back first and
-  stands a little behind where they sat, so their thighs never cross the table's edge.
-- Walks are routed on a top-down map of the set that keeps a body's width clear of every table,
-  chair and counter wherever there is that much room, and never less than the body itself, so
-  there is always a way round instead of through.
-- Hands hold things from the outside: a mug in a cupped hand, fingers on its wall and the thumb over
-  the rim; a phone being read lying along the palm. A hand on its way between two poses goes round
-  what it meets.
+**Sitting.** A seat is measured from its own geometry (`film.measure_seat`): the height of its
+surface where this person sits, its front edge, what stands under it (a sofa's base, a chair's
+legs), its backrest, a table over the knees, a desk's panel in front of them. How a body sits on
+it is worked out from that body's own legs (`engine/clay/body.py`): the thighs lie on the seat,
+the knees come past its front edge, the feet stand on the floor in front of whatever is under it,
+and a cushion gives under the weight. A short person on a high sofa points the toes down to the
+floor; a tall one on a low chair sits with the knees up. On a sofa people settle back towards the
+backrest; at a desk they sit up.
 
-`python tools/check_contacts.py PROJECT` checks a filmed project: Blender poses every shot exactly as
-the film does and intersects every triangle of every character with the set and with each other.
-Touching is allowed; any intersection is listed with its frame, and the command fails. On the sample
-film, sampling every sixth drawing of all seventeen shots (116 drawings): 0 intersections, against 192
-in the render before the last round of fixes and over two thousand before this work began. The
-sofa of the `home_desk` set is not clean yet: a seated body sinks into its cushion
-([#28](https://github.com/xIBBAx/clayvoyant/issues/28)).
+**Getting to a seat.** Somebody walks to a place in front of the seat with room to turn round,
+turns with small steps, steps back and lowers: the hips go back before they go down, and the chest
+comes forward over the feet. Getting up is the same in reverse, and someone seated who is sent
+somewhere stands up first. Somebody blocked on a seat who walks in sits down when they get there.
+A chair at a table is pulled out for them and drawn in under them.
+
+**Standing and walking.** Feet come down on the real surface under the whole sole. A planted foot
+never skates: a walk ends with the feet side by side across the way they walked, and a turn on the
+spot steps round one foot at a time. Walks are routed round the furniture with room for the legs
+and their stride. A standing place too close to furniture or to another person is moved the least
+distance that clears it, and the log says so.
+
+**Arms and hands.** Elbows and forearms stay outside the body: a hand on its way across the chest
+goes round it, and a hand laid on the chest rests on it, whatever the build. Seated, hands that
+would hang at the sides rest on the thighs. A hand on the face rests on the outside of that head,
+its hair and its glasses, whatever their shape. A carried mug or phone sits against the fingers of
+the hand that holds it.
+
+**Checked before anything is drawn.** Before a shot is filmed, every drawing is posed and measured
+(`engine/clay/contacts.py`), triangle against triangle: each character against the set and the
+props, against every other character, and against their own body away from the joints (a sleeve is
+joined to its shoulder; past that it must stay out). A hand or a foot whose path from one drawing
+to the next goes through something counts too. A shot that would show a body inside anything is
+not filmed: the log says who, which part, in what, when and how deep, and every one is listed in
+the shot's `contacts.json`. `sastudio film --allow-intersections` films it anyway, still listing
+them.
+
+```bash
+sastudio check my-film                    # every planned shot, posed and measured, nothing drawn
+sastudio check my-film --filmed           # the shots of the last filming
+python tools/check_contacts.py my-film    # the same, for maintainers
+```
+
+A check that cannot finish fails; it is never counted as clean. `sastudio validate` reports staging
+a body cannot do before any of this: two people on one mark, a seat that is already taken, typing
+away from a desk, a line spoken after its speaker walked out.
+
+The shot cache is keyed by the engine's code as well as by `stopmotion.ENGINE_VERSION`, so a change
+to how anything is posed or built films the affected shots again; a comment does not.
 
 ## Guests
 

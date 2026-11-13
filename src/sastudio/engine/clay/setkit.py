@@ -494,8 +494,16 @@ def ceiling(x0, x1, y0, y1, z, hex_='#f4f0e8'):
     return o
 
 
-def side_wall(name, x, y0, y1, z1, hex_, thick=.12):
-    return boxy(name, (x, (y0 + y1) / 2, z1 / 2), (thick, (y1 - y0) / 2, z1 / 2), hex_, bevel=.01, lumps=.012, print_=.8)
+def side_wall(name, x, y0, y1, z1, hex_, thick=.12, holes=()):
+    """A wall along y at x, with openings holes=[(ya, yb, za, zb), ...]: a way in from the side of a room."""
+    ys = sorted({y0, y1, *[h[0] for h in holes], *[h[1] for h in holes]})
+    for a, b in zip(ys, ys[1:]):
+        zs = [(0.0, z1)]
+        for (ha, hb, za, zb) in holes:
+            if ha <= a and b <= hb:
+                zs = [(lo, hi) for lo, hi in ((0.0, za), (zb, z1)) if hi - lo > .01]
+        for lo, hi in zs:
+            boxy(name, (x, (a + b) / 2, (lo + hi) / 2), (thick, (b - a) / 2, (hi - lo) / 2), hex_, bevel=.01, lumps=.012, print_=.8)
 
 
 def skirting(x0, x1, y, hex_='#efe6d6', h=.16):
