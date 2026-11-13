@@ -59,6 +59,17 @@ Bodies that do not pass through things, and people who move like themselves. The
 - **Hands keep to their owner.** A gesture made beside somebody (open palms next to a person on a sofa, an arm swinging
   past someone on a bench) ends short of their body, their head and their arms; folded arms lie one on the other; a
   body comes down onto a hard seat exactly, measured where it rests, never hovering over it.
+- **A new direction replaces the old plan.** Told to get up, or sent somewhere else, before arriving, somebody no
+  longer walks two plans at once or sits down after being sent away: the rest of the route, the turn, the sit and the
+  door it would have opened are dropped, and the log says so. Sent back the way they came mid-stride, a walker stops,
+  turns on the spot and walks back.
+- **Chairs fit the legs.** A chair is drawn in only as far as the legs let it, when a table's foot or edge would meet
+  the knees or the feet.
+- **Hair bends.** A ponytail against a wall lies on it instead of passing through it.
+- **Carried things and moving hands.** A mug or a phone is in the hand once the fingers have closed round it; a hand
+  never goes through a table's edge between one drawing and the next.
+- **Room for people side by side.** Standing room counts the hands hanging at a body's sides, two seated side by side
+  sit a shoulder's width apart, and heels come up on a high seat only once it carries the weight.
 
 ### Sound
 
