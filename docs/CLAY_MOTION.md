@@ -1,4 +1,7 @@
-# Clay films
+# Clay films: Sultan, the engine
+
+Sultan is the engine that sculpts, acts, builds, checks and films every clay scene in Clayvoyant. It is
+named after Ibrahim Sultan, who made it.
 
 `sastudio film <project>` makes the whole film in clay stop motion: voices, sculpted characters,
 sets, cameras, light, lip sync, subtitles. This page explains what happens between the text you
@@ -139,7 +142,11 @@ it is worked out from that body's own legs (`engine/clay/body.py`): the thighs l
 the knees come past its front edge, the feet stand on the floor in front of whatever is under it,
 and a cushion gives under the weight. A short person on a high sofa points the toes down to the
 floor; a tall one on a low chair sits with the knees up. On a sofa people settle back towards the
-backrest; at a desk they sit up.
+backrest; at a desk they sit up. Whatever stands on the floor in front of a seat (a cafe table's
+foot, a rail between a desk's legs) is measured too, and the feet draw back from it, the shins
+leaning back as far as they leaned forward, or further on the toes when that is not enough. A
+chair's legs stand out at the sides, so feet can draw in under it; a sofa's base keeps them in front.
+A ponytail or a head that would touch a chair's back sits a little further forward instead.
 
 **Getting to a seat.** A sofa and a bench seat two side by side; a chair or a stool, one.
 Somebody walks to a place in front of the seat with room to turn round,
@@ -151,8 +158,14 @@ A chair at a table is pulled out for them and drawn in under them.
 **Standing and walking.** Feet come down on the real surface under the whole sole. A planted foot
 never skates or swivels: a walk ends with the feet side by side across the way they walked, a walk
 that turns a corner or is sent somewhere else carries on from where the feet are, and a turn on the
-spot goes in pairs of steps, the leading foot opening out and the other coming beside it, never past
-it. Sitting down, one foot steps back and then the other: never both off the floor at once. Somebody who walks into a room with no door comes through an opening in its side wall. Walks are routed round the furniture with room for the legs
+spot goes in pairs of steps of at most 60 degrees, the leading foot opening out and the other coming
+beside it, never past it. Round a corner the foot on the side turned to steps out first and the other
+comes round outside it (a step turn); setting off behind or well to one side, the body turns on the
+spot first. Each footfall is planned clear of the other foot, and a stepping foot goes round the
+standing one: the two shoes never touch, measured as the shapes they are on the floor.
+Sitting down, one foot steps back and then the other, the same foot first all the way down (the one
+on the side the body moves to): never both off the floor at once, and a foot turns to the seat's
+way only while it is in the air. Somebody who walks into a room with no door comes through an opening in its side wall. Walks are routed round the furniture with room for the legs
 and their stride. A standing place too close to furniture or to another person is moved the least
 distance that clears it, and the log says so.
 
@@ -164,10 +177,13 @@ weight is over it. Furniture rests on the floor. Walls with their windows, doors
 construction, and so are floors laid edge to edge.
 
 **Arms and hands.** Elbows and forearms stay outside the body: a hand on its way across the chest
-goes round it, and a hand laid on the chest rests on it, whatever the build. Seated, hands that
+goes round it, a hand laid on the chest rests on it, and hands resting on the thighs of a broad body
+sit far enough out that the forearms clear the stomach, whatever the build. Seated, hands that
 would hang at the sides rest on the thighs. A hand on the face rests on the outside of that head,
 its hair and its glasses, whatever their shape. A carried mug or phone sits against the fingers of
-the hand that holds it.
+the hand that holds it, and never goes into the body carrying it. Hands that meet by design (palms
+together, clasped) touch, one never inside the other, and a hand resting close to the other arm
+never sinks into its sleeve.
 
 **Checked before anything is drawn.** Before a shot is filmed, every drawing is posed and measured
 (`engine/clay/contacts.py`), triangle against triangle: each character against the set and the

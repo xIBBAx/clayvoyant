@@ -30,9 +30,11 @@ I built Clayvoyant after making a 29-minute clay film to teach information secur
 workplace ([where it began](https://xibbax.github.io/clayvoyant/#where-clayvoyant-began)). It is
 that work, opened up so anyone can make their own films: every figure is sculpted from
 signed-distance clay and rigged with real hands and a face that acts; every room is built by code;
-every shot is planned like a film and can be changed in a line of YAML. Twelve short
-security-awareness stories come with it, ready to make in your organisation's name, words and
-language.
+every shot is planned like a film and can be changed in a line of YAML. The engine that films it
+carries my name, **Sultan**, and it holds every drawing to the measures motion researchers use to
+judge movement (no body inside anything, nobody floating, no foot sliding) before a single frame is
+drawn. Twelve short security-awareness stories come with it, ready to make in your organisation's
+name, words and language.
 
 ## Make a film
 
@@ -234,7 +236,7 @@ Measured on one laptop on 2026-11-11 (Intel Core i7-10750H, 12 threads, GeForce 
 | [Films for India](https://github.com/xIBBAx/clayvoyant/blob/main/docs/INDIA.md) | the `india` template, its sources, Indian languages |
 | [Writing with an assistant](https://github.com/xIBBAx/clayvoyant/blob/main/docs/WRITING_WITH_AN_ASSISTANT.md) | `sastudio brief`: a script from any chat assistant |
 | [Installation](https://github.com/xIBBAx/clayvoyant/blob/main/docs/INSTALLATION.md) and [requirements](https://github.com/xIBBAx/clayvoyant/blob/main/docs/REQUIREMENTS.md) | Ubuntu, WSL2, Windows, Blender, GPUs |
-| [Clay films](https://github.com/xIBBAx/clayvoyant/blob/main/docs/CLAY_MOTION.md) | the engine: sculpting, acting, sets, light, caching |
+| [Clay films](https://github.com/xIBBAx/clayvoyant/blob/main/docs/CLAY_MOTION.md) | Sultan, the clay engine: sculpting, acting, sets, light, caching |
 | [Characters](https://github.com/xIBBAx/clayvoyant/blob/main/docs/CHARACTERS.md) | describing people; every choice and slider |
 | [Direction](https://github.com/xIBBAx/clayvoyant/blob/main/docs/DIRECTION.md) | sets, marks, cameras, light, gestures, openings |
 | [Scenes](https://github.com/xIBBAx/clayvoyant/blob/main/docs/SCENES.md) and [configuration](https://github.com/xIBBAx/clayvoyant/blob/main/docs/CONFIGURATION.md) | writing scenes, tokens, translations |

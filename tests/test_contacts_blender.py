@@ -98,8 +98,9 @@ def test_a_foot_on_the_floor_never_moves_or_turns_until_it_lifts_round_corners_t
         mid = t1 + 40
         a.walk(mid, (-2.0, 0.0))                    # told to go somewhere else before arriving
         a.finish()
+        import body as Bd
         st = a.st['stance']
-        prev, worst_slide, worst_turn, both_up, frames = None, 0.0, 0.0, 0, 0
+        prev, worst_slide, worst_turn, both_up, frames, closest = None, 0.0, 0.0, 0, 0, 9.0
         for f in range(-2, mid + 160):
             pos, feet, _h, _m = a.locate(f)
             if feet:
@@ -110,6 +111,8 @@ def test_a_foot_on_the_floor_never_moves_or_turns_until_it_lifts_round_corners_t
                 psi = a.stance(f)
                 foot = {s: (A.standing_foot(pos, s, psi, st), 0.0, psi) for s in (-1, 1)}
             both_up += foot[1][1] > 1e-9 and foot[-1][1] > 1e-9
+            if foot[1][2] is not None and foot[-1][2] is not None:
+                closest = min(closest, Bd.feet_gap(foot[1][0], foot[1][2], foot[-1][0], foot[-1][2])[0])
             if prev is not None:
                 for s in (-1, 1):
                     (p0, l0, y0), (p1, l1, y1) = prev[s], foot[s]
@@ -118,11 +121,12 @@ def test_a_foot_on_the_floor_never_moves_or_turns_until_it_lifts_round_corners_t
                         if y0 is not None and y1 is not None:
                             worst_turn = max(worst_turn, abs(A._ang(y1 - y0)))
             prev, frames = foot, frames + 1
-        print(json.dumps(dict(slide=worst_slide, turn=worst_turn, both_up=both_up, frames=frames)))
+        print(json.dumps(dict(slide=worst_slide, turn=worst_turn, both_up=both_up, frames=frames, closest=closest)))
     """)
     assert res["slide"] < 1e-6, res       # no foot on the floor ever moves along it: not at a corner, a turn or a stop
     assert res["turn"] < 1e-6, res        # nor swivels: a foot turns while it is in the air
     assert res["both_up"] == 0, res       # walking is never a hop
+    assert res["closest"] >= .019, res    # and the feet never touch or cross, stepping round corners or turning
 
 
 def test_blinking_follows_what_a_person_is_doing_and_a_speaker_looks_away_as_a_line_begins():
@@ -181,3 +185,77 @@ def test_two_people_walk_the_same_way_differently():
     """)
     assert res["s"]["frames"] > res["q"]["frames"] * 1.3
     assert res["s"]["steps"] > res["q"]["steps"]
+
+
+def _feet_in(job: dict, tmp: Path) -> list[dict]:
+    """Pose every drawing of a planned shot in Blender (nothing drawn, nothing measured) -> each shoe per drawing:
+    {f, who, seat, L: [x, y, lowest z, pointing], R: [...]}."""
+    exe = _blender()
+    job = dict(job, mode="check", check_every=10 ** 6, trace_feet=True, device="CPU")
+    p = tmp / "job.json"
+    p.write_text(json.dumps(job), "utf-8")
+    out = subprocess.run([exe, "-b", "--factory-startup", "-P", str(ENGINE / "film.py"), "--", str(p)],
+                         capture_output=True, text=True, timeout=1800)
+    rows = [json.loads(ln[5:]) for ln in out.stdout.splitlines() if ln.startswith("FEET ")]
+    assert rows and "CHECKED" in out.stdout, out.stdout[-2000:] + out.stderr[-2000:]
+    return rows
+
+
+def test_sitting_down_and_getting_up_step_each_foot_once_and_a_foot_on_the_floor_never_slides_or_turns(tmp_path):
+    """The sofa, the bench and the meeting room's chairs: on the way down and back up, a foot on the floor stays where
+    it is and keeps pointing the way it points (it turns only while it is lifted), and each foot steps once, straight
+    to where it goes: never part way and back, never one foot starting and the other taking over."""
+    import math
+    from concurrent.futures import ThreadPoolExecutor
+
+    pytest.importorskip("skimage", reason="needs the clay extra: pip install -e '.[clay]'")
+    _blender()
+    from sastudio.project import load_project
+    from sastudio.render import clay
+    from sastudio.stopmotion import check as C
+
+    if not clay.engine_included():
+        pytest.skip("the clay engine is not in this installation")
+    shutil.copytree(ROOT / "tests" / "data" / "staging", tmp_path / "staging")
+    project = load_project(tmp_path / "staging")
+    jobs = [j for j in C.planned_jobs(project, scene_ids=["sofa", "bench", "meeting"], log=lambda *_: None)]
+    dirs = [tmp_path / f"t{i}" for i in range(len(jobs))]
+    for d in dirs:
+        d.mkdir()
+    with ThreadPoolExecutor(2) as ex:
+        traces = list(ex.map(lambda jd: (jd[0][0], _feet_in(jd[0][1], jd[1])), zip(jobs, dirs)))
+    ON = .006           # a sole this close to the lowest it ever is in the shot is on the floor (3 mm)
+    moves, slides, turns, backs = 0, [], [], []
+    for label, rows in traces:
+        for who in sorted({r["who"] for r in rows}):
+            seq = [r for r in rows if r["who"] == who]
+            floor = {s: min(r[s][2] for r in seq) for s in "LR"}
+            for r0, r1 in zip(seq, seq[1:]):
+                if not (0 < r0["seat"] and 0 < r1["seat"]):
+                    continue                     # standing and walking are the other tests' business
+                for s in "LR":
+                    a, b = r0[s], r1[s]
+                    if a[2] - floor[s] <= ON and b[2] - floor[s] <= ON:
+                        slides.append((label, who, r1["f"], s, math.hypot(b[0] - a[0], b[1] - a[1])))
+                        turns.append((label, who, r1["f"], s, abs((b[3] - a[3] + math.pi) % (2 * math.pi) - math.pi)))
+            # each run of drawings between standing (0) and seated (1): every foot only ever gets nearer where it goes
+            i = 0
+            while i < len(seq):
+                if not 0 < seq[i]["seat"] < 1:
+                    i += 1
+                    continue
+                j = i
+                while j + 1 < len(seq) and 0 < seq[j + 1]["seat"] < 1:
+                    j += 1
+                if i > 0 and j + 1 < len(seq):
+                    moves += 1
+                    end = seq[j + 1]
+                    for s in "LR":
+                        d = [math.hypot(r[s][0] - end[s][0], r[s][1] - end[s][1]) for r in seq[i - 1:j + 2]]
+                        worst = max((d[k + 1] - min(d[:k + 1]) for k in range(len(d) - 1)), default=0.0)
+                        backs.append((label, who, seq[i]["f"], s, worst))
+                i = j + 1
+    assert moves >= 3, moves                                     # the sofa, the bench and a chair, down and up
+    assert max(x[4] for x in slides) < .002, max(slides, key=lambda x: x[4])      # 1 mm: a foot on the floor stays put
+    assert max(x[4] for x in turns) < .01, max(turns, key=lambda x: x[4])         # and does not swivel
+    assert max(x[4] for x in backs) < .02, max(backs, key=lambda x: x[4])         # each step goes one way (1 cm)

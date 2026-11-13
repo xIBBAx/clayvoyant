@@ -1,13 +1,15 @@
-# What the engine draws on
+# What Sultan draws on
 
-The clay engine is written here, in Python that runs inside Blender: the sculptor, the sets, the
-acting, the physics of feet and seats, and the checks that a body never passes through anything.
+Sultan, Clayvoyant's clay engine, named after Ibrahim Sultan, is written here, in Python that runs
+inside Blender: the sculptor, the sets, the acting, the physics of feet and seats, and the checks that a
+body never passes through anything.
 Nothing in it is a trained model, and it ships no motion capture. Where it follows something that
 somebody measured or published, this page says what, and where to find it in the code.
 
-The papers below are mostly about learned motion models. The engine does not reproduce them. It
-takes the measures they use to judge whether movement is physically believable, and holds its own
-procedural movement to the same measures, often more strictly.
+The papers below are mostly about learned motion models. Sultan does not reproduce them. In the
+papers these measures judge a model's results after the fact; in Sultan they are a gate: every drawing
+of every shot is held to them before it is drawn, often more strictly than the papers report, and a
+shot that fails is not filmed.
 
 ## Bodies that touch the world
 

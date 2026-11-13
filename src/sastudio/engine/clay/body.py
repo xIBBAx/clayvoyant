@@ -10,11 +10,15 @@ above the floor of the room. A seat is a dict:
     top         height of the sitting surface (measured: lumps and bevels included)
     soft        how far its cushion gives under a sitter (0 for wood and plastic)
     front       u of the seat's front edge
-    base_front  u of the furthest-forward solid thing under the seat (the front of a sofa's base, a chair's front
-                legs): heels and calves stay in front of it
+    base_front  u of the furthest-forward solid thing under the seat at the height of a heel and a calf (the front of
+                a sofa's base): heels and calves stay in front of it
+    base_front_at  the same, lane by lane: [(sideways from the sitter's middle, u)]; where it is given, only the lanes
+                the feet are in count (a chair's legs stand out at the sides: feet can draw in under it)
     back        u of the backrest's front face, or None for a stool or a bench without one
     under       height of the underside of whatever is above the knees (a table top), or None
     ahead       u of the first solid thing in front of the seat at the height of the thighs (a desk's panel), or None
+    feet_ahead  [(sideways from the sitter's middle, u)] of the first solid thing in front of the seat at the height of
+                the feet (a table's foot, a rail between a desk's legs): the toes stop short of it
     floor       height of the floor in front of the seat (a rug is a little higher than the boards)
 
 A body is a dict (Body.from_meta builds it from the sculpt's numbers):
@@ -38,6 +42,8 @@ SHIN_LEAN = .42     # radians a seated shin may lean forward from upright before
 THIGH_SLOPE = (-.21, .55)   # radians the thighs may slope from level: down toward the knees, and up
 RECLINE_MAX = .17   # radians someone settles back into a soft seat with a backrest
 TURN_ROOM = .68     # how far from anything at floor level a body needs to stand to turn round: a shoe swings that wide
+TOE_ROOM = .03      # the toes stop this far short of whatever stands on the floor in front of a seat
+TUCK = -.35         # radians a seated shin may lean back, the feet drawn in under the knees
 
 
 def _clamp(v, a, b):
@@ -143,12 +149,38 @@ def seated(body, seat, prefer=None, recline=True):
         theta = SHIN_LEAN
         lift = max(0.0, knee_z - shin * math.cos(theta) - foot_z)
     # the ankles: forward of the knees by the shins' lean, and the heels clear of whatever stands under the seat
-    heel_need = seat.get('base_front', seat['front']) + body['heel'] + HEEL_ROOM
+    span = body['hipw'] + .035
+    if seat.get('base_front_at') is not None:
+        # measured lane by lane: only what stands under the seat where these feet go keeps the heels forward
+        under_ = [u_ for dl, u_ in seat['base_front_at'] if abs(abs(dl) - span) <= SHOE[2] + .04]
+        heel_need = (max(under_) + body['heel'] + HEEL_ROOM) if under_ else -1e9
+    else:
+        heel_need = seat.get('base_front', seat['front']) + body['heel'] + HEEL_ROOM
     ankle_u = knee_u + shin * math.sin(theta)
     if ankle_u < heel_need:
         theta = min(SHIN_LEAN * 1.25, math.asin(_clamp((heel_need - knee_u) / shin, -1, 1)))
         ankle_u = knee_u + shin * math.sin(theta)
         notes.append('feet forward of what is under the seat')
+    # the toes stop short of whatever stands on the floor in front of the seat (a table's foot), where the feet are
+    stops = [u_ for dl, u_ in seat.get('feet_ahead') or () if abs(abs(dl) - span) <= SHOE[2] + .06]
+    if stops:
+        lim = min(stops) - body['toe'] - TOE_ROOM
+        if ankle_u > lim:
+            # as far back as the toes need, no further: flat on the floor if the shins leaning back as far as they
+            # leaned forward is enough (a foot on the floor is as far behind the knee as it was ahead of it), and
+            # otherwise further, on the toes, the heels lifted
+            want = math.asin(_clamp((lim - knee_u) / shin, -1, 1))
+            drop = knee_z - foot_z
+            flat = -math.acos(_clamp(drop / shin, -1, 1)) if drop < shin else None
+            back_ = flat if flat is not None and flat <= want else want
+            au_ = knee_u + shin * math.sin(back_)
+            ok = back_ >= TUCK - 1e-9 and au_ <= lim + 1e-9 and au_ >= heel_need - 1e-9
+            if ok:
+                theta = back_
+                ankle_u = knee_u + shin * math.sin(theta)
+                notes.append('feet drawn back from what stands in front of them')
+            else:
+                notes.append(f'no room for the feet: something stands on the floor {min(stops) - seat["front"]:.2f} in front of the seat')
     ankle_z = knee_z - shin * math.cos(theta)
     lift = max(0.0, ankle_z - foot_z)
     if lift > .002:
@@ -197,3 +229,112 @@ def lap(body, sol, frac=.42):
 def personal_space(a, b):
     """How close the centres of two standing people may come: both footprints and a hand's width between."""
     return a.footprint() + b.footprint() + .08
+
+
+# ---------------------------------------------------------------- feet on the floor
+SHOE = (.166, .389, .14)     # a shoe from its ankle: back to the heel, forward to the toe, half its width (shoe.npz)
+
+
+def _seg_dist(p1, q1, p2, q2):
+    """The shortest distance between two line segments in the floor's plane -> (distance, nearest on the first,
+    nearest on the second)."""
+    d1 = (q1[0] - p1[0], q1[1] - p1[1])
+    d2 = (q2[0] - p2[0], q2[1] - p2[1])
+    r = (p1[0] - p2[0], p1[1] - p2[1])
+    a, e = d1[0] * d1[0] + d1[1] * d1[1], d2[0] * d2[0] + d2[1] * d2[1]
+    f = d2[0] * r[0] + d2[1] * r[1]
+    if a < 1e-12 and e < 1e-12:
+        s = t = 0.0
+    elif a < 1e-12:
+        s, t = 0.0, _clamp(f / e, 0.0, 1.0)
+    else:
+        c = d1[0] * r[0] + d1[1] * r[1]
+        if e < 1e-12:
+            t, s = 0.0, _clamp(-c / a, 0.0, 1.0)
+        else:
+            b = d1[0] * d2[0] + d1[1] * d2[1]
+            den = a * e - b * b
+            s = _clamp((b * f - c * e) / den, 0.0, 1.0) if den > 1e-12 else 0.0
+            t = (b * s + f) / e
+            if t < 0:
+                t, s = 0.0, _clamp(-c / a, 0.0, 1.0)
+            elif t > 1:
+                t, s = 1.0, _clamp((b - c) / a, 0.0, 1.0)
+    c1 = (p1[0] + d1[0] * s, p1[1] + d1[1] * s)
+    c2 = (p2[0] + d2[0] * t, p2[1] + d2[1] * t)
+    return math.hypot(c1[0] - c2[0], c1[1] - c2[1]), c1, c2
+
+
+def footprint(c, yaw, shoe=SHOE):
+    """A shoe on the floor as a capsule: the line from heel to toe it is drawn round, and its half width. c is the
+    ankle; a foot points (sin yaw, -cos yaw)."""
+    heel, toe, hw = shoe
+    fx, fy = math.sin(yaw), -math.cos(yaw)
+    return (c[0] - fx * (heel - hw), c[1] - fy * (heel - hw)), (c[0] + fx * (toe - hw), c[1] + fy * (toe - hw)), hw
+
+
+def feet_gap(c1, y1, c2, y2, shoe=SHOE):
+    """How far apart two shoes on the floor are (below zero: one is in the other) -> (gap, from the second towards
+    the first)."""
+    a1, b1, r = footprint(c1, y1, shoe)
+    a2, b2, _ = footprint(c2, y2, shoe)
+    d, p, q = _seg_dist(a1, b1, a2, b2)
+    n = ((p[0] - q[0]) / d, (p[1] - q[1]) / d) if d > 1e-9 else (0.0, 0.0)
+    return d - 2 * r, n
+
+
+def _ang(a):
+    return (a + math.pi) % (2 * math.pi) - math.pi
+
+
+OUT_MAX = .25       # a stepping foot goes at most this far out of its way round the other one (12 cm)
+
+
+def swing(A, B, ya, yb, O, yo, s, margin=.02, shoe=SHOE):
+    """Where a stepping foot is at s (0..1 of its way from A to B, turning from pointing ya to yb) as it goes past the
+    other foot standing at O (pointing yo): straight when it clears that foot by margin all the way, and otherwise out
+    round it, furthest out where it would have come nearest. The feet never touch, cross or pass through each other.
+    A step that would end on the other foot's far side cannot go round it this way; the engine never plans one (each
+    foot keeps to its own side of the body walking and turning). -> (x, y, z), with z as A's."""
+    z = A[2] if len(A) > 2 else 0.0
+    ts = [i / 32 for i in range(1, 32)]
+
+    def at(t, out=0.0, nw=(0.0, 0.0), tw=.5):
+        h = math.sin(.5 * math.pi * (t / tw if t <= tw else (1 - t) / (1 - tw)))
+        return (A[0] + (B[0] - A[0]) * t + nw[0] * out * h, A[1] + (B[1] - A[1]) * t + nw[1] * out * h), h
+
+    def gaps(out=0.0, nw=(0.0, 0.0), tw=.5):
+        return [(t,) + feet_gap(at(t, out, nw, tw)[0], ya + _ang(yb - ya) * t, O, yo, shoe) for t in ts]
+    goal = margin + .004            # a little more than asked, so that it holds between the points measured too
+    # never more room on the way than where the step starts and ends already have (a foot set down close beside the
+    # other leaves close beside it): the way is kept clear of the other foot, not the feet of each other
+    ends = min(feet_gap(A, ya, O, yo, shoe)[0], feet_gap(B, yb, O, yo, shoe)[0])
+    goal = min(goal, ends - .001)
+    margin = min(margin, goal)
+    g0 = gaps()
+    worst = min(g0, key=lambda g: g[1])
+    if worst[1] >= margin:
+        p = at(s)[0]
+        return (p[0], p[1], z)
+    tw = worst[0]
+    # out to the side of the step's line away from the other foot (the side it starts on, if it heads straight at it):
+    # never across its heel or its toe to get round it
+    dx, dy = B[0] - A[0], B[1] - A[1]
+    L = math.hypot(dx, dy) or 1.0
+    left = (-dy / L, dx / L)
+    side = (O[0] - A[0]) * left[0] + (O[1] - A[1]) * left[1]          # > 0: the other foot is on the step's left
+    if abs(side) < .02:
+        # heading straight at it: round it on the side of it the foot starts on (by that foot's own right)
+        lat = (A[0] - O[0]) * math.cos(yo) + (A[1] - O[1]) * math.sin(yo)
+        side = -(left[0] * math.cos(yo) + left[1] * math.sin(yo)) * (1 if lat >= 0 else -1)
+    nw = (-left[0], -left[1]) if side > 0 else left
+    # out until every point of the way clears it: measured on the way as it now goes, a few times over
+    out, cur = 0.0, g0
+    for _ in range(8):
+        bad = [(t, g) for t, g, _n in cur if g < goal]
+        if not bad or out >= OUT_MAX:
+            break
+        out = min(OUT_MAX, out + max((goal - g) / max(at(t, 1.0, nw, tw)[1], .2) for t, g in bad) * 1.05)
+        cur = gaps(out, nw, tw)
+    p = at(s, out, nw, tw)[0]
+    return (p[0], p[1], z)

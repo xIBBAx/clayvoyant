@@ -32,6 +32,7 @@ class ContactError(RenderError):
 
 FPS = 24
 STEP = 2
+ENGINE_NAME = "Sultan"   # the clay engine (engine/clay), named after Ibrahim Sultan, who made Clayvoyant
 ENGINE_VERSION = "11"  # bump when the engine changes what it draws: every cached shot is filmed again
 PRESETS = {"draft": (960, 540, 6), "preview": (1280, 720, 12), "final": (1920, 1080, 24)}
 LEAD = 3              # frames of breath before a line when there is no recorded audio to time it

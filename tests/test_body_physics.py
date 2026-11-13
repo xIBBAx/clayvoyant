@@ -30,6 +30,12 @@ SEATS = {
     "stool": dict(top=.82, front=.4, base_front=.36, back=None, floor=0.0),
     "low_seat": dict(top=.55, soft=.04, front=.5, base_front=.45, back=-.4, floor=0.0),
     "desk_with_panel": dict(top=.825, front=.26, base_front=.25, back=-.40, floor=0.0, ahead=.95),
+    # a chair with its legs out at the sides, drawn in to a round table on one foot: room to draw the feet in under it
+    "chair_at_table_foot": dict(top=.83, front=.26, base_front=.16, back=-.40, floor=0.0, under=1.36, base_front_at=[],
+                                feet_ahead=[(round(-.4 + .08 * i, 2), .88) for i in range(11)]),
+    # a cafe chair drawn in to a round table on one foot: the table's base stands on the floor in front of the feet
+    "cafe_chair": dict(top=.84, front=.26, base_front=.2, back=-.38, floor=0.0, under=1.36,
+                       feet_ahead=[(round(-.4 + .08 * i, 2), 1.32 + .02 * abs(-.4 + .08 * i)) for i in range(11)]),
 }
 
 
@@ -49,9 +55,12 @@ def test_every_body_sits_on_every_seat_without_passing_through_it(bname, sname):
     kn, an = s["knee"], s["ankle"]
     assert math.hypot(kn[0] - s["u"], kn[1] - s["joint_z"]) == pytest.approx(body["thigh"], abs=1e-6)
     assert math.hypot(an[0] - kn[0], an[1] - kn[1]) == pytest.approx(body["shin"], abs=1e-6)
-    # the backs of the knees clear the front edge; heels stay in front of whatever stands under the seat
+    # the backs of the knees clear the front edge; heels stay in front of whatever stands under the seat, and the toes
+    # short of whatever stands on the floor in front of it (a table's foot)
     assert kn[0] - body["knee_r"] >= seat["front"] + .02 - 1e-9 or "deeper than these thighs" in " ".join(s["notes"])
-    assert an[0] - body["heel"] >= seat["base_front"] + .03 - 1e-9
+    assert an[0] - body["heel"] >= seat["base_front"] + .03 - 1e-9 or "no room for the feet" in " ".join(s["notes"])
+    if seat.get("feet_ahead"):
+        assert an[0] + body["toe"] <= min(u for _d, u in seat["feet_ahead"]) - .02 or "no room for the feet" in " ".join(s["notes"])
     # feet are on the floor, or above it with the toes pointing down to it: never below it
     assert an[1] >= seat["floor"] + body["ankle"] - 1e-9
     assert s["lift"] == pytest.approx(max(0.0, an[1] - seat["floor"] - body["ankle"]), abs=1e-9)
@@ -74,6 +83,13 @@ def test_the_standing_place_for_a_seat_keeps_the_heels_clear_of_it():
         u = B.stand_point(body, seat)
         assert u - body["heel"] >= seat["base_front"] + .05, (bname, sname)
         assert u >= seat["front"] + body["shin_r"], (bname, sname)
+
+
+def test_every_body_finds_room_for_its_feet_between_a_chair_and_a_table_foot():
+    for bname in BODIES:
+        s = B.seated(_body(bname), SEATS["chair_at_table_foot"])
+        assert not any("no room" in n for n in s["notes"]), (bname, s["notes"])
+        assert s["ankle"][0] + _body(bname)["toe"] <= .88 - .02
 
 
 def test_different_bodies_sit_differently_on_the_same_seat():
@@ -162,3 +178,49 @@ def test_unknown_manners_and_ages_are_refused(tmp_path):
         _project(tmp_path / "m", {"manner": "grumpy"})
     with pytest.raises(ConfigError):
         _project(tmp_path / "a", {"age": "ancient"})
+
+
+# ---------------------------------------------------------------- feet on the floor
+def test_a_turn_on_the_spot_never_puts_one_foot_where_the_other_stands():
+    # 60 degrees a pair of steps at most (acting.Actor.turn): the opening foot lands clear of the one still standing
+    for deg in range(5, 61, 5):
+        th = math.radians(deg)
+        assert B.feet_gap(_stand(1, th), th, _stand(-1, 0.0), 0.0)[0] >= .02, deg
+        assert B.feet_gap(_stand(-1, -th), -th, _stand(1, 0.0), 0.0)[0] >= .02, deg
+
+
+def test_two_shoes_side_by_side_clear_each_other_and_one_on_the_other_does_not():
+    gap, _n = B.feet_gap((-.192, 0), 0.0, (.192, 0), 0.0)
+    assert gap == pytest.approx(.384 - 2 * B.SHOE[2], abs=1e-9)
+    assert B.feet_gap((0, 0), 0.0, (.05, .1), .4)[0] < 0
+    # a shoe is long: two feet one behind the other need their length between them, not their width
+    assert B.feet_gap((0, 0), 0.0, (0, .5), 0.0)[0] < 0 < B.feet_gap((0, 0), 0.0, (0, .8), 0.0)[0]
+
+
+def _stand(side, psi, st=.24):
+    back = .02 if side < 0 else -.03
+    return (math.cos(psi) * st * .8 * side - math.sin(psi) * back, math.sin(psi) * st * .8 * side + math.cos(psi) * back)
+
+
+@pytest.mark.parametrize("A,Bp,ya,yb,Os,yo", [
+    ((.2, .6), (.2, -.6), 0.0, 0.0, (0.0, 0.0), 0.0),          # past it, too close beside it
+    ((.3, .5), (.25, -.5), 0.0, .6, (0.0, 0.0), 0.0),           # past it close beside, turning as it goes
+    # the opening step of a turn on the spot, 60 degrees round, from a foot left behind by a walk's last stride
+    ((.24, .45), _stand(1, 1.05), 0.0, 1.05, _stand(-1, 0.0), 0.0),
+    ((-.24, .45), _stand(-1, -1.05), 0.0, -1.05, _stand(1, 0.0), 0.0),
+])
+def test_a_stepping_foot_goes_round_the_standing_one_never_through_it(A, Bp, ya, yb, Os, yo):
+    assert B.feet_gap(A, ya, Os, yo)[0] >= .02 and B.feet_gap(Bp, yb, Os, yo)[0] >= .02     # where it starts and lands
+    path = [B.swing(A + (0,), Bp + (0,), ya, yb, Os, yo, i / 200) for i in range(201)]
+    assert path[0][:2] == pytest.approx(A) and path[-1][:2] == pytest.approx(Bp)
+    for i, p in enumerate(path):
+        t = i / 200
+        assert B.feet_gap(p[:2], ya + B._ang(yb - ya) * t, Os, yo)[0] >= .02, (i, p)
+    # and it is a smooth way, not a jump: no drawing moves it more than a long stride's share
+    assert max(math.hypot(q[0] - p[0], q[1] - p[1]) for p, q in zip(path, path[1:])) < .05
+
+
+def test_a_step_that_clears_the_other_foot_goes_straight():
+    A, Bp = (.4, .5, 0), (.4, -.5, 0)
+    for i in range(11):
+        assert B.swing(A, Bp, 0.0, 0.0, (-.2, 0.0), 0.0, i / 10)[:2] == pytest.approx((.4, .5 - i / 10))

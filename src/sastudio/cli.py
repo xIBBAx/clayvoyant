@@ -270,7 +270,7 @@ def cmd_doctor(a) -> int:
     from .doctor import format_checks, run_checks
 
     checks = run_checks(Path(a.project) if a.project else None)
-    print(f"Clayvoyant {__version__}")
+    print(f"Clayvoyant {__version__}, clay engine Sultan")
     print(format_checks(checks))
     return 1 if any(c.status == "fail" for c in checks) else 0
 
@@ -538,7 +538,7 @@ def cmd_clean(a) -> int:
 
 def parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(prog="sastudio", description="Clay stop-motion films, written as plain text.")
-    ap.add_argument("--version", action="version", version=f"Clayvoyant {__version__}")
+    ap.add_argument("--version", action="version", version=f"Clayvoyant {__version__}, clay engine Sultan")
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     s = sub.add_parser("init", help="create a new project from a template")

@@ -2,7 +2,8 @@
 
 ## 0.4.0 (2026-11-13)
 
-Bodies that do not pass through things, and people who move like themselves.
+Bodies that do not pass through things, and people who move like themselves. The clay engine has a name:
+**Sultan**, after Ibrahim Sultan, who made Clayvoyant (`sastudio --version` says it).
 
 - **Sitting, worked out.** Every seat is measured from its own geometry where somebody sits on it: the height of its
   surface, its front edge, what stands under it, its backrest, a table over the knees, a desk's panel in front of
@@ -15,14 +16,21 @@ Bodies that do not pass through things, and people who move like themselves.
 - **Feet.** A foot on the floor never moves or turns until it lifts. Every walk, turn and stop starts from where the
   feet actually are, so a route with corners, or a change of mind halfway, carries the stride on instead of
   re-planting the feet (a foot used to jump up to 20 cm along the floor where one leg of a route met the next). A
-  planted foot keeps its direction and turns in the air; a rising heel pivots on the ball of the foot; a turn on
-  the spot goes in pairs of steps that never cross; sitting down, one foot steps back and then the other, never both
-  at once. Walks keep room for the legs and their stride. A room with no door has a way in at each side.
+  planted foot keeps its direction and turns in the air; a tilted shoe rolls on whatever part of its sole is lowest; a
+  turn on the spot goes in pairs of steps of at most 60 degrees (more put one foot where the other stood); every
+  footfall is planned clear of the other foot and a stepping foot goes round the standing one; a corner is a step turn
+  (the foot on the side turned to steps out first) and setting off behind turns on the spot first; sitting down, one
+  foot steps back and then the other, never both at once, the same foot first all the way down, and a foot turns to
+  the seat only while it is lifted. Seated feet draw back from a table's foot in front of them,
+  flat or on the toes, and under a chair where its legs leave room. Walks keep room for the legs and their stride. A room with no door has a way in at each side.
 - **Standing room.** A standing place too close to furniture or to someone else is moved the least distance that
   clears it, never out of the room; the log says so. The `sofa_side` mark of `home_desk` stood inside the sofa's arm.
 - **Arms and hands.** Elbows, forearms and hands stay outside the body; seated, hands rest on the thighs; a hand on
   the face rests on that head, its hair and its glasses; a carried mug or phone sits against the fingers; hands come
-  off a laptop before it is closed. Two desks put their modesty panel where the sitter's knees go.
+  off a laptop before it is closed; forearms clear the stomach of whoever they belong to; a carried thing never goes
+  into the body carrying it; clasped hands and palms
+  together touch instead of fusing, and a hand resting close to the other arm stays out of its sleeve; a ponytail stays off a chair's back. Two desks put their modesty panel where the
+  sitter's knees go.
 - **Checked before anything is drawn.** Every drawing of a shot is posed and measured before it is filmed
   (`engine/clay/contacts.py`): against the set, the props, the other people and the body itself away from its
   joints, and between one drawing and the next; what holds each body up (its feet within 5 mm of what is under them,

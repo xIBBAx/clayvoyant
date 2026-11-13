@@ -293,8 +293,10 @@ class Puppet:
         s.shoeL = add(obj(name + '_sL', load(D + 'shoe.npz', shoem), None))
         s.shoeR = add(obj(name + '_sR', load(D + 'shoe.npz', shoem), None))
         sv_ = np.array([v.co[:] for v in s.shoeL.data.vertices])
-        sv_ = sv_[sv_[:, 2] <= sv_[:, 2].min() + .03]
-        s.sole = (float(sv_[:, 1].min()), float(sv_[:, 1].max()))     # the sole runs from its toe (ahead) to its heel
+        s.sole_low = float(sv_[:, 2].min())
+        s.sole_yz = sv_[sv_[:, 2] <= s.sole_low + .08][:, 1:3]       # the underside, toe spring and heel curve included
+        sl_ = s.sole_yz[s.sole_yz[:, 1] <= s.sole_low + .03]
+        s.sole = (float(sl_[:, 0].min()), float(sl_[:, 0].max()))     # the sole runs from its toe (ahead) to its heel
         s.hipw = .178 if m['hw'] > .34 else .16
         s.legl = (s.hip - .13) / 2 * 1.015
         s.cape = None
@@ -481,6 +483,17 @@ class Puppet:
             pole = Mroot.to_3x3() @ V((sg * .10, -1, .1))
             K, Cc = ik(A, Ank, s.legl, s.legl, pole)
             ob.set(A, K, Cc, pole)
+
+    def foot_pivot(s, r):
+        """A shoe tilted by r (heel up when r > 0, toes up when r < 0) rolls on its sole: -> how far to move it along
+        itself and up so that whatever part of the sole is now lowest (the ball, then the toe, as the heel rises; the
+        heel as the toes come up) rests where the flat sole did, and stays where it touches."""
+        if abs(r) < 1e-6:
+            return 0.0, 0.0
+        y, z = s.sole_yz[:, 0], s.sole_yz[:, 1]
+        k = int(np.argmin(y * math.sin(r) + z * math.cos(r)))
+        yv, zv = float(y[k]), float(z[k])
+        return yv * (1 - math.cos(r)) + zv * math.sin(r), s.sole_low - (yv * math.sin(r) + zv * math.cos(r))
 
     def _in_torso(s, P, Mtorso, af, as_, sg, r):
         """How far a point of an arm, with the sleeve's thickness r around it, is inside the torso's side (<= 0: clear).
