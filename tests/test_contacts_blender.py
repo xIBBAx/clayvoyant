@@ -73,7 +73,7 @@ def test_feet_stay_planted_while_they_carry_the_weight_and_take_turns_to_step_ro
             pos, feet, yaw, amt = a.locate(f)
             if not feet:
                 continue
-            mv, st, side, lift, fr = feet
+            mv, st, side, lift, fr = feet[:5]
             if last is not None and last[0] == side:      # the same foot carries the weight: it must not move
                 slide = max(slide, math.hypot(st[0] - last[1][0], st[1] - last[1][1]))
             gap = min(gap, math.hypot(mv[0] - st[0], mv[1] - st[1]))

@@ -146,7 +146,7 @@ def reception(C):
     K.table_round(-5.0, -.6, .7, .9, top='#e9dcc3')
     K.plant(8.4, 4.4, 1.3, seed=3)
     K.plant(-8.6, 4.6, 1.1, pot='#e9dcc3', seed=7)
-    K.poster(2.6, 3.6, back - .06, ['VISITORS', 'sign in', 'wear a badge'], accent=acc)
+    K.poster(3.2, 3.6, back - .06, ['VISITORS', 'sign in', 'wear a badge'], accent=acc)      # clear of the brand panel
     for x in (-4.5, 0, 4.5):
         K.ceiling_panel(x, .8, 7.5, e=170)
     K.pendant(-1.2, 3.0, 6.9, shade=acc, e=60, drop=1.6)
@@ -220,7 +220,7 @@ def home_desk(C):
     K.mug(3.7, 1.6, .85, hex_='#3f8f8c')
     K.plant(-8.3, 4.5, 1.3, pot='#e9dcc3', seed=8)
     K.plant(.3, 5.2, .8, seed=9)
-    for i, (x, z) in enumerate(((1.0, 4.6), (2.3, 4.2), (1.2, 3.1))):
+    for i, (x, z) in enumerate(((1.0, 4.6), (2.3, 4.2), (1.15, 3.0))):
         K.frame(x, z, back - .06, .45 + .1 * (i % 2), .55, seed=i + C.get('seed', 1))
     K.clock(6.0, 5.6, back - .06, **_clock(C))
     router = K.group('router', (8.1, 5.3, 4.5))

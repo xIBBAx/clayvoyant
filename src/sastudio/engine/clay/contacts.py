@@ -296,6 +296,76 @@ def _past_join(pairs, seg, n1):
     return [pq for pq in pairs if ring(pq[0]) > end]
 
 
+REST = .012     # how deep a thing may settle into what holds it (a table's foot into the lumps of a clay floor)
+# The parts of a set that are built into each other on purpose, by the name its builder gives them (setkit): walls,
+# their windows, doors and skirting are one construction; floors are laid edge to edge; posts, trees and buildings
+# stand in the ground. Joins inside each of these are not contacts. Everything else is measured.
+BUILT = ('back', 'side', 'skirt', 'ceiling', 'window', 'door', 'winband', 'winbar', 'wainL', 'wainR', 'brandpanel', 'slat',
+         'feature', 'menu', 'menut', 'sign', 'label', 'bname')
+GROUND = ('plank', 'tile', 'carpet', 'floor', 'road', 'kerb', 'lane', 'plaza', 'lawn', 'pit', 'rugb', 'rug', 'runner')
+PLANTED = ('streetlamp', 'busstop', 'tree', 'building', 'skyline', 'cloud')
+
+
+def _cls(name):
+    n = re.sub(r'[\d.]+$', '', name.split('.')[0])
+    return 'built' if n in BUILT else 'ground' if n in GROUND else 'planted' if n in PLANTED else 'thing'
+
+
+def _top(o):
+    """The thing an object belongs to: its outermost parent (a laptop's keys belong to the laptop)."""
+    while o.parent is not None:
+        o = o.parent
+    return o
+
+
+def set_check(objects, dg=None, moving=()):
+    """Every pair of separate things of the set measured against each other, exactly: a mug inside a laptop, a chair in
+    a table, a plant in a bookcase. A thing resting on another (its lowest part in the top of what holds it) or hung
+    flat on a wall may settle into it by REST at most, as clay does under weight; anything else is reported.
+    moving: names of things that move (a chair being pulled out, a door, a prop on a track): only their pairs are
+    measured when given, for the drawings after the first. -> [dict(frame, actor='set', part, what, other, kind, pairs,
+    depth)]."""
+    dg = dg or bpy.context.evaluated_depsgraph_get()
+    ms = [Mesh(o, dg) for o in objects]
+    ms = [m for m in ms if len(m.v)]
+    tops = [_top(m.o).name for m in ms]
+    cls = [_cls(t) for t in tops]
+    out = []
+    lo = np.array([m.lo for m in ms])
+    hi = np.array([m.hi for m in ms])
+    for i, a in enumerate(ms):
+        cand = np.nonzero((lo[i + 1:] <= hi[i]).all(1) & (lo[i] <= hi[i + 1:]).all(1))[0] + i + 1
+        for j in cand:
+            b = ms[j]
+            if tops[i] == tops[j]:
+                continue
+            pair = {cls[i], cls[j]}
+            if pair <= {'built', 'ground'} or pair == {'planted', 'ground'} or pair == {'planted'}:
+                continue        # one construction, or something that stands in the ground
+            if moving and a.o.name not in moving and b.o.name not in moving:
+                continue
+            ta, tb = a.tree(), b.tree()
+            if ta is None or tb is None:
+                continue
+            pairs = ta.overlap(tb)
+            if not pairs:
+                continue
+            da, db = _depth(a, b), _depth(b, a)
+            deep = max(da, db)
+            # resting: the crossing is at the bottom of one of them, in the top of the other, and shallow
+            zc = np.array([a.centre(p)[2] for p, _q in pairs[:200]])
+            low_a, low_b = a.lo[2], b.lo[2]
+            resting = deep <= REST and ((zc <= low_a + .03).all() or (zc <= low_b + .03).all())
+            # hung on a wall: shallow, and one of them is a wall
+            walled = deep <= REST and any(_thing(n).split('.')[0] in ('back', 'side', 'skirt', 'wall') for n in (a.o.name, b.o.name))
+            if resting or walled:
+                continue
+            out.append(dict(frame=0, actor='set', part=_thing(a.o.name), what=_thing(tops[i]), other=_thing(tops[j]) + ' ' + _thing(b.o.name),
+                            kind='dressing', pairs=len(pairs), depth=round(deep, 4),
+                            at=[round(float(x), 3) for x in np.mean([a.centre(p) for p, _q in pairs[:50]], axis=0)]))
+    return out
+
+
 def _joins(a):
     """Where this body's parts are joined, this drawing: shoulders, hip joints, wrists, ankles (world)."""
     P = a.P

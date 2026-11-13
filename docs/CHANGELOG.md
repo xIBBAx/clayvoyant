@@ -1,5 +1,40 @@
 # Changelog
 
+## 0.3.3 (2026-11-13)
+
+Bodies that do not pass through things, and people who move like themselves.
+
+- **Sitting, worked out.** Every seat is measured from its own geometry where somebody sits on it: the height of its
+  surface, its front edge, what stands under it, its backrest, a table over the knees, a desk's panel in front of
+  them. How a body sits there is worked out from that body's own legs (`engine/clay/body.py`): thighs on the seat,
+  knees past its edge, feet on the floor in front of what is under it, toes down when short legs cannot reach, a
+  cushion pressed in under the weight. The `home_desk` sofa no longer swallows legs (#28).
+- **Getting to a seat.** People walk in standing, turn with small steps where there is room, step back and lower;
+  getting up is the same in reverse, and somebody seated who is sent somewhere stands up first. Somebody blocked on a
+  seat who walks in used to sit down for the whole walk.
+- **Feet.** A planted foot never skates: a walk ends with the feet side by side and a turn on the spot steps round.
+  Walks keep room for the legs and their stride. A room with no door has a way in at each side.
+- **Standing room.** A standing place too close to furniture or to someone else is moved the least distance that
+  clears it, never out of the room; the log says so. The `sofa_side` mark of `home_desk` stood inside the sofa's arm.
+- **Arms and hands.** Elbows, forearms and hands stay outside the body; seated, hands rest on the thighs; a hand on
+  the face rests on that head, its hair and its glasses; a carried mug or phone sits against the fingers; hands come
+  off a laptop before it is closed. Two desks put their modesty panel where the sitter's knees go.
+- **Checked before anything is drawn.** Every drawing of a shot is posed and measured before it is filmed
+  (`engine/clay/contacts.py`): against the set, the props, the other people and the body itself away from its
+  joints, and between one drawing and the next. A shot that would show a body inside something is refused, with who,
+  which part, in what and when; `sastudio film --allow-intersections` films it anyway and still lists them.
+- **`sastudio check PROJECT`** poses every planned shot and measures it without drawing (`--filmed` for the last
+  filming); `tools/check_contacts.py` uses the same probe, checks every drawing by default and fails when Blender does
+  not finish.
+- **Habits.** `look.acting` takes a `manner` (calm, confident, nervous, lively, reserved, warm, stern), an `age`
+  (young, adult, older) and `gaze`, `blink`, `smile`, `gestures`, `reaction`, `stride`. Longer legs take longer steps.
+  What a speaker's hands do follows how the line is said; listeners nod as far as they agree; `laugh` is a gesture;
+  a phone being read is read.
+- **Staging a body cannot do** is reported by `sastudio validate`: two people on one mark, a seat already taken,
+  typing away from a desk, a line spoken after its speaker walked out.
+- **The shot cache** is keyed by the engine's code as well as `ENGINE_VERSION` (now 11): a forgotten bump can no
+  longer leave stale shots behind.
+
 ## 0.3.2 (2026-11-12)
 
 On PyPI: `pip install clayvoyant`. The README's pictures and links now work on the package page, and

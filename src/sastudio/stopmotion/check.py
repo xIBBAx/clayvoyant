@@ -22,7 +22,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 
-KINDS = {"set": "inside", "cast": "inside", "self": "inside", "between": "passed through"}
+KINDS = {"set": "inside", "cast": "inside", "self": "inside", "between": "passed through", "dressing": "inside"}
 
 
 @dataclass

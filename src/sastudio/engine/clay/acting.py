@@ -272,7 +272,7 @@ class Actor:
         d = _ang(to - psi)
         if abs(d) < .45:
             return f
-        n = 2 if abs(d) < 1.75 else 3
+        n = 2 * max(1, math.ceil(abs(d) / 1.65))       # in pairs: up to about 95 degrees a pair
         dur = int(n * a.st.get('turn_step', 8) + 4)
         p = a.walks[-1][3] if a.walks else a.pos0
         a.walks.append((f, f + dur, p, p, n, 0.0, psi, psi + d, 'turn'))
@@ -327,19 +327,23 @@ class Actor:
             return (p_[0] + math.cos(psi) * stance * side - math.sin(psi) * back,
                     p_[1] + math.sin(psi) * stance * side + math.cos(psi) * back, 0)
         if cur is not None and cur[8] == 'turn' and cur[0] <= f < cur[1]:
-            # turning on the spot: one foot at a time steps round, the other stays planted
+            # turning on the spot, in pairs of steps: the foot on the side turned to opens out first, then the other
+            # comes round beside it, never past it (toes never cross); the other stays planted while one steps
             f0, f1, p0, p1, n = cur[:5]
             psi0, D = cur[6], _ang(cur[7] - cur[6])
+            pairs = max(1, n // 2)
             ph = clamp((f - f0) / max(1, f1 - f0)) * n
             i = min(n - 1, int(ph))
             fr = ph - i
-            first = 1 if D > 0 else -1          # the foot on the side turned to goes first
-            after = lambda k: psi0 + D * (k + 1) / n if k >= 0 else psi0
+            first = 1 if D > 0 else -1
+            ang = lambda j: psi0 + D * (j + 1) / pairs if j >= 0 else psi0
+            j = i // 2
+            frm, to = ang(j - 1), ang(j)
             side = first if i % 2 == 0 else -first
-            mv = tuple(lerp(u_, v_, sm(fr)) for u_, v_ in zip(stand(p0, side, after(i - 2)), stand(p0, side, after(i))))
-            # each foot points the way it was put down; the moving one turns as it swings
-            yaws = (after(i - 2) + _ang(after(i) - after(i - 2)) * sm(fr), after(i - 1))
-            return p0, (mv, stand(p0, -side, after(i - 1)), side, math.sin(math.pi * fr) * .07, fr, yaws), 0, 0
+            mv = tuple(lerp(u_, v_, sm(fr)) for u_, v_ in zip(stand(p0, side, frm), stand(p0, side, to)))
+            still = frm if i % 2 == 0 else to          # the trailing foot waits where it was; the leading one where it opened to
+            yaws = (frm + _ang(to - frm) * sm(fr), still)
+            return p0, (mv, stand(p0, -side, still), side, math.sin(math.pi * fr) * .07, fr, yaws), 0, 0
         if cur is None or f >= cur[1]:
             if cur is not None:
                 p = cur[3]
