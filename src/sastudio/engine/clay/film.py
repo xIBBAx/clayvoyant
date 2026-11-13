@@ -1289,6 +1289,51 @@ def _gap(o, up):
     return None if surf is None else low.z - surf - CLEAR
 
 
+def _closest(p0, p1, q0, q1):
+    """The closest points of segments p0-p1 and q0-q1: (point on p, point on q, how far along p, how far along q)."""
+    d1, d2, r = p1 - p0, q1 - q0, p0 - q0
+    a, e, f_ = float(d1 @ d1), float(d2 @ d2), float(d2 @ r)
+    c, b = float(d1 @ r), float(d1 @ d2)
+    den = a * e - b * b
+    s_ = min(1.0, max(0.0, (b * f_ - c * e) / den)) if den > 1e-12 else 0.0
+    t_ = (b * s_ + f_) / e if e > 1e-12 else 0.0
+    if t_ < 0 or t_ > 1:
+        t_ = min(1.0, max(0.0, t_))
+        s_ = min(1.0, max(0.0, (b * t_ - c) / a)) if a > 1e-12 else 0.0
+    return p0 + d1 * s_, q0 + d2 * t_, s_, t_
+
+
+def _seat_contact_gap(a):
+    """How far the lowest of what a seated body rests on (the bottom of its torso, the undersides of its thighs: PROX's
+    contact regions, as contacts._seat_gap measures them) is above the seat straight under it, less CLEAR; negative when
+    it is in the seat, None when nothing is under it."""
+    def lowest(co, k=48):
+        # the k lowest points of a part: wherever it rests, it rests on one of them
+        return co[_np.argpartition(co[:, 2], k)[:k]] if len(co) > k else co
+
+    pts = []
+    to_ = _part(a, '_torso')
+    if to_ is not None:
+        co_ = _part_tree(to_)[1]
+        if co_ is not None and len(co_):
+            pts.append(lowest(co_))
+    for sd in ('L', 'R'):
+        lo_, lb_ = _part(a, '_l' + sd), getattr(a.P, 'legLt' if sd == 'L' else 'legRt', None)
+        if lo_ is None or lb_ is None:
+            continue
+        co_ = _part_tree(lo_)[1]
+        th_ = co_[:lb_.seg * lb_.n1] if co_ is not None else None
+        if th_ is not None and len(th_):
+            pts.append(lowest(th_))
+    best = None
+    for p_ in (_np.concatenate(pts) if pts else ()):
+        top_ = surface_under(float(p_[0]), float(p_[1]), float(p_[2]) + .3, .6)
+        if top_ is not None:
+            g_ = float(p_[2]) - top_ - CLEAR
+            best = g_ if best is None else min(best, g_)
+    return best
+
+
 def _seated_for(a, f):
     on, since = False, None
     for k in a.keys:
@@ -1345,6 +1390,18 @@ def settle(f, depth=0):
             # passes above the seat, and that is not hovering) and only while the thighs are clear of it
             elif g_ is not None and (g_ < -.002 or (g_ > .003 and not thighs_in and _seated_for(a, f) > 24)):
                 a.seat_lift = getattr(a, 'seat_lift', 0.0) - g_
+                moved = True
+        if isinstance(cur.get('seat'), dict) and a.seat_amt(f) > .98 and not cur['seat'].get('soft'):
+            # a measured hard seat: the body rests on it exactly, not above it and not in it. The seat is solved from the
+            # body's average shape (body.seated); the trousers' real thickness, a tunic's pressed hem and the clay's own
+            # lumps are measured here, where the body rests, and it comes down onto the seat (or up out of it) by what is
+            # found, for as long as it sits on that seat. (A cushion is pressed to meet the body instead: press_cushions.)
+            g_ = _seat_contact_gap(a)
+            sid_ = cur['seat'].get('id')
+            rise_ = getattr(a, 'seat_rise', {})
+            if g_ is not None and abs(g_) > .002 and abs(rise_.get(sid_, 0.0) - g_) < .25:
+                rise_[sid_] = rise_.get(sid_, 0.0) - g_
+                a.seat_rise = rise_
                 moved = True
         if isinstance(cur.get('seat'), dict) and a.seat_amt(f) > .98:
             # the head and the hair stay off the backrest: found in it (a ponytail against a chair's back), the body sits
@@ -1486,6 +1543,35 @@ def settle(f, depth=0):
             if math.sqrt(nx * nx + ny * ny + nz * nz) < .3:
                 nudges[(side, kf_)] = (nx + .012 * d_[0], ny + .012 * d_[1], nz + .012 * d_[2])
                 moved = True
+        # ...and two forearms that cross (arms folded, a hand on the other arm) lie one on the other, never through it: the
+        # arm in front, where the two come closest, moves off the other along the line between them, a little at a time
+        aoL_, aoR_ = _part(a, '_aL'), _part(a, '_aR')
+        pl_ = getattr(a.P, 'palm', None)
+        if aoL_ is not None and aoR_ is not None and pl_ and hasattr(a.P, 'armlog') and cur.get('hL') is None and cur.get('hR') is None:
+            tLa_, tRa_ = _part_tree(aoL_)[0], _part_tree(aoR_)[0]
+            if tLa_ is not None and tRa_ is not None and tLa_.overlap(tRa_) and all(sd in a.P.armlog for sd in 'LR'):
+                seg_ = {sd: (_np.array(a.P.armlog[sd][0]), _np.array(pl_[sd].matrix_world.translation)) for sd in 'LR'}
+                c1_, c2_, s1_, s2_ = _closest(*seg_['L'], *seg_['R'])
+                yw_ = a.last_yaw or 0.0
+                fwd_ = _np.array((math.sin(yw_), -math.cos(yw_), 0.0))
+                front_ = 'L' if float((c1_ - c2_) @ fwd_) >= 0 else 'R'
+                d_ = (c1_ - c2_) if front_ == 'L' else (c2_ - c1_)
+                if float(_np.linalg.norm(d_)) < 1e-4:
+                    d_ = fwd_ + _np.array((0.0, 0.0, .5))
+                d_ = d_ / float(_np.linalg.norm(d_))
+                along_ = max(.35, s1_ if front_ == 'L' else s2_)       # moving the hand moves the crossing this much less
+                kf_ = a.state(f)[1][0]
+                step_ = .012 / along_
+                if f - kf_ < 30:
+                    nx, ny, nz = now[front_]
+                    if math.sqrt(nx * nx + ny * ny + nz * nz) < .45:
+                        now[front_] = (nx + step_ * d_[0], ny + step_ * d_[1], nz + step_ * d_[2])
+                        moved = True
+                else:
+                    nx, ny, nz = nudges.get((front_, kf_), (0.0, 0.0, 0.0))
+                    if math.sqrt(nx * nx + ny * ny + nz * nz) < .3:
+                        nudges[(front_, kf_)] = (nx + step_ * d_[0], ny + step_ * d_[1], nz + step_ * d_[2])
+                        moved = True
         a.hand_nudge = nudges
         # a hand is never inside its own body: found in the chest, the belly or a hip (fingers that point at the body
         # while the wrist is clear, an arm swinging past the hip), it goes out from the middle of the body, for this
@@ -2288,6 +2374,14 @@ def door_at(f):
 
 
 # ------------------------------------------------------------------ portraits and sheets (one still, no scene)
+# ------------------------------------------------------------------ what makes a sound (sastudio.sound), for the scene
+if MODE == 'events':
+    import sounds as _SND
+    for _e in _SND.scene_events(globals()):
+        print('EVENT ' + json.dumps(_e), flush=True)
+    print(f'EVENTS done {len(FRAMES)} frames', flush=True)
+    sys.exit(0)
+
 if MODE in ('portrait', 'sheet'):
     PERF.pose(FRAMES[0])
     PERF.pose(FRAMES[0])
@@ -2349,7 +2443,7 @@ def offstage(a):
 PROBE = CT.Probe(PERF, lambda: [o for o in bpy.data.objects if o.type == 'MESH' and o.name not in _CAST and o.visible_camera
                                 and _in_room(o)], held=[(c, who) for o, _a, _b, who in HELD for c in [o] + list(o.children_recursive)],
                  offstage=offstage)
-LEARNT = ('seat_lift', 'foot_push', 'foot_lift', 'hand_lift', 'hand_nudge', 'hand_now', 'walk_lift', 'last_head', 'last_yaw',
+LEARNT = ('seat_lift', 'seat_rise', 'foot_push', 'foot_lift', 'hand_lift', 'hand_nudge', 'hand_now', 'walk_lift', 'last_head', 'last_yaw',
           'last_hand', 'lap_lift', 'sit_fwd')
 
 

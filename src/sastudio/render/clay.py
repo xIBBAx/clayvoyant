@@ -29,6 +29,7 @@ from ..errors import ConfigError, RenderError, ToolMissing
 ENGINE = resources.files("sastudio").joinpath("engine")
 CLAY_VERSION = "2"  # bump when the sculpt code changes what a character looks like: every rig is sculpted again
 ENGINE_FILES = ("clay/film.py", "clay/acting.py", "clay/body.py", "clay/contacts.py", "clay/guest.py", "clay/sets.py", "clay/setkit.py",
+                "clay/sounds.py",
                 "clay/puppet.py", "clay/faceops.py", "clay/claymat.py", "clay/handrig.py", "sculpt/build.py", "sculpt/heads.py",
                 "sculpt/bodies.py", "sculpt/hair.py", "sculpt/sdfkit.py")
 DEVICES = ("GPU", "CPU")

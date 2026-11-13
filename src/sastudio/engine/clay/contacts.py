@@ -349,17 +349,28 @@ class Probe:
 
 
 def _limb(a, sfx):
-    """(rings around, rings in the upper part) of a sleeve or a trouser leg (puppet.Limb), or None."""
+    """(segments around, rings in the upper part, rings in all) of a sleeve or a trouser leg (puppet.Limb), or None."""
     L = {'aL': 'armLt', 'aR': 'armRt', 'lL': 'legLt', 'lR': 'legRt'}.get(sfx)
     lb = getattr(a.P, L, None) if L else None
-    return (lb.seg, lb.n1) if lb is not None else None
+    return (lb.seg, lb.n1, lb.n1 + lb.n2 + lb.n3) if lb is not None else None
 
 
-def _past_join(pairs, seg, n1):
+def limb_ring(p, seg, rings):
+    """Which ring of a limb (puppet.Limb) face p belongs to, 0 at the root. The side is (rings - 1) * seg quads, ring by
+    ring; then the two end caps, one triangle of each in turn: the even ones close the root (ring 0, the shoulder or the
+    hip, inside the body by design) and the odd ones the far end (the last ring, at the wrist or the ankle)."""
+    side = (rings - 1) * seg
+    if p < side:
+        return p // seg
+    return 0 if (p - side) % 2 == 0 else rings - 1
+
+
+def _past_join(pairs, seg, n1, count=None):
     """The crossings of a sleeve or a trouser leg with its own torso that are not where it is joined to it. A limb starts
     inside the torso (a sleeve on a shoulder, a trouser leg under a jacket's hem) and comes out of it once, near its
-    root: that first way out is the join. Anything after it, with clear limb in between, is the limb going back in."""
-    ring = lambda p: p // seg
+    root: that first way out is the join. Anything after it, with clear limb in between, is the limb going back in.
+    (The cap that closes the root belongs to the root: it is inside the body by design.)"""
+    ring = (lambda p: p // seg) if count is None else (lambda p: limb_ring(p, seg, count))
     rings = sorted({ring(p) for p, _q in pairs})
     if not rings or rings[0] > .55 * n1:
         return pairs                          # it never came out near the root: all of it is inside the body

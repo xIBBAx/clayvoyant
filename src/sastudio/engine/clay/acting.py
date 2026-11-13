@@ -248,6 +248,93 @@ def standing_foot(p, side, psi, stance, cw=0.0):
             p[1] + math.sin(psi) * stance * .8 * side + math.cos(psi) * back, 0)
 
 
+def _seg_point(p, a, b):
+    """The point of segment a-b nearest p (mathutils Vectors)."""
+    ab = b - a
+    L2 = ab.dot(ab)
+    t = 0.0 if L2 < 1e-12 else clamp((p - a).dot(ab) / L2)
+    return a + ab * t
+
+
+def personal_space(S_, a, q, M, sz, side_x, hs, margin=.03):
+    """A hand target q (actor space, from the shoulder line; the target is the wrist) moved, if it must be, out of every
+    other person in the scene, as they are posed now. The hand is taken as what it can reach: a ball round the wrist as
+    big as this hand is long, so it clears them whichever way it points. The other person is their torso as its own measured outline at
+    each height, leaning as it leans (the same test that keeps a hand out of its own body, puppet.keep_out), their head
+    as a ball round the face, and their arms as the capsules their shoulder, elbow and wrist make. Wherever the hand
+    would be inside them, the whole hand moves out by the most it has to. A person posed after this one is taken where
+    they were a drawing ago. side_x: where this arm's shoulder is (actor space); hs: this body's hand size."""
+    if not getattr(S_, 'actors', None):
+        return q
+    # how far this hand reaches from the wrist, whichever way it points (measured once, from its own mesh)
+    reach = getattr(a.P, 'hand_reach', None)
+    if reach is None:
+        reach = .3 * hs
+        hn_ = getattr(a.P, 'handR', None)
+        if hn_ is not None and len(hn_.data.vertices):
+            co_ = np.empty(len(hn_.data.vertices) * 3)
+            hn_.data.vertices.foreach_get('co', co_)
+            S3 = np.array(hn_.matrix_world.to_3x3())
+            reach = float(np.sqrt(((co_.reshape(-1, 3) @ S3.T) ** 2).sum(axis=1)).max())
+        a.P.hand_reach = reach
+    thick = reach + margin
+    W = M @ (q + V((0, 0, sz)))
+    moved = False
+    for _ in range(2):
+        d = (W - M @ V((side_x, .012, sz - .1)))
+        d = d.normalized() if d.length > 1e-6 else V((0, -1, 0))
+        pts = [W]
+        push = V((0, 0, 0))
+        for b in S_.actors.values():
+            Pb = b.P
+            if b is a or getattr(Pb, 'guest', False) or getattr(b, 'cull', False) or not getattr(Pb, 'vis', True):
+                continue
+            if getattr(Pb, 'tprof', None) is None or getattr(Pb, 'last_bend', None) is None:
+                continue                 # not posed yet: nothing to keep clear of
+            Mb = Pb.root.matrix_world
+            if (Mb.translation.xy - W.xy).length > 3.0:
+                continue
+            Mbi = Mb.inverted()
+            szb = Pb.hip + Pb.L
+            af_b, as_b = Pb.last_bend[0], Pb.last_bend[1]
+            caps = []
+            hw_ = getattr(Pb, 'head_world', None)
+            if hw_ is not None:
+                caps.append((V(hw_), V(hw_), .3 * Pb.m.get('hscale', 1.0)))
+            for sd in ('L', 'R'):
+                sh_ = getattr(Pb, 'shw', {}).get(sd)
+                el_ = getattr(Pb, 'armlog', {}).get(sd)
+                pl_ = getattr(Pb, 'palm', None)
+                pl_ = pl_.get(sd) if isinstance(pl_, dict) else None
+                if sh_ is None or el_ is None:
+                    continue
+                E_ = V(el_[0])
+                caps.append((V(sh_), E_, Pb.arm_r))
+                if pl_ is not None:
+                    caps.append((E_, pl_.matrix_world.translation.copy(), Pb.arm_r * .9))
+            for p_ in pts:
+                # the torso, at the height this point of the hand is at
+                qb = Mbi @ p_ - V((0, 0, szb))
+                qb2 = Pb.keep_out(qb, af_b, as_b, thick)
+                if (qb2 - qb).length > 1e-9:
+                    v_ = Mb.to_3x3() @ (qb2 - qb)
+                    if v_.length > push.length:
+                        push = v_
+                for c0, c1, r_ in caps:
+                    c_ = _seg_point(p_, c0, c1)
+                    v_ = p_ - c_
+                    need = r_ + thick
+                    if v_.length < need:
+                        v_ = (v_.normalized() if v_.length > 1e-6 else d) * (need - v_.length)
+                        if v_.length > push.length:
+                            push = v_
+        if push.length < 1e-6:
+            break
+        W = W + push
+        moved = True
+    return M.inverted() @ W - V((0, 0, sz)) if moved else q
+
+
 class Actor:
     def __init__(a, name, puppet, pos, style=None, **init):
         a.name, a.P = name, puppet
@@ -1126,7 +1213,9 @@ def pose_actor(S_, a, f):
         (ox_, oy_), (fx_, fy_), (rx_, ry_) = ST['origin'], ST['fwd'], ST['right']
         us_ = (x - ox_) * fx_ + (y - oy_) * fy_
         ls_ = (x - ox_) * rx_ + (y - oy_) * ry_
-        u_, zr_, lean_ = B.sit_path(seatA, (us_, zr_), (sol['u'], sol['z'] + ST.get('rise', 0.0)))
+        # (lowered or raised by what settling measured where this body rests on this seat: film.settle)
+        rise_ = ST.get('rise', 0.0) + getattr(a, 'seat_rise', {}).get(ST['id'], 0.0)
+        u_, zr_, lean_ = B.sit_path(seatA, (us_, zr_), (sol['u'], sol['z'] + rise_))
         lt_ = lerp(ls_, ST['lat'], sm(seatA))
         x, y = ox_ + fx_ * u_ + rx_ * lt_, oy_ + fy_ * u_ + ry_ * lt_
         bendf += lean_ * st_.get('sit_lean', 1.0) + (sol['lean'] + getattr(a, 'sit_fwd', {}).get(ST['id'], 0.0)) * seatA
@@ -1209,6 +1298,11 @@ def pose_actor(S_, a, f):
         if getattr(P, 'tprof', None) is not None and fold(lambda m_: 0. if K_[m_][1].get('h' + side) is not None else 1., 8) > .5:
             # never through the chest or the belly: round them, or resting on them
             q = P.keep_out(q, bendf, sides, HAND_R * P.m.get('hs', 1.0))
+        # ...and never into anybody else: open palms beside someone on a sofa, an arm swinging past someone seated on a
+        # bench, end short of their body, their head and their arms (personal_space). A hand resting in a lap stays
+        # where the lap is: someone sitting close beside is not moved out of the way of
+        if not (seatA > .5 and K_[ki][1]['g'] in LOW and walk_amt < .05):
+            q = personal_space(S_, a, q, M, sz, sg * (P.sx - .045), P.m.get('hs', 1.0))
         if held < .5:
             # no arm ever locks out straight on its way to a pose this body can't reach: the hand stops just short
             sh_ = V((sg * (P.sx - .045), 0, -.1))
