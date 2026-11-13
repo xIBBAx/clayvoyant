@@ -50,6 +50,69 @@ def test_nobody_passes_through_anything_in_the_staging_project(tmp_path):
     assert rep.contacts == [], "\n".join(C.said(c) for c in rep.contacts[:40])
 
 
+def test_sounds_come_from_what_the_engine_animates(tmp_path):
+    """The sounds of the staging scenes as the engine reports them (engine/clay/sounds.py), read in Blender from each
+    scene's own plan: footsteps only from feet that come down, none from anybody seated; a sit where a body arrives on
+    a seat and a stand where it leaves; a door only where somebody comes or goes through it; typing only from the hands
+    that type; a chair heard as it is drawn in. What the direction asks for but the plan drops is not heard: Mei is
+    told to sit down in the meeting, but she is sent off again before she gets there."""
+    pytest.importorskip("skimage", reason="needs the clay extra: pip install -e '.[clay]'")
+    _blender()
+    from sastudio import direction as D
+    from sastudio import stopmotion as SM
+    from sastudio.project import load_project
+    from sastudio.render import clay
+    from sastudio.sound.events import ENGINE_KINDS
+
+    if not clay.engine_included():
+        pytest.skip("the clay engine is not in this installation")
+    shutil.copytree(ROOT / "tests" / "data" / "staging", tmp_path / "staging")
+    project = load_project(tmp_path / "staging")
+    ev = {}
+    for plan in D.plan(project):
+        scene = next(s for s in project.scenes if s.id == plan.scene)
+        spans = SM.spans_estimated(project, scene)
+        total = spans[-1].beat + spans[-1].frames + 48
+        ev[plan.scene] = SM.scene_events(project, scene, plan, spans, total, log=lambda *_: None)
+
+    def of(scene, kind, who=None):
+        return [e for e in ev[scene] if e["kind"] == kind and (who is None or e.get("who") == who)]
+
+    for scene, es in ev.items():
+        assert all(e["kind"] in ENGINE_KINDS for e in es), scene
+        assert len({(e["kind"], e.get("who"), e.get("thing"), e["frame"]) for e in es}) == len(es), scene   # each once
+        # nobody steps while seated: between a body's sit and its next stand there is no footstep of theirs
+        for who in {e.get("who") for e in es if e.get("who")}:
+            down = None
+            for e in sorted((e for e in es if e.get("who") == who), key=lambda e: e["frame"]):
+                if e["kind"] == "sit":
+                    down = e["frame"]
+                elif e["kind"] == "stand":
+                    down = None
+                elif e["kind"] == "footstep":
+                    assert down is None, (scene, who, e["frame"], down)
+    # the meeting: Mei walks in through the door and out again, and never sits
+    assert of("meeting", "footstep", "mei") and not of("meeting", "sit", "mei")
+    opens, shuts = of("meeting", "door_open"), of("meeting", "door_close")
+    assert opens and len(opens) == len(shuts) and all(o["frame"] < c["frame"] for o, c in zip(opens, shuts))
+    # the bench, outdoors: Mei sits beside Kofi; Kofi gets up, then walks away; no door
+    assert of("bench", "sit", "mei") and of("bench", "stand", "kofi")
+    up = of("bench", "stand", "kofi")[0]["frame"]
+    assert of("bench", "footstep", "kofi") and all(e["frame"] > up for e in of("bench", "footstep", "kofi"))
+    assert not of("bench", "door_open") and not of("bench", "door_close")
+    # the cafe: Kofi comes in through the door, then sits, the chair drawn in under him
+    first = min(e["frame"] for e in of("cafe", "footstep", "kofi"))
+    assert of("cafe", "door_open") and of("cafe", "door_open")[0]["frame"] <= first
+    sat = of("cafe", "sit", "kofi")
+    assert sat and any(abs(e["frame"] - sat[0]["frame"]) <= 60 for e in of("cafe", "scrape"))
+    # the classroom: only Sana types, from the start
+    assert of("class", "typing", "sana") and of("class", "typing", "sana")[0]["frame"] <= 1
+    assert all(e.get("who") == "sana" for e in of("class", "typing"))
+    # the sofa: Mei gets up and later sits down again
+    st, si = of("sofa", "stand", "mei"), of("sofa", "sit", "mei")
+    assert st and si and st[0]["frame"] < si[-1]["frame"]
+
+
 def _engine(code: str) -> dict:
     """Run a few lines inside Blender with the engine importable; they print one JSON object."""
     exe = _blender()

@@ -86,6 +86,21 @@ We looked for another open project that takes a written conversation and returns
 acted, voiced, subtitled film with no model, no key and no paid step, and did not find one. If you
 know of one, [open an issue](https://github.com/xIBBAx/clayvoyant/issues): it belongs in this table.
 
+## What the first film needed
+
+I made the first film with a week of separate tools: Blender for the clay, Remotion for the edit
+and its transitions, FFmpeg to put it together, Sarvam and ElevenLabs for the voices, earshot to
+choose between takes, Mixkit for the music and the sound, Poly Haven for materials, and a
+hand-lettering system for the titles. Clayvoyant is that work made into one tool.
+
+| | |
+|---|---|
+| **In Clayvoyant** | characters sculpted from a description; rooms built by code; walking, sitting, gestures, eyes and lip sync; shots and cameras planned from the script; every drawing checked for bodies inside things before it is filmed (the first film's overlaps were found by scanning finished frames); titles, cards and subtitles in every language; the sound of what happens on screen, the air of each place, music under the voices, and a master measured in the encoded film (the first film's Foley was placed by hand, frame by frame) |
+| **Through what it builds on** | Blender draws; FFmpeg encodes and measures loudness; Kokoro speaks, offline |
+| **Not built yet** | transitions that happen in the story rather than a fade; hand-lettered inserts; a laugh or a breath in the character's own voice |
+| **Yours to add** | paid voices (Sarvam, ElevenLabs), switched on per project; music and sound you are licensed to use (`sound.music`, `sound.library`); CC0 recordings (`sastudio sounds install kenney`); models you bring (`look.model`) |
+| **Left out** | a video editor (the film is assembled by code); stock footage; the repair scripts and review runs one production needs |
+
 ## When something else is the better tool
 
 - You need photographs of the real world, or a particular real place or product. Clayvoyant draws

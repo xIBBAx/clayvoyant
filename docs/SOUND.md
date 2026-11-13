@@ -229,3 +229,6 @@ passing the files on in a library, so none is offered as a pack.
 - Sounds that follow the camera: panning follows where things are in the room, gently, the same in
   every shot of a scene.
 - Clothing that rustles with every gesture, and footsteps that change with a character's mood.
+- Picking things up and putting them down. A carried mug or phone is in the hand once the fingers
+  close round it; nothing yet animates taking it from a table, so nothing is heard. A cue can place
+  one where the story needs it (`sound: set_down`).

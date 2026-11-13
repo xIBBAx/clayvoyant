@@ -39,6 +39,10 @@ Made by Ibrahim Sultan for this project, and shared under the same MIT License a
 | Frames and loop of the sample film; the eight sets; the character line-up | `docs/media/film/the-fast-one*.{jpg,gif}`, `docs/media/film/sets.jpg`, `docs/media/characters/clay-lineup.jpg`, `docs/media/characters/clay-proof.jpg` | Rendered by `sastudio film` and the engine from this repository (`tools/make_showcase_media.py`); the voices in the film are Kokoro's |
 | Nineteen Thirty, the films and the sheet | `docs/media/nineteen-thirty.en-IN.mp4`, `docs/media/nineteen-thirty.hi-Latn.mp4`, their `.vtt` subtitles, `docs/media/film/nineteen-thirty-sheet.jpg` (the films are also attached to releases) | Made by `sastudio film examples/nineteen-thirty --preset preview` (`--lang hi-Latn` for the second) from this repository; the voices are Kokoro's |
 | The India previews | `docs/media/india/*.jpg` | Frames and posters of the `india` template as `sastudio init --template india` makes it, rendered by `sastudio render`, `sastudio share` and `sastudio posters` from this repository; the voices are Kokoro's |
+| Sound effects: footsteps, seats, chairs, doors, a laptop's lid, typing, a phone ringing or buzzing, a message, a knock | `src/sastudio/sound/foley.py` | Made by this code while a film is mixed (modal synthesis: a contact force through the resonances of what is struck, and friction for scrapes); no recordings |
+| Rooms and their air: reverberation and room tone for every set | `src/sastudio/sound/ambience.py` | Made by this code: each room's reverberation from its real size (Sabine), each place's air from shaped noise the length of the scene; no recordings |
+| Sample film "Held Door" (project, characters, script) | `examples/held-door/` | Written for this project; all people and places are invented |
+| Its theme music, a placeholder | `examples/held-door/assets/music/theme.ogg` | Made by `tools/make_example_music.py` (numpy and FFmpeg) |
 | Fictional Quillmere Logistics logo (example only) | `examples/quillmere/assets/logo.png` | Drawn with code by `tools/make_example_assets.py` |
 | Example project | `examples/quillmere/` | Written for this project; its scenes are copies of starter scenes with one line changed |
 | Sample scripts (12 scenes, English, partly Hindi) | `src/sastudio/templates/starter/scenes/` | Written for this project |
@@ -81,6 +85,20 @@ but not sell the font files on their own.
 The terminal captures were drawn with the DejaVu Sans Mono font installed on the maintainer's
 system; the font is not included here, only images of text set in it.
 
+## Sound packs you install yourself (not included)
+
+`sastudio sounds install kenney` downloads two packs of real recordings, once, when you ask for it
+(never while a film is made), checks each archive against a SHA-256 pinned in
+`src/sastudio/sound/packs.py`, and keeps only the files the engine uses, with the pack's own licence
+and a manifest of every file (where it came from, who made it, its licence, when it was fetched, its
+checksum) in `~/.cache/sastudio/sounds/kenney`.
+
+| Pack | Made by | Licence |
+|---|---|---|
+| Impact Sounds 1.0, RPG Audio | Kenney Vleugels, [kenney.nl](https://kenney.nl) | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) (credit is not required; it is given here) |
+
+Recordings you bring yourself (`sound.library`, `sound.music`) are yours to license.
+
 ## Speech you generate
 
 Audio from Sarvam or ElevenLabs is created with your own account and is governed by that
@@ -97,5 +115,6 @@ Never clone a real person's voice without their written consent.
 
 ## What is not here
 
-This repository contains no music, sound effects, stock footage, third-party 3D models,
-company logos or voice recordings. Add your own only if their licence allows it.
+This repository contains no recorded music or sound effects (every effect and the example theme
+are made by code), no stock footage, third-party 3D models, company logos or voice recordings. Add
+your own only if their licence allows it.
