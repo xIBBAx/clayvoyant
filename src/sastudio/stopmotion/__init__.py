@@ -26,9 +26,13 @@ from .. import direction as D
 from ..errors import ConfigError, RenderError, ToolMissing
 from ..render import clay
 
+
+class ContactError(RenderError):
+    """A shot refused before filming: a body would pass through something (engine/clay/contacts.py)."""
+
 FPS = 24
 STEP = 2
-ENGINE_VERSION = "10"  # bump when the engine changes what it draws: every cached shot is filmed again
+ENGINE_VERSION = "11"  # bump when the engine changes what it draws: every cached shot is filmed again
 PRESETS = {"draft": (960, 540, 6), "preview": (1280, 720, 12), "final": (1920, 1080, 24)}
 LEAD = 3              # frames of breath before a line when there is no recorded audio to time it
 SPEAKER_UNTIL = "speaker_until"   # in a line's folder: the first frame of the line that does not show its speaker
@@ -111,10 +115,14 @@ def _mood(name: str | None) -> str | None:
     return MOODS.get(name) or (name if name in ENGINE_MOODS else None)
 
 
-def _gesture_keys(who: str, g: str, f0: int, f1: int, to: str | None, set_info: dict) -> tuple[list[dict], bool]:
-    """Acting keys for one gesture of the direction vocabulary on a line from f0 to f1 -> (keys, uses the hands)."""
+def _gesture_keys(who: str, g: str, f0: int, f1: int, to: str | None, set_info: dict, mood: str | None = None) -> tuple[list[dict], bool]:
+    """Acting keys for one gesture of the direction vocabulary on a line from f0 to f1 -> (keys, uses the hands).
+    mood: the face to come back to after a gesture that changes it (a laugh)."""
     info = D.GESTURES[g]
     k = lambda f, **d: dict(who=who, frame=int(f), **d)  # noqa: E731
+    if g == "laugh":
+        # the face, the breath, the head and the shoulders, together (engine: acting.Actor.laugh_at)
+        return [k(f0 + 2, laugh=1, f="grin"), k(f0 + 40, laugh=0, f=mood or "happy")], False
     if g == "nod":
         return [k(f0 + 2, nod=.2), k(f0 + 9, nod=0), k(f0 + 15, nod=.12), k(f0 + 22, nod=0)], False
     if g == "shake_head":
@@ -193,7 +201,7 @@ def scene_job(project, scene, plan: D.ScenePlan, spans: list[Span], lang: str | 
         ln = sp.line
         manual = set()
         for g in ln.act or []:
-            ks, hands = _gesture_keys(ln.who, g, sp.start, sp.end, ln.to, set_info)
+            ks, hands = _gesture_keys(ln.who, g, sp.start, sp.end, ln.to, set_info, _mood(ln.emotion) or last_mood.get(ln.who))
             keys += ks
             if hands:
                 manual.add(ln.who)
@@ -215,7 +223,7 @@ def scene_job(project, scene, plan: D.ScenePlan, spans: list[Span], lang: str | 
             g = b.get("act")
             if g in D.GESTURES:
                 to = ln.who if who != ln.who else ln.to
-                ks, hands = _gesture_keys(who, g, f, max(f + 24, sp.end), to, set_info)
+                ks, hands = _gesture_keys(who, g, f, max(f + 24, sp.end), to, set_info, _mood(b.get("feeling")) or last_mood.get(who))
                 keys += ks
                 if hands:
                     manual.add(who)
@@ -241,7 +249,7 @@ def scene_job(project, scene, plan: D.ScenePlan, spans: list[Span], lang: str | 
         else:
             cues = lipsync.cues_from_text(sp.text or project.display(ln.say or "", lang), sp.env, FPS) if sp.speech else []
         lines.append({"id": ln.id, "who": ln.who, "start": sp.start, "end": sp.end, "cues": cues, "to": ln.to,
-                      "manual": sorted(manual)})
+                      "manual": sorted(manual), **({"feeling": mood} if mood else {})})
     org = project.org
     clock = D.clock_time(scene)
     tracks = []
@@ -352,8 +360,38 @@ def opening_job(scene_part: dict, plan: D.ScenePlan, scene, frames: list[int], p
     return job
 
 
+_FINGERPRINT: list[str] = []
+# the engine files whose code decides what a filmed shot looks like (contacts.py only measures: it draws nothing)
+PICTURE_FILES = ("film.py", "acting.py", "body.py", "puppet.py", "handrig.py", "faceops.py", "claymat.py", "sets.py", "setkit.py",
+                 "guest.py")
+
+
+def engine_fingerprint() -> str:
+    """A hash of the engine's code as Python reads it (comments and docstrings left out), so that any change to how a
+    shot is posed or built films it again, even if nobody remembered to bump ENGINE_VERSION; a comment does not."""
+    if not _FINGERPRINT:
+        import ast
+
+        def bare(src: str) -> str:
+            tree = ast.parse(src)
+            for node in ast.walk(tree):
+                body = getattr(node, "body", None)
+                if isinstance(body, list) and body and isinstance(body[0], ast.Expr) \
+                        and isinstance(getattr(body[0], "value", None), ast.Constant) and isinstance(body[0].value.value, str):
+                    node.body = body[1:] or [ast.Pass()]
+            return ast.dump(tree, annotate_fields=False)
+        h = hashlib.sha256()
+        for name in PICTURE_FILES:
+            f = clay.ENGINE.joinpath("clay").joinpath(name)
+            if f.is_file():
+                h.update(name.encode() + b"\0" + bare(f.read_text("utf-8")).encode())
+        _FINGERPRINT.append(h.hexdigest()[:16])
+    return _FINGERPRINT[0]
+
+
 def _digest(job: dict, rigs: dict) -> str:
-    body = json.dumps({"job": job, "rigs": rigs, "v": ENGINE_VERSION}, sort_keys=True, default=str)
+    job = {k: v for k, v in job.items() if k != "contacts"}     # whether contact was checked does not change a drawing
+    body = json.dumps({"job": job, "rigs": rigs, "v": ENGINE_VERSION, "engine": engine_fingerprint()}, sort_keys=True, default=str)
     return hashlib.sha256(body.encode()).hexdigest()[:20]
 
 
@@ -485,6 +523,8 @@ def run_blender(job: dict, work: Path, log=print, timeout: float = 48 * 3600) ->
             job[key] = conv(Path(job[key]))
     job["cast"] = [dict(c, model=conv(Path(c["model"]))) if c.get("model") else c for c in job.get("cast") or []]
     job["device"] = clay.clay_device()
+    if os.environ.get("SASTUDIO_ALLOW_INTERSECTIONS") == "1":
+        job["contacts"] = "allow"      # sastudio film --allow-intersections: film it, and list what passes through what
     work.mkdir(parents=True, exist_ok=True)
     (work / "job.json").write_text(json.dumps(job), "utf-8")
     with resources.as_file(clay.ENGINE.joinpath("clay").joinpath("film.py")) as script:
@@ -493,10 +533,15 @@ def run_blender(job: dict, work: Path, log=print, timeout: float = 48 * 3600) ->
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8", errors="replace",
                                 **({"preexec_fn": _die_with_parent} if linux else {}))
         tail: list[str] = []
+        contacts: list[str] = []
 
         def on_line(line: str) -> None:
             nonlocal tail
             tail = (tail + [line])[-30:]
+            if line.startswith("FILM contact ") or line.startswith("FILM refused"):
+                contacts.append(line[5:])
+            elif line.startswith("FILM contacts checked"):
+                log("    " + line[5:])
             if line.startswith("FILM device"):
                 cpu = job["device"] == "GPU" and line.startswith("FILM device CPU")
                 log(("    warning: " if cpu else "    ") + line[5:]
@@ -519,6 +564,12 @@ def run_blender(job: dict, work: Path, log=print, timeout: float = 48 * 3600) ->
     for t in tail:
         if t.startswith("FILM guest"):
             log("    " + t[5:])
+    if contacts and any(c.startswith("refused") for c in contacts):
+        raise ContactError("This shot was not filmed: a body would pass through something.\n    "
+                           + "\n    ".join(c[len("contact "):] if c.startswith("contact ") else c for c in contacts[:16]),
+                           "Move someone (direction.blocking), change the gesture or the line's business, or give the people "
+                           "more room; `sastudio check` shows every drawing without filming. To film it anyway: "
+                           "sastudio film --allow-intersections.")
     if code != 0 or not any(t.startswith("FILM done") for t in tail):
         raise RenderError("Blender did not finish the shot:\n    " + "\n    ".join(tail[-14:]))
 
@@ -556,8 +607,9 @@ def _film(project, job: dict, frames: list[int], label: str, what: str, log=prin
             run_blender(job, project.root / ".studio" / "work" / "clay" / label, log)
             problem = None
         except RenderError as e:
-            # an error in the engine's own code will not fix itself; a crash, a lost GPU or a hang might
-            if "Traceback" in str(e) or attempt == retries:
+            # an error in the engine's own code will not fix itself, nor will a shot refused for a contact; a crash, a
+            # lost GPU or a hang might
+            if isinstance(e, ContactError) or "Traceback" in str(e) or attempt == retries:
                 raise
             problem = str(e).splitlines()[0]
         blank = blank_frames(out / f"{f:06d}.png" for f in todo if (out / f"{f:06d}.png").exists())

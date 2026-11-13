@@ -37,6 +37,8 @@ HAND = dict(
     cup=dict(c=[(-.386, -.225, -.405)] * 4, spread=.04, th=(1.0, .2)),
     # a phone held to the ear: fingers lie along its back and curl over its far edge, the thumb holds the near edge
     cradle=dict(c=[(-.22, -.5, -.45)] * 4, spread=.05, th=(.85, .55)),
+    # resting on a thigh: the fingers follow its round, the thumb lies along the inside of it
+    lap=dict(c=[(-.12, -.22, -.2)] * 4, spread=.06, th=(.55, .45)),
 )
 ZS = (-.066, -.024, .018, .058)        # knuckles across the palm: pinky to index, thumb side is +Z
 LENS = (.82, .96, 1.0, .9)

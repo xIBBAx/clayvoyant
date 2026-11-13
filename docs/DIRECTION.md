@@ -252,6 +252,7 @@ direction:
 | `sip` | right arm | once | mug |
 | `check_phone` | head, right arm | hold | phone |
 | `lean_in` | torso | once |  |
+| `laugh` | head, torso | once |  |
 | `turn_to` | head, torso | once |  |
 | `sit_down` | legs, torso | once | a seat |
 | `stand_up` | legs, torso | once | a seat |
@@ -262,7 +263,13 @@ Two gestures in one line may not use the same body part; a gesture that needs a 
 needs a set that has one. `sit_down` walks to the nearest free seat; `walk_in` enters through the
 set's door (or from the side, where there is none) and arrives as the line begins; `typing` puts
 the hands on the table of whoever is sitting at one; a mug or a phone appears in the hand that
-holds it. A speaker with no gesture of their own talks with their hands, changing on the thought.
+holds it. A speaker with no gesture of their own talks with their hands, changing on the thought,
+and how they move follows how the line is said: open and easy, firm (a raised finger, palms down),
+unsettled (hands close to the body, a hand to the chest, hands clasped) or thinking (a hand to the
+chin). A listener nods along as far as they agree with what they hear: someone worried or annoyed
+hardly nods, and glances away now and then. A `laugh` is bursts of breath that shake the shoulders
+and the head, with the face, then the face comes back to the line's emotion. `check_phone` reads
+whatever is in the hand: a little forward, the eyes on it, a thumb that scrolls now and then.
 
 Emotions: `neutral`, `happy`, `worried`, `surprised`, `suspicious`, `confident`, `embarrassed`,
 `relieved`, and the finer shades `grin`, `shock`, `sad`, `smug`, `deadpan`, `think`, `annoyed`,

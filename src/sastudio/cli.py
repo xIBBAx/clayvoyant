@@ -186,6 +186,10 @@ def cmd_film(a) -> int:
     from .build import build
 
     p = _load(a.project)
+    if a.allow_intersections:
+        import os
+
+        os.environ["SASTUDIO_ALLOW_INTERSECTIONS"] = "1"
     res = build(p, language=a.lang, scene_ids=_scenes(a.scenes), preset=a.preset, fallback=a.voice_fallback,
                 burn=True if a.burn_subtitles else None, jobs=a.jobs, renderer="clay",
                 allow_placeholder_contacts=a.allow_placeholder_contacts, voices=a.voices)
@@ -194,6 +198,34 @@ def cmd_film(a) -> int:
     print(json.dumps({"video": str(res.video), "srt": str(res.srt), "vtt": str(res.vtt),
                       "transcript": str(res.transcript), "rendered": res.rendered, "reused": res.reused}, indent=1))
     return 0
+
+
+def cmd_check(a) -> int:
+    """Pose every drawing of the clay shots and measure what passes through what, drawing nothing."""
+    from .stopmotion import check as C
+
+    p = _load(a.project)
+    scenes = _scenes(a.scenes)
+    if a.filmed:
+        jobs = [(lb, j) for lb, j in C.filmed_jobs(p, a.shots or "") if not lb.endswith("_silent")
+                and (not scenes or any(lb.startswith(sc + "_") for sc in scenes))]
+    else:
+        jobs = C.planned_jobs(p, scene_ids=scenes, shots=a.shots or "")
+    if not jobs:
+        raise StudioError(f"No clay shots to check in {p.root}.", "Film it first (sastudio film), or leave out --filmed.")
+    print(f"Checking {len(jobs)} shot(s): every drawing posed as filming would, nothing drawn...")
+    rep = C.check(jobs, every=a.every, workers=a.jobs)
+    for c in rep.contacts[:60]:
+        print("  " + C.said(c))
+    if len(rep.contacts) > 60:
+        print(f"  ... and {len(rep.contacts) - 60} more")
+    for s_ in rep.failed:
+        print(f"  {s_.label} could not be checked: {s_.error}")
+    print(f"{rep.drawings} drawings checked: {len(rep.contacts)} contact(s)" + (f", {len(rep.failed)} shot(s) unchecked" if rep.failed else ""))
+    if rep.contacts:
+        print("Move someone (direction.blocking), change a gesture, or give the people more room; "
+              "docs/CLAY_MOTION.md#nothing-passes-through-anything says what the engine handles by itself.")
+    return rep.exit_code()
 
 
 def cmd_model(a) -> int:
@@ -592,8 +624,20 @@ def parser() -> argparse.ArgumentParser:
     s.add_argument("--burn-subtitles", action="store_true")
     s.add_argument("--allow-placeholder-contacts", action="store_true",
                    help="render a final film that still shows placeholder reporting contacts")
+    s.add_argument("--allow-intersections", action="store_true",
+                   help="film a shot even when a body would pass through something (listed in the log and in the shot's "
+                        "contacts.json); without it such a shot is not filmed")
     s.add_argument("--jobs", type=int)
     s.set_defaults(fn=cmd_film)
+
+    s = sub.add_parser("check", help="clay: pose every drawing and check that nothing passes through anything (draws nothing)")
+    s.add_argument("project")
+    s.add_argument("--scenes", help="comma-separated scene ids")
+    s.add_argument("--shots", help="only shots whose name contains this")
+    s.add_argument("--filmed", action="store_true", help="check the shots of the last filming instead of the plan")
+    s.add_argument("--every", type=int, default=1, help="measure every Nth drawing (default: every one)")
+    s.add_argument("--jobs", type=int, default=2, help="Blenders at once (default 2)")
+    s.set_defaults(fn=cmd_check)
 
     s = sub.add_parser("motion", help="a silent clay preview of one scene or shot, to check the direction")
     s.add_argument("project")

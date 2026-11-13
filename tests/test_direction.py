@@ -342,3 +342,54 @@ def test_nobody_is_framed_before_they_walk_in():
     before = [s for s in shots if set(s.lines) <= {"nt_01", "nt_02"}]
     assert before and all(s.who == ["gopal"] for s in before)
     assert any("ira" in s.who for s in shots if "nt_03" in s.lines)
+
+
+def _staged(tmp_path, direction: str, lines: str):
+    """A one-scene project with the given direction block and lines (YAML, already indented)."""
+    root = write_project(tmp_path / "s")
+    t = (root / "studio.yaml").read_text(encoding="utf-8")
+    a, b = t.index("  - id: one\n"), t.index("  - id: two\n")
+    scene = f"  - id: one\n    title: \"Scene One\"\n    direction:\n{direction}    lines:\n{lines}"
+    (root / "studio.yaml").write_text(t[:a] + scene + t[b:], encoding="utf-8")
+    return load_project(root)
+
+
+@pytest.mark.parametrize("direction,lines,level,needle", [
+    ("      set: home_desk\n      blocking: { ana: sofa, dev: sofa }\n",
+     '      - { id: l1, who: ana, say: "Hi." }\n      - { id: l2, who: dev, say: "Hi." }\n', "error", "both on the sofa mark"),
+    ("      set: street\n      blocking: { ana: bench }\n",
+     '      - { id: l1, who: ana, say: "Hi." }\n      - { id: l2, who: dev, say: "Hi.", act: [sit_down] }\n', "error", "no free seat"),
+    ("      set: home_desk\n      blocking: { ana: sofa }\n",
+     '      - { id: l1, who: ana, say: "Hi." }\n      - { id: l2, who: dev, say: "Hi.", go: sofa }\n', "error", "is sitting on sofa"),
+    ("      set: office\n",
+     '      - { id: l1, who: ana, say: "Bye.", act: [walk_out] }\n      - { id: l2, who: ana, say: "Hi." }\n', "error", "walked out"),
+    ("      set: office\n",
+     '      - { id: l1, who: ana, say: "Hi." }\n      - { id: l2, who: ana, say: "Hi.", act: [walk_in] }\n', "error", "cannot walk in here"),
+    ("      set: office\n      blocking: { ana: standing_left }\n",
+     '      - { id: l1, who: ana, say: "Up.", act: [stand_up] }\n      - { id: l2, who: dev, say: "Hi." }\n', "warning", "not sitting here"),
+    ("      set: office\n      blocking: { ana: standing_left }\n",
+     '      - { id: l1, who: ana, say: "Typing.", act: [typing] }\n      - { id: l2, who: dev, say: "Hi." }\n', "warning", "not sitting at a desk"),
+])
+def test_what_a_body_cannot_do_is_reported(tmp_path, direction, lines, level, needle):
+    proj = _staged(tmp_path, direction, lines)
+    found = [f"{p.message} {p.hint or ''}" for p in D.validate(proj) if p.level == level]
+    assert any(needle in m for m in found), found
+
+
+def test_ordinary_staging_is_left_alone(tmp_path):
+    proj = _staged(tmp_path, "      set: office\n      blocking: { ana: desk, dev: standing_left }\n      business: { ana: typing }\n",
+                   '      - { id: l1, who: dev, say: "Morning.", act: [walk_in] }\n'
+                   '      - { id: l2, who: ana, say: "Morning.", act: [stand_up] }\n'
+                   '      - { id: l3, who: ana, say: "Sit with me.", act: [sit_down] }\n')
+    assert [p for p in D.validate(proj) if p.level in ("error", "warning")] == []
+
+
+def test_seats_with_a_table_are_the_marks_the_sets_give_a_table():
+    import re
+
+    src = (Path(__file__).resolve().parents[1] / "src" / "sastudio" / "engine" / "clay" / "sets.py").read_text(encoding="utf-8")
+    for name in D.SETS:
+        body = src[src.index(f"def {name}(C):"):]
+        body = body[:body.index("\ndef ", 10)] if "\ndef " in body[10:] else body
+        tables = set(re.findall(r"(\w+)=mark\([^)]*table=", body))
+        assert tables == D.TABLE_SEATS.get(name, set()), name

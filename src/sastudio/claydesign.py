@@ -233,12 +233,50 @@ def params(project, cid: str) -> dict:
     return data
 
 
+# How a manner shows, as numbers the acting engine reads (engine/clay/acting.py). Every one is a multiplier or a
+# small amount around a neutral person; a character's own numbers (look.acting) are applied on top.
+#   gaze      0 holds the eyes on whoever matters, 1 looks about (glances away while listening, more small eye moves)
+#   blink     how often they blink;  fidget: how much hands and weight drift at rest
+#   gestures  how often a speaker's hands find a new shape;  amp: how big gestures and speech beats are
+#   smile     how far a pleasant face smiles;  nod: how much they nod along while listening
+#   react     seconds before a face answers what it hears;  posture: -1 slouched to 1 upright
+MANNERS = {
+    "calm": dict(gaze=.25, blink=.85, fidget=.7, gestures=.75, smile=1.0, nod=.8, react=.25, amp=.9),
+    "confident": dict(gaze=.15, blink=.85, fidget=.6, gestures=.9, smile=1.0, nod=.7, react=.15, amp=1.1, posture=.3),
+    "nervous": dict(gaze=.85, blink=1.5, fidget=1.4, gestures=1.35, smile=.7, nod=1.2, react=.1, amp=.8, posture=-.25),
+    "lively": dict(gaze=.55, blink=1.1, fidget=1.2, gestures=1.3, smile=1.25, nod=1.3, react=.08, amp=1.25),
+    "reserved": dict(gaze=.45, blink=1.0, fidget=.6, gestures=.6, smile=.7, nod=.6, react=.35, amp=.7),
+    "warm": dict(gaze=.3, blink=1.0, fidget=.9, gestures=1.0, smile=1.3, nod=1.25, react=.18, amp=1.0),
+    "stern": dict(gaze=.1, blink=.75, fidget=.5, gestures=.7, smile=.4, nod=.4, react=.3, amp=.9, posture=.4),
+}
+NEUTRAL = dict(gaze=.4, blink=1.0, fidget=1.0, gestures=1.0, smile=1.0, nod=1.0, react=.2, amp=1.0, posture=0.0)
+# How age shows: how long sitting down and getting up take, how fast they walk and turn, a slight stoop, the arm swing.
+AGES = {"young": dict(sit=.8, pace=1.08, turn=.85, stoop=0.0, swing=1.1),
+        "adult": dict(sit=1.0, pace=1.0, turn=1.0, stoop=0.0, swing=1.0),
+        "older": dict(sit=1.45, pace=.86, turn=1.3, stoop=.035, swing=.75)}
+ACTING_NUMBERS = {"energy": (.2, 1.6), "looseness": (.2, 1.6), "posture": (-1, 1), "pace": (.6, 1.6), "gaze": (0, 1),
+                  "blink": (.3, 3), "smile": (0, 2), "gestures": (.3, 2.5), "reaction": (0, 1.5), "stride": (.7, 1.3)}
+
+
 def acting_style(project, cid: str) -> dict:
-    """How a character carries themselves, for the acting engine: from look.acting (all optional)."""
+    """How a character carries themselves, for the acting engine, from look.acting (all optional): a manner and an age
+    give the character's habits, the numbers fine-tune them. Two characters doing the same thing do it their own way;
+    the same project always gives the same performance."""
     a = (project.characters[cid].look or {}).get("acting") or {}
-    energy, loose = float(a.get("energy", 1.0)), float(a.get("looseness", 1.0))
-    posture = float(a.get("posture", 0.0))          # -1 slouched .. 1 very upright
-    pace = float(a.get("pace", 1.0))
-    return {"amp": round(max(.2, min(1.6, energy)), 3), "loose": round(max(.2, min(1.6, loose)), 3),
-            "bend": round(-.03 * posture, 4), "speed": round(.075 * max(.6, min(1.6, pace)), 4),
-            "step": round(.9 * (.85 + .15 * max(.6, min(1.6, pace))), 3)}
+    m = dict(NEUTRAL)
+    m.update(MANNERS.get(a.get("manner") or "", {}))
+    age = AGES.get(a.get("age") or "adult", AGES["adult"])
+    clip = lambda k, v: max(ACTING_NUMBERS[k][0], min(ACTING_NUMBERS[k][1], float(v)))  # noqa: E731
+    energy = clip("energy", a.get("energy", 1.0)) * m["amp"]
+    loose = clip("looseness", a.get("looseness", 1.0)) * m["fidget"]
+    posture = max(-1.0, min(1.0, clip("posture", a.get("posture", 0.0)) + m["posture"]))
+    pace = clip("pace", a.get("pace", 1.0)) * age["pace"]
+    stride = clip("stride", a.get("stride", 1.0))
+    return {"amp": round(max(.2, min(1.8, energy)), 3), "loose": round(max(.2, min(1.8, loose)), 3),
+            "bend": round(-.03 * posture + age["stoop"], 4), "speed": round(.075 * max(.5, min(1.7, pace)), 4),
+            "step": round(.9 * (.85 + .15 * max(.6, min(1.6, pace))) * stride, 3),
+            "gaze": round(clip("gaze", a.get("gaze", m["gaze"])), 3), "blink": round(clip("blink", a.get("blink", m["blink"])), 3),
+            "smile": round(clip("smile", a.get("smile", m["smile"])), 3),
+            "gest": round(62 / clip("gestures", a.get("gestures", m["gestures"])), 1),
+            "nod": round(m["nod"], 3), "react": int(round(24 * clip("reaction", a.get("reaction", m["react"])))),
+            "sit": int(round(22 * age["sit"])), "turn_step": round(8 * age["turn"], 2), "swing": round(age["swing"], 3)}

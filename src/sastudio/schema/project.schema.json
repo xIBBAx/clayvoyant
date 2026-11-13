@@ -1250,7 +1250,23 @@
                     "type": "number",
                     "minimum": 0.6,
                     "maximum": 1.6
-                  }
+                  },
+                  "manner": {
+                    "type": "string",
+                    "enum": ["calm", "confident", "nervous", "lively", "reserved", "warm", "stern"],
+                    "description": "Habits that show in the eyes, the hands and the timing: how steadily they look, how often they blink and gesture, how much they smile and nod, how quickly they react."
+                  },
+                  "age": {
+                    "type": "string",
+                    "enum": ["young", "adult", "older"],
+                    "description": "How long sitting down and getting up take, how fast they walk and turn, a slight stoop."
+                  },
+                  "gaze": {"type": "number", "minimum": 0, "maximum": 1, "description": "0 holds the eyes steady on whoever matters, 1 looks about"},
+                  "blink": {"type": "number", "minimum": 0.3, "maximum": 3, "description": "how often they blink, 1 is average"},
+                  "smile": {"type": "number", "minimum": 0, "maximum": 2, "description": "how far a pleasant face smiles, 1 is average"},
+                  "gestures": {"type": "number", "minimum": 0.3, "maximum": 2.5, "description": "how often a speaker's hands find a new shape, 1 is average"},
+                  "reaction": {"type": "number", "minimum": 0, "maximum": 1.5, "description": "seconds before a face answers what it hears"},
+                  "stride": {"type": "number", "minimum": 0.7, "maximum": 1.3, "description": "step length, on top of what their legs give"}
                 }
               },
               "clay": {

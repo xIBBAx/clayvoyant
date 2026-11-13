@@ -13,6 +13,16 @@ from mathutils import Vector as V
 
 _m = {}
 FONT = None      # path of a .ttf for lettering on signs and screens; set by film.py
+# Every place to sit a set builds. The film measures each one from its own geometry (film.measure_seats): how high the
+# sitting surface really is, where its front edge, its base and its backrest are. A builder only says what it is.
+SEATS = []
+
+
+def _seat(g, kind, half_width, soft=0.0, cushions=()):
+    """Declare the group g a seat: a sitter faces its local -y from its origin; half_width is how far to each side
+    someone may sit; soft is how far its cushions give under a sitter (0 for wood); cushions can be pressed in."""
+    SEATS.append(dict(group=g, kind=kind, half_width=half_width, soft=soft, cushions=list(cushions)))
+    return g
 
 
 def srgb(h):
@@ -194,6 +204,36 @@ def boxy(name, loc, scale, hex_, parent=None, rot=(0, 0, 0), bevel=.08, lumps=.0
         b.segments = 3
         b.limit_method = 'NONE'
     return _finish(o, mat or clay(hex_, rough, False, print_), parent, lumps, sub=0)
+
+
+def pillow(name, loc, scale, hex_, parent=None, r=.1, lumps=.02, res=.06):
+    """A cushion: a rounded slab of clay with enough surface to be pressed in where someone sits (film.press_cushions).
+    scale is the half size; r the roundness of its edges."""
+    bm = bmesh.new()
+    bmesh.ops.create_cube(bm, size=2)
+    cuts = max(4, int(round(2 * max(scale[:2]) / res)))
+    bmesh.ops.subdivide_edges(bm, edges=bm.edges[:], cuts=cuts, use_grid_fill=True)
+    hx, hy, hz = scale
+    r = min(r, hz * .95, hx * .5, hy * .5)
+    inner = (hx - r, hy - r, hz - r)
+    from mathutils import noise
+    for v in bm.verts:
+        p = (v.co.x * hx, v.co.y * hy, v.co.z * hz)
+        c = [max(-i, min(i, q)) for q, i in zip(p, inner)]
+        d = [q - k for q, k in zip(p, c)]
+        n = math.sqrt(sum(x * x for x in d)) or 1.0
+        # the lumps of handled clay are part of the shape itself, so a pressed cushion is pressed exactly where it is drawn
+        bump = lumps * .5 * noise.noise(V((p[0] * 1.8 + loc[0], p[1] * 1.8 + loc[1], p[2] * 1.8)))
+        v.co = [k + x / n * (r + bump) for k, x in zip(c, d)]
+    me = bpy.data.meshes.new(name)
+    bm.to_mesh(me)
+    bm.free()
+    o = bpy.data.objects.new(name, me)
+    bpy.context.scene.collection.objects.link(o)
+    o.location = loc
+    o['rest'] = [c for v in me.vertices for c in v.co]      # its shape before anyone sits on it
+    o['half'] = list(scale)
+    return _finish(o, clay(hex_, .6, False, .5), parent, 0, sub=0)
 
 
 def slab(name, loc, scale, mat, parent=None, rot=(0, 0, 0), bevel=.012):
@@ -496,17 +536,18 @@ def door(x, y, w=1.05, h=4.3, hex_='#7c5236', frame='#efe6d6', hinge=-1, parent=
     return g, leaf
 
 
-def desk(x, y, w=1.9, d=.82, h=1.45, top='#a56c45', leg='#6e452d', rz=0, drawers=True):
-    """A work desk at sitting height: drawers on the right, a modesty panel on the camera side. Its user sits behind it (+y)."""
+def desk(x, y, w=1.9, d=.82, h=1.45, top='#a56c45', leg='#6e452d', rz=0, drawers=True, user=1):
+    """A work desk at sitting height: drawers on the right and a modesty panel on the far side from its user, who sits
+    on its +y side (user=1, facing the camera) or its -y side (user=-1, back to the camera): the knees go under it."""
     g = group('desk', (x, y, 0), rot=(0, 0, rz))
     boxy('top', (0, 0, h), (w, d, .075), top, g, bevel=.03, lumps=.01, print_=1)
     for X, Y in ((-w + .16, -d + .14), (w - .16, -d + .14), (-w + .16, d - .14), (w - .16, d - .14)):
         boxy('leg', (X, Y, (h - .07) / 2), (.085, .085, (h - .07) / 2), leg, g, bevel=.03, lumps=.005)
-    boxy('modesty', (0, -d + .1, h * .62), (w - .3, .03, h * .25), mix(top, '#000000', .18), g, bevel=.015, lumps=.004)
+    boxy('modesty', (0, -user * (d - .1), h * .62), (w - .3, .03, h * .25), mix(top, '#000000', .18), g, bevel=.015, lumps=.004)
     if drawers:
         boxy('ped', (w - .62, .05, h - .5), (.42, d - .16, .4), mix(top, '#000000', .1), g, bevel=.025, lumps=.006)
         for k in range(2):
-            blob('pull', (w - .62, d - .08, h - .32 - k * .36), (.1, .035, .035), '#000000', g, lumps=0, mat=BRASS())
+            blob('pull', (w - .62, user * (d - .08), h - .32 - k * .36), (.1, .035, .035), '#000000', g, lumps=0, mat=BRASS())
     return g
 
 
@@ -530,7 +571,7 @@ def chair(x, y, rz=0, seat=.82, hex_='#d9583f', leg='#3a2a22', back=True):
         for X in (-.42, .42):
             boxy('cb', (X, .44, seat + .55), (.05, .05, .62), leg, g, bevel=.02, lumps=.004)
         boxy('cbk', (0, .46, seat + .8), (.5, .06, .3), hex_, g, bevel=.05, lumps=.01)
-    return g
+    return _seat(g, 'chair', .3)
 
 
 def task_chair(x, y, rz=0, seat=.82, hex_='#2f6f73'):
@@ -544,7 +585,7 @@ def task_chair(x, y, rz=0, seat=.82, hex_='#2f6f73'):
         a = i * 2 * math.pi / 5 + .3
         slab('spoke', (math.sin(a) * .3, math.cos(a) * .3, .12), (.04, .32, .03), STEEL(), g, rot=(0, 0, -a))
         cyl('castor', (math.sin(a) * .6, math.cos(a) * .6, .06), .06, .08, paint('#222428', .5), g, rot=(math.pi / 2, 0, 0))
-    return g
+    return _seat(g, 'chair', .32)
 
 
 def stool(x, y, seat=.82, hex_='#c9a256'):
@@ -553,20 +594,28 @@ def stool(x, y, seat=.82, hex_='#c9a256'):
     for i in range(3):
         a = i * 2 * math.pi / 3
         tube('sl', [(math.sin(a) * .22, math.cos(a) * .22, seat - .1), (math.sin(a) * .36, math.cos(a) * .36, 0)], .04, '#3a2a22', g)
-    return g
+    return _seat(g, 'stool', .2)
 
 
 def sofa(x, y, w=2.2, rz=0, hex_='#4f7c8a', seat=.82):
+    """A sofa. `seat` is the top of its seat cushions, where a sitter's weight rests, as it is for every other seat;
+    the cushions give a little under a sitter."""
     g = group('sofa', (x, y, 0), rot=(0, 0, rz))
-    boxy('base', (0, 0, seat * .45), (w, .78, seat * .45), mix(hex_, '#000000', .15), g, bevel=.1, lumps=.02)
+    ch = .14                       # half the thickness of a seat cushion
+    base = seat - 2 * ch           # the cushions rest on the base
+    boxy('base', (0, 0, base / 2), (w, .78, base / 2), mix(hex_, '#000000', .15), g, bevel=.1, lumps=.02)
     n = max(1, round(w / 1.05))
+    cush = []
+    top = 1.96                     # the top of the backrest, as before
     for i in range(n):
         cx = -w + (2 * w) * (i + .5) / n
-        boxy('cush', (cx, -.08, seat - .02), (w / n - .04, .66, .14), hex_, g, bevel=.11, lumps=.03)
-        boxy('backc', (cx, .62, seat + .62), (w / n - .05, .2, .52), hex_, g, bevel=.14, lumps=.03, rot=(-.12, 0, 0))
+        cush.append(pillow('cush', (cx, -.08, seat - ch), (w / n - .04, .66, ch), hex_, g, r=.11, lumps=.022))
+        hb = (top - (seat - .03)) / 2
+        boxy('backc', (cx, .62, seat - .03 + hb), (w / n - .05, .2, hb), hex_, g, bevel=.14, lumps=.03, rot=(-.12, 0, 0))
+    arm = 1.28                     # armrests at the height they always had
     for sg in (-1, 1):
-        boxy('arm', (sg * (w + .16), -.02, seat * .78), (.2, .8, seat * .78), mix(hex_, '#000000', .08), g, bevel=.14, lumps=.025)
-    return g
+        boxy('arm', (sg * (w + .16), -.02, arm / 2), (.2, .8, arm / 2), mix(hex_, '#000000', .08), g, bevel=.14, lumps=.025)
+    return _seat(g, 'sofa', w - .25, soft=.055, cushions=cush)
 
 
 def shelf(x, z, y, w=1.6, seed=2, board='#8a5a3a', parent=None):
@@ -858,7 +907,7 @@ def bench(x, y, rz=0, hex_='#7c5236'):
     for sg in (-1, 1):
         slab('bleg', (sg * 1.3, 0, .39), (.05, .4, .39), paint('#1f2a2c', .5, .6), g)
         slab('bback', (sg * 1.3, .43, 1.1), (.05, .05, .5), paint('#1f2a2c', .5, .6), g, rot=(-.12, 0, 0))
-    return g
+    return _seat(g, 'bench', 1.25)
 
 
 def building(x, y, w=4.0, h=9.0, d=3.0, hex_='#d9b38c', floors=3, door_x=None, awning=None, seed=1, lit=.0, name=None):

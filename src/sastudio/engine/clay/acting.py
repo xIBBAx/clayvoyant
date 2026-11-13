@@ -15,6 +15,7 @@ import numpy as np
 from mathutils import Euler, Matrix
 from mathutils import Vector as V
 
+import body as B
 import faceops
 import handrig
 
@@ -22,6 +23,7 @@ CTRL, FI = faceops.CTRL, faceops.IDX
 clamp = lambda v, a=0, b=1: max(a, min(b, v))
 lerp = lambda a, b, t: a + (b - a) * t
 sm = lambda t: t * t * (3 - 2 * t)
+_ang = lambda d: (d + math.pi) % (2 * math.pi) - math.pi      # an angle brought into -pi..pi
 _h = lambda n: (math.sin(n * 127.1) * 43758.5453) % 1
 WALKJ = (10, -5, -5)          # forearm roll and wrist of a walking arm
 
@@ -33,10 +35,10 @@ def noise(x, seed=0):
     return lerp(_h(i + seed * 57.3), _h(i + 1 + seed * 57.3), u) * 2 - 1
 
 
-def blink_at(f, seed=0):
+def blink_at(f, seed=0, rate=1.0):
     at, i = int(_h(seed + .5) * 40), 0
     while at + 8 < f and i < 4000:
-        at += 56 + int(_h(seed + i * 1.37) * 110)
+        at += max(14, int((56 + int(_h(seed + i * 1.37) * 110)) / max(.3, rate)))
         i += 1
     d = f - at
     return 0 if d < 0 or d > 5 else [.6, 1, 1, .6, .25, 0][d]
@@ -74,8 +76,9 @@ KERNEL = np.array([.07, .22, .42, .22, .07])     # coarticulation: shapes melt i
 class Line:
     """One spoken line: who, first and last frame, and mouth cues [[seconds, shape]] from the start of the line."""
 
-    def __init__(s, who, start, end, cues, fps, to=None, manual=()):
+    def __init__(s, who, start, end, cues, fps, to=None, manual=(), feeling=None):
         s.who, s.s, s.e, s.to, s.manual = who, int(start), int(end), to, set(manual)
+        s.feeling = feeling
         n = max(1, s.e - s.s)
         dur = n / fps
         st = np.zeros(n + 1)
@@ -185,9 +188,30 @@ GEST = dict(
 # what a speaker's hands do when nobody directed them: changed on the thought, not on a timer
 TALK = ['talk', 'talkR', 'chest', 'talkWide', 'weigh', 'talkL', 'palmsDown', 'presentR']
 # how a person carries themselves: how big and loose the acting is, posture, how they stand and walk
-STYLE = dict(amp=1.0, loose=1.0, bend=0.0, stance=.24, speed=.075, step=.9, bob=.045, contra=.8)
-KEYS = ('g', 'f', 'look', 'face', 'on', 'lean', 'seat', 'nod', 'turn', 'tilt', 'ly', 'hL', 'hR', 'pL', 'pR', 'bkL', 'bkR', 'cL', 'cR')
+STYLE = dict(amp=1.0, loose=1.0, bend=0.0, stance=.24, speed=.075, step=.9, bob=.045, contra=.8,
+             # habits (claydesign.acting_style): how steady the eyes are, how often they blink, how far a pleasant face
+             # smiles, frames between a speaker's changes of gesture, listening nods, frames before a face reacts,
+             # frames to sit down or get up, frames for each step of a turn, arm swing
+             gaze=.4, blink=1.0, smile=1.0, gest=62, nod=1.0, react=5, sit=22, turn_step=8, swing=1.0)
+# What a speaker's hands do when nobody directed them, by how they feel: open and easy, firm, unsettled, or thinking.
+TALKS = dict(open=['talk', 'talkR', 'chest', 'talkWide', 'weigh', 'talkL', 'palmsDown', 'presentR'],
+             firm=['index', 'talkR', 'palmsDown', 'presentR', 'talk', 'chest'],
+             unsettled=['chest', 'clasp', 'talk', 'weigh', 'talkL', 'clasp'],
+             thinking=['chin', 'weigh', 'index', 'talkR'])
+FEEL = dict(neutral='open', happy='open', grin='open', proud='firm', warm='open', relief='open', tender='open', surprise='open',
+            smug='firm', annoyed='firm', deadpan='firm', worry='unsettled', concern='unsettled', hesitate='unsettled',
+            oops='unsettled', sad='unsettled', wince='unsettled', shock='unsettled', brow='thinking', think='thinking',
+            recognise='thinking')
+# how big the hands and the speech beats are, how often they change, and how much a listener nods along, by feeling
+FEEL_AMP = dict(open=1.0, firm=1.05, unsettled=.7, thinking=.85)
+FEEL_EVERY = dict(open=1.0, firm=1.15, unsettled=.8, thinking=1.4)
+FEEL_NOD = dict(open=1.0, firm=.3, unsettled=.25, thinking=.6)
+KEYS = ('g', 'f', 'look', 'face', 'on', 'lean', 'seat', 'nod', 'turn', 'tilt', 'ly', 'hL', 'hR', 'pL', 'pR', 'bkL', 'bkR', 'cL', 'cR',
+        'laugh')
 SEAT_H = .82      # an ordinary chair: where the top of the seat is
+LOW = ('rest', 'pockets', 'slump')    # hands that hang: on a seat they rest on the thighs instead
+LAPJ = (80, 30, -24)                  # a hand resting on a thigh: palm down and flat on it, the fingers turned a little out
+HAND_R = .085                         # from the wrist to the surface of the hand, near enough, at hs 1
 SIT_FRAMES = 22      # how long sitting down or standing up takes
 SOLE = .004       # the shoe's lowest point sits this far under the foot's target: lift it so the sole rests on top
 
@@ -211,7 +235,9 @@ class Actor:
         a.init = st
         a.raw = []          # (frame, what changes), in the order they were given
         a.keys = [(-999, st)]
-        a.walks = []        # (f0, f1, p0, p1, plants, distance)
+        a.walks = []        # (f0, f1, p0, p1, plants, distance, stance before, stance after, 'walk' | 'turn')
+        fc_ = st.get('face')
+        a.psi0 = float(fc_) if isinstance(fc_, (int, float)) else 0.0     # the way the feet point before any walk
         a.pos0 = tuple(pos) + ((0,) if len(pos) == 2 else ())
         a.last_yaw = None
 
@@ -228,14 +254,39 @@ class Actor:
             p0 = tuple(a.locate(f)[0])
         to = tuple(to) + ((p0[2],) if len(to) == 2 else ())
         d = math.hypot(to[0] - p0[0], to[1] - p0[1])
+        psi = a.stance(f)
         if snap or d < .05:
-            a.walks.append((f, f, to, to, 0, 1))
+            a.walks.append((f, f, to, to, 0, 1, psi, psi, 'walk'))
             return f
         rn_ = clamp(((speed or a.st['speed']) - .13) / .09)     # how much of this is a run
         n = max(1, math.ceil(d / (a.st['step'] * (1 + .85 * rn_))))
         dur = int(d / (speed or a.st['speed'])) + (8 if rn_ < .5 else 3)
-        a.walks.append((f, f + dur, p0, to, n, d))
+        # the closing step lands beside the other foot, both pointing the way they walked; a turn after is stepped too
+        a.walks.append((f, f + dur, p0, to, n, d, psi, math.atan2(to[0] - p0[0], -(to[1] - p0[1])), 'walk'))
         return f + dur
+
+    def turn(a, f, to):
+        """Turn round on the spot to face `to` (radians), the feet stepping round with the body, not sliding:
+        -> the frame the turn is over. Small turns are left to the hips and the shoulders."""
+        psi = a.stance(f)
+        d = _ang(to - psi)
+        if abs(d) < .45:
+            return f
+        n = 2 if abs(d) < 1.75 else 3
+        dur = int(n * a.st.get('turn_step', 8) + 4)
+        p = a.walks[-1][3] if a.walks else a.pos0
+        a.walks.append((f, f + dur, p, p, n, 0.0, psi, psi + d, 'turn'))
+        return f + dur
+
+    def stance(a, f):
+        """The way the planted feet point when standing still at f, as the last walk or turn left them."""
+        psi = a.psi0
+        for w in a.walks:
+            if w[0] > f:
+                break
+            if w[1] <= f:
+                psi = w[7]
+        return psi
 
     def finish(a):
         st = dict(a.init)
@@ -270,14 +321,29 @@ class Actor:
             cur = w
         stance = a.st['stance']
 
-        def stand(p_, side):
-            return (p_[0] + stance * side, p_[1] + (.02 if side < 0 else -.03), 0)
+        def stand(p_, side, psi):
+            # a foot of a body standing at p_ with its feet pointing psi: beside the other, a little apart
+            back = .02 if side < 0 else -.03
+            return (p_[0] + math.cos(psi) * stance * side - math.sin(psi) * back,
+                    p_[1] + math.sin(psi) * stance * side + math.cos(psi) * back, 0)
+        if cur is not None and cur[8] == 'turn' and cur[0] <= f < cur[1]:
+            # turning on the spot: one foot at a time steps round, the other stays planted
+            f0, f1, p0, p1, n = cur[:5]
+            psi0, D = cur[6], _ang(cur[7] - cur[6])
+            ph = clamp((f - f0) / max(1, f1 - f0)) * n
+            i = min(n - 1, int(ph))
+            fr = ph - i
+            first = 1 if D > 0 else -1          # the foot on the side turned to goes first
+            after = lambda k: psi0 + D * (k + 1) / n if k >= 0 else psi0
+            side = first if i % 2 == 0 else -first
+            mv = tuple(lerp(u_, v_, sm(fr)) for u_, v_ in zip(stand(p0, side, after(i - 2)), stand(p0, side, after(i))))
+            return p0, (mv, stand(p0, -side, after(i - 1)), side, math.sin(math.pi * fr) * .07, fr), 0, 0
         if cur is None or f >= cur[1]:
             if cur is not None:
                 p = cur[3]
-                f0, f1, p0, p1, n, dist = cur
+                f0, f1, p0, p1, n, dist = cur[:6]
                 # the settling step: the trailing foot comes in beside the other, so nobody ever skates to a halt
-                if f1 > f0 and n and f < f1 + 9:
+                if f1 > f0 and n and f < f1 + 9 and cur[8] == 'walk':
                     moving = 1 if n % 2 == 0 else -1     # the foot that moved last
                     dx, dy = p1[0] - p0[0], p1[1] - p0[1]
                     L = math.hypot(dx, dy) or 1
@@ -285,10 +351,10 @@ class Actor:
                     fr = (f - f1) / 9
                     dl_ = dist * (n - .5) / n
                     last = (p0[0] + ux * dl_ - uy * stance * -moving, p0[1] + uy * dl_ + ux * stance * -moving, 0)
-                    mv = tuple(lerp(u_, v_, sm(fr)) for u_, v_ in zip(last, stand(p1, -moving)))
-                    return p, (mv, stand(p1, moving), -moving, math.sin(math.pi * fr) * .09, fr), 0, 0
+                    mv = tuple(lerp(u_, v_, sm(fr)) for u_, v_ in zip(last, stand(p1, -moving, cur[7])))
+                    return p, (mv, stand(p1, moving, cur[7]), -moving, math.sin(math.pi * fr) * .09, fr), 0, 0
             return p, None, 0, 0
-        f0, f1, p0, p1, n, dist = cur
+        f0, f1, p0, p1, n, dist = cur[:6]
         t = (f - f0) / max(1, f1 - f0)
         e = sm(t) * .5 + t * .5
         pos = tuple(lerp(u, v, e) for u, v in zip(p0, p1))
@@ -308,9 +374,9 @@ class Actor:
             return (p0[0] + ux * d_ + px * stance * side, p0[1] + uy * d_ + py * stance * side, 0)
         moving = 1 if i % 2 == 0 else -1
         # the first steps leave from where the feet actually are; the last lands where it should stay
-        A = stand(p0, moving) if i <= 1 else plant(i - 1, moving)
-        B = stand(p1, moving) if i == nn - 1 else plant(i + 1, moving)
-        st = stand(p0, -moving) if i == 0 else plant(i, -moving)
+        A = stand(p0, moving, cur[6]) if i <= 1 else plant(i - 1, moving)
+        B = stand(p1, moving, cur[7]) if i == nn - 1 else plant(i + 1, moving)
+        st = stand(p0, -moving, cur[6]) if i == 0 else plant(i, -moving)
         a.runk = clamp((dist / max(1, f1 - f0) - .13) / .09)
         lift = math.sin(math.pi * fr) * (.11 + .3 * a.runk)
         mv = tuple(lerp(x, y, sm(fr)) for x, y in zip(A, B))
@@ -330,20 +396,28 @@ class Actor:
         RATE = .125     # radians a frame at most, on average
         yaw = face
         W = [w for w in a.walks if w[1] > w[0] and math.hypot(w[3][0] - w[2][0], w[3][1] - w[2][1]) > 1e-3]
+        TT = [w for w in a.walks if w[8] == 'turn']
         for i_, w in enumerate(W):
             f0, f1 = w[0], w[1]
             if f0 - 30 > f:
                 break
             Y = math.atan2(w[3][0] - w[2][0], -(w[3][1] - w[2][1]))
-            Ti = clamp(abs(Y) / RATE, 8, 25) if clamp((f1 - f0) / 24.) >= .5 else 8
+            Ti = clamp(abs(_ang(Y - yaw)) / RATE, 8, 25) if clamp((f1 - f0) / 24.) >= .5 else 8
             wi = sm(clamp((f - (f0 - Ti * .34)) / Ti))
+            Y = yaw + _ang(Y - yaw)                # always the short way round
             yaw = yaw + (Y - yaw) * wi
             nxt = W[i_ + 1][0] if i_ + 1 < len(W) else 1e9
-            To = clamp(abs(Y - face) / RATE, 8, 25)
-            if nxt - f1 > To + 10:
+            To = clamp(abs(_ang(Y - face)) / RATE, 8, 25)
+            if nxt - f1 > To + 10 and not any(0 <= t_[0] - f1 <= 3 for t_ in TT):
                 # the walk is over: come round to whatever the scene wants, as the last step settles
                 wo = sm(clamp((f - (f1 - To * .2)) / To))
-                yaw = yaw + (face - yaw) * wo
+                yaw = yaw + _ang(face - yaw) * wo
+        for t_ in TT:
+            # a turn on the spot: the body goes round with its stepping feet, then settles on whatever the scene wants
+            if t_[0] > f:
+                break
+            yt = t_[6] + _ang(t_[7] - t_[6]) * sm(clamp((f - t_[0]) / max(1, t_[1] - t_[0])))
+            yaw = yt if f <= t_[1] else yt + _ang(face - yt) * sm(clamp((f - t_[1]) / 10))
         return yaw
 
     def seat_amt(a, f):
@@ -354,13 +428,49 @@ class Actor:
                 break
             ki = i_
         k = ki
-        while k > 0 and f - K_[k][0] < SIT_FRAMES:
+        dur = a.st.get('sit', SIT_FRAMES)
+        while k > 0 and f - K_[k][0] < dur:
             k -= 1
         v = 1.0 if K_[k][1].get('seat') else 0.0
         for m_ in range(k + 1, ki + 1):
-            t_ = clamp((f - K_[m_][0]) / SIT_FRAMES)
+            t_ = clamp((f - K_[m_][0]) / dur)
             v = lerp(v, 1.0 if K_[m_][1].get('seat') else 0.0, anticipate(t_) if t_ < 1 else 1)
-        return v
+        return clamp(v)
+
+    def laugh_at(a, f):
+        """(frames since this laugh began, how strong it still is) or None: a laugh is bursts of breath that fade."""
+        start = None
+        for fk, st in a.keys:
+            if fk > f:
+                break
+            if st.get('laugh') and start is None:
+                start = fk
+            elif not st.get('laugh'):
+                start = None
+        if start is None:
+            return None
+        t = f - start
+        return t, clamp(t / 3) * clamp(1 - (t - 26) / 14)
+
+    def seat_info(a, f):
+        """The measured seat (film.measure_seat) this actor sits on, is sitting down on or getting up from at f."""
+        S = None
+        for fk, st in a.keys:
+            if fk > f:
+                break
+            if isinstance(st.get('seat'), dict):
+                S = st['seat']
+        return S
+
+    def sit_solution(a, S):
+        """How this body sits on that seat (body.seated), worked out once."""
+        cache = a.__dict__.setdefault('_sol', {})
+        if S['id'] not in cache:
+            sol = B.seated(a.body, S, prefer=S.get('prefer'))
+            cache[S['id']] = sol
+            for n_ in sol['notes']:
+                print(f"FILM {a.name} on {S['name']}: {n_}", flush=True)
+        return cache[S['id']]
 
     def stood_up(a, f):
         """0..1: how much they are standing where they just got up from a chair. Someone who stands up pushes the
@@ -413,9 +523,10 @@ class Performance:
         s.actors[actor.name] = actor
         return actor
 
-    def say(s, who, start, end, cues, to=None, manual=()):
-        """A spoken line. `to`: who it is said to. `manual`: actors whose hands the scene directs itself during it."""
-        s.lines.append(Line(who, start, end, cues, s.fps, to, manual))
+    def say(s, who, start, end, cues, to=None, manual=(), feeling=None):
+        """A spoken line. `to`: who it is said to. `manual`: actors whose hands the scene directs itself during it.
+        `feeling`: how it is said, which decides what the speaker's hands do when the scene does not say."""
+        s.lines.append(Line(who, start, end, cues, s.fps, to, manual, feeling))
 
     def direct(s):
         """Acting nobody wrote down: the speaker gestures and meets someone's eye, everyone else listens to them.
@@ -432,12 +543,15 @@ class Performance:
                     others = [q for q in s.actors if q != nm]
                     o['look'] = l.to if l.to in s.actors else (others[0] if others else 'cam')
                     if nm not in l.manual:
-                        # someone explaining doesn't hold one pose: change on the thought, not on a timer
-                        k_ = a.seed % len(TALK)
-                        pal = TALK[k_:] + TALK[:k_]
+                        # someone explaining doesn't hold one pose: change on the thought, not on a timer. What the hands
+                        # do follows how the line is said: open and easy, firm, unsettled (close to the body), thinking
+                        cls = FEEL.get(l.feeling or 'neutral', 'open')
+                        talk = TALKS[cls]
+                        k_ = a.seed % len(talk)
+                        pal = talk[k_:] + talk[:k_]
                         dur_f = l.e - l.s
                         o['g'] = pal[i % len(pal)]
-                        n_ = int(dur_f / 62)
+                        n_ = int(dur_f / (a.st.get('gest', 62) * FEEL_EVERY[cls]))
                         for j in range(1, n_ + 1):
                             a.key(l.s + j * dur_f // (n_ + 1), dict(g=pal[(i + j) % len(pal)]))
                         if nxt is None or nxt.who != nm or nxt.s - l.e > 30:
@@ -545,7 +659,9 @@ def pose_actor(S_, a, f):
         return
     st_ = a.st
     g1 = GEST[cur[1]['g']]
-    Mo = {k: fold(lambda m_, k=k: MOOD[K_[m_][1]['f']][k], 13) for k in MOOD['neutral']}
+    Mo = {k: fold(lambda m_, k=k: MOOD[K_[m_][1]['f']][k], 13, delay=st_.get('react', 5)) for k in MOOD['neutral']}
+    feel_ = FEEL.get(cur[1]['f'], 'open')
+    ampf_ = st_['amp'] * FEEL_AMP[feel_]       # an unsettled body keeps its hands and its words smaller
     pos, feet, yaw_w, walk_amt = a.locate(f)
     for cp_, cb_, cd_ in getattr(a, 'chairs', ()):
         if cd_ and math.hypot(pos[0] - cp_[0], pos[1] - cp_[1]) < .3:
@@ -582,11 +698,24 @@ def pose_actor(S_, a, f):
     bendf = fold(lambda m_: GEST[K_[m_][1]['g']].get('bend', 0) + K_[m_][1].get('lean', 0), db_, ease=eb_) + st_['bend']
     sides = fold(lambda m_: GEST[K_[m_][1]['g']].get('side', 0), db_, ease=eb_)
     squash = fold(lambda m_: GEST[K_[m_][1]['g']].get('squash', 0), db_, ease=eb_) + .005 * breath
+    lg_ = a.laugh_at(f)
+    burst_ = 0.0
+    if lg_ is not None:
+        # a laugh: a breath in, then bursts that come quicker than speech and fade; the shoulders jump with each one
+        lt_, lw_ = lg_
+        burst_ = lw_ * abs(math.sin(math.pi * lt_ / 5.5)) * (1 - .5 * clamp(lt_ / 40))
+        squash += (.022 * burst_ - (.012 if lt_ < 3 else 0.0)) * (.7 + .3 * st_['amp'])
+    if cur[1]['g'] == 'read' and cur[1].get('look') == 'hand':
+        squash -= .004        # reading something in the hand: a little forward and still
     wave_ = g1.get('wave', 0)
     # speech drives the body: nods and small rises on the stressed sounds
-    bendf += .022 * str_ * st_['amp'] * S
-    sides += .006 * noise(f / 30, seed + 2) * S * st_['amp'] - .3 * sway
-    twist = .05 * noise(f / 26, seed + 3) * S * st_['amp']
+    bendf += .022 * str_ * ampf_ * S
+    if lg_ is not None:
+        bendf += .04 * burst_ - .05 * lg_[1] * clamp(1 - lg_[0] / 9)      # back on the first burst, forward on the rest
+    if cur[1]['g'] == 'read' and cur[1].get('look') == 'hand':
+        bendf += .03
+    sides += .006 * noise(f / 30, seed + 2) * S * ampf_ - .3 * sway
+    twist = .05 * noise(f / 26, seed + 3) * S * ampf_
     x, y, z = pos
     # where they stand or sit, for remembered corrections: what is learnt arriving on foot is not what holds sitting
     a.spot = (round(x, 1), round(y, 1), bool(cur[1].get('seat')))
@@ -622,17 +751,55 @@ def pose_actor(S_, a, f):
         # contrapposto: the weight sits over one hip, the free foot eases ahead; every so often the weight changes
         # sides, slowly, the way people actually stand
         cw_ = math.tanh(3 * noise(f / 300, seed + 5)) * st_.get('contra', 0)
-        fL = (x - ss * .8, y + .02 - .05 * max(0, cw_), 0)
-        fR = (x + ss * .8, y - .03 - .05 * max(0, -cw_), 0)
-        x = x - .025 * cw_
-    seat_h = fold(lambda m_: float(K_[m_][1]['seat'] if isinstance(K_[m_][1].get('seat'), (int, float)) and not isinstance(K_[m_][1].get('seat'), bool) else SEAT_H), db_)
-    seatA = fold(lambda m_: 1 if K_[m_][1].get('seat') else 0, SIT_FRAMES, ease=eb_)
+        ps_ = a.stance(f)
+        rx_, ry_, bx_, by_ = math.cos(ps_), math.sin(ps_), -math.sin(ps_), math.cos(ps_)    # the stance's right, and back
+        bl_, br_ = .02 - .05 * max(0, cw_), -.03 - .05 * max(0, -cw_)
+        fL = (x - rx_ * ss * .8 + bx_ * bl_, y - ry_ * ss * .8 + by_ * bl_, 0)
+        fR = (x + rx_ * ss * .8 + bx_ * br_, y + ry_ * ss * .8 + by_ * br_, 0)
+        x, y = x - rx_ * .025 * cw_, y - ry_ * .025 * cw_
+    sitF = st_.get('sit', SIT_FRAMES)
+    seatA = clamp(fold(lambda m_: 1. if K_[m_][1].get('seat') else 0., sitF, ease=eb_))
+    ST = a.seat_info(f) if seatA > 0 and getattr(a, 'body', None) else None
+    sol = a.sit_solution(ST) if ST is not None else None
     # standing still: whatever the gestures add, the torso's side lean stays small (walking and sitting keep theirs)
-    standA = (1 - clamp(seatA)) * (1 - walk_amt)
+    standA = (1 - seatA) * (1 - walk_amt)
     sides = lerp(sides, .03 * math.tanh(sides / .03), standA)
+    if ST is not None:
+        # a seated body faces the way its seat does: its legs are in the seat, so only its shoulders and head turn
+        twist += clamp(_ang(yaw - ST['yaw']), -.6, .6) * .45 * seatA
+        yaw = ST['yaw'] + _ang(yaw - ST['yaw']) * (1 - sm(clamp(seatA * 1.6)))
     cy_, sy_ = math.cos(yaw), math.sin(yaw)
-    if seatA > 0:
-        # sit: the pelvis lowers onto the seat, the feet come forward of the knees and stay on the floor
+    if ST is not None:
+        # the measured seat (film.measure_seat) and how this body sits on it (body.seated): the thighs on the seat,
+        # the knees past its edge, the feet on the floor in front of whatever is under it
+        (ox_, oy_), (fx_, fy_), (rx_, ry_) = ST['origin'], ST['fwd'], ST['right']
+        au_ = sol['ankle'][0]
+        # the foot on the side the body is moving to leads, so neither foot steps across the other
+        mvl_ = ((fL[0] + fR[0]) / 2 - (ox_ + fx_ * au_ + rx_ * ST['lat'])) * rx_ + ((fL[1] + fR[1]) / 2 - (oy_ + fy_ * au_ + ry_ * ST['lat'])) * ry_
+        lead_ = 'L' if mvl_ > 0 else 'R'
+        for side_, sg_ in (('L', -1), ('R', 1)):
+            t0_ = 0.0 if side_ == lead_ else .17
+            # a small step back to where the seated feet go, one foot and then the other, before the weight goes down
+            # (and, getting up, the same steps forward once the weight is over the feet again)
+            fe_ = clamp((seatA - t0_) / .38)
+            lat_ = ST['lat'] + sg_ * (a.body['hipw'] + .035)
+            sf_ = (ox_ + fx_ * au_ + rx_ * lat_, oy_ + fy_ * au_ + ry_ * lat_, 0)
+            if side_ == 'L':
+                stepL_ = math.hypot(sf_[0] - fL[0], sf_[1] - fL[1])
+                fL = tuple(lerp(p_, q_, sm(fe_)) for p_, q_ in zip(fL, sf_))
+                lfL = lfL + math.sin(math.pi * fe_) * min(.07, .03 + stepL_ * .12)
+            else:
+                stepR_ = math.hypot(sf_[0] - fR[0], sf_[1] - fR[1])
+                fR = tuple(lerp(p_, q_, sm(fe_)) for p_, q_ in zip(fR, sf_))
+                lfR = lfR + math.sin(math.pi * fe_) * min(.07, .03 + stepR_ * .12)
+        lfL = lerp(lfL, sol['lift'], seatA)
+        lfR = lerp(lfR, sol['lift'], seatA)
+        rollL = lerp(rollL, sol['toe'], seatA)
+        rollR = lerp(rollR, sol['toe'], seatA)
+    elif seatA > 0:
+        # somewhere to sit with nothing measured under it (a seat given by height only): the pelvis lowers to that
+        # height, the feet come forward of the knees and stay on the floor
+        seat_h = fold(lambda m_: float(K_[m_][1]['seat'] if isinstance(K_[m_][1].get('seat'), (int, float)) and not isinstance(K_[m_][1].get('seat'), bool) else SEAT_H), db_)
         fwd = (sy_, -cy_)
         rgt = (cy_, sy_)
         for_ = .66
@@ -663,9 +830,10 @@ def pose_actor(S_, a, f):
         fR = (fR[0], fR[1], fR[2] + wl_.get('R', 0.0))
     # stand tall: the leg slack exists for the stride; standing, the knees are all but straight
     slack_ = 2 * P.legl - (hip + .09 - .27) - .012
-    z = z + max(0, slack_) * (1 - seatA)
+    stood_ = 1.0 if ST is not None else (1 - seatA)       # a measured seat blends the whole standing body below
+    z = z + max(0, slack_) * stood_
     zr_ = z + z_b - abs(sway) * .3
-    if seatA < .99:
+    if seatA < .99 or ST is not None:
         # the pelvis can only be as high as both legs reach: with a real stride, it sinks at double support and rises over
         # the standing foot. This is the rise and fall of a real walk, and no leg is ever asked to stretch past its length
         Rr_ = 2 * P.legl * .985
@@ -677,10 +845,28 @@ def pose_actor(S_, a, f):
             cz_.append(F_[2] + lf_ + math.sqrt(max(.01, Rr_ * Rr_ - dxy_ * dxy_)) - (hip - .18))
         zc_ = min(cz_)
         k_ = .03    # a smooth minimum: the cap eases in, so the body never stops dead on it
-        zr_ = lerp(min(zr_, zc_) - k_ * math.log1p(math.exp(-abs(zr_ - zc_) / k_)), zr_, clamp(seatA))
+        zr_ = lerp(min(zr_, zc_) - k_ * math.log1p(math.exp(-abs(zr_ - zc_) / k_)), zr_, 0.0 if ST is not None else clamp(seatA))
+    if ST is not None:
+        # down onto the seat: the hips go back, then down, the chest comes forward over the feet (body.sit_path)
+        (ox_, oy_), (fx_, fy_), (rx_, ry_) = ST['origin'], ST['fwd'], ST['right']
+        us_ = (x - ox_) * fx_ + (y - oy_) * fy_
+        ls_ = (x - ox_) * rx_ + (y - oy_) * ry_
+        u_, zr_, lean_ = B.sit_path(seatA, (us_, zr_), (sol['u'], sol['z'] + ST.get('rise', 0.0)))
+        lt_ = lerp(ls_, ST['lat'], sm(seatA))
+        x, y = ox_ + fx_ * u_ + rx_ * lt_, oy_ + fy_ * u_ + ry_ * lt_
+        bendf += lean_ * st_.get('sit_lean', 1.0) + sol['lean'] * seatA
+        sway *= 1 - seatA
     root = V((x + sway * (1 - seatA), y, zr_))
     M = Matrix.Translation(root) @ Euler((0, 0, yaw)).to_matrix().to_4x4()
     Mi_ = M.inverted()
+    # seated, hands that would hang at the sides rest on the thighs instead: a hanging hand would be in the seat
+    lap_, lapw_ = None, 0.0
+    if sol is not None:
+        lapw_ = sm(clamp((seatA - .35) / .65))
+        fw1_, z1_ = B.lap(a.body, sol, .45)
+        lz_ = z1_ - sol['z'] + .085 + max(0.0, .2 * math.tan(sol['alpha']))
+        ll_ = getattr(a, 'lap_lift', {})
+        lap_ = {sd_: V((sg_ * (a.body['hipw'] + a.body['thigh_r'] * .8), -fw1_, lz_ - sz + ll_.get(sd_, 0.0))) for sd_, sg_ in (('L', -1), ('R', 1))}
 
     def tgt(side, m_):
         # where key m_ sends this hand, from the shoulder line
@@ -690,6 +876,9 @@ def pose_actor(S_, a, f):
             # a hand laid on a table rests on it: lifted by what the last measurement found inside the top
             return Mi_ @ (V(A_) + V((0, 0, getattr(a, 'hand_lift', {}).get(side, 0.0)))) - V((0, 0, sz))
         base_ = V(P.place(k_['g'], side, GEST[k_['g']][side]))
+        if lap_ is not None and k_['g'] in LOW:
+            # resting on the thigh, held a little higher when it holds something (a phone, a mug) against it
+            base_ = base_.lerp(lap_[side] + V((0, 0, .07 if k_.get('c' + side) else 0.0)), lapw_)
         nd_ = getattr(a, 'hand_nudge', {}).get((side, K_[m_][0]))
         if nd_ is not None:
             # this gesture's hand was found inside something on the set: it ends clear of it
@@ -723,10 +912,10 @@ def pose_actor(S_, a, f):
         held = fold(lambda m_: 1. if K_[m_][1].get(kk) is not None else 0., 8)
         if not walk_amt > .5:
             rest_ = GEST['rest']
-            amp_ = fold(lambda m_: (1 if GEST[K_[m_][1]['g']].get('L') != rest_['L'] or side == 'R' else .2) * (.15 if GEST[K_[m_][1]['g']][side] == rest_[side] else 1), 10)
-            k_ = S * amp_ * (1 - held)
+            rampf_ = fold(lambda m_: (1 if GEST[K_[m_][1]['g']].get('L') != rest_['L'] or side == 'R' else .2) * (.15 if GEST[K_[m_][1]['g']][side] == rest_[side] else 1), 10)
+            k_ = S * rampf_ * (1 - held)
             # speech beats, breath, and the idle drift that keeps hands from looking stuck
-            q += V((sg * .04 * noise(f / 16, seed + sg), -.03 * str_, .085 * str_ * st_['amp'] * (.7 if sg < 0 else 1))) * k_
+            q += V((sg * .04 * noise(f / 16, seed + sg), -.03 * str_, .085 * str_ * ampf_ * (.7 if sg < 0 else 1))) * k_
             q += V((0, 0, .012 * breath)) * (1 - held)
             q += V((.014 * noise(f / 31, seed + 5 + sg), .014 * noise(f / 37, seed + 7 + sg), .016 * noise(f / 29, seed + 11 + sg))) * st_['loose'] * (1 - held)
         if wave_ and side == 'R':
@@ -734,11 +923,17 @@ def pose_actor(S_, a, f):
         if feet and walk_amt > 0:
             # arm swing while walking: forward swings bend the elbow more than back swings
             fr = feet[4]
-            sw = math.sin(math.pi * (fr * 1.0 + (0 if feet[2] > 0 else 1)) - math.pi / 2) * .38 * sg * (.65 + .35 * st_['loose'])
+            sw = math.sin(math.pi * (fr * 1.0 + (0 if feet[2] > 0 else 1)) - math.pi / 2) * .38 * sg * (.65 + .35 * st_['loose']) * st_.get('swing', 1.0)
             A_ = walk_amt * (1 - held) * (1 - fold(lambda m_: 1. if K_[m_][1].get('c' + side) else 0., 8))
             q = q.lerp(V((sg * .56, sw, -.97 + .16 * max(0, -sw))), A_)
             # from a raised gesture the straight line to the walking arm runs through the shoulder: go round it
             q += V((sg * .2, -.08, 0)) * math.sin(math.pi * A_)
+        if lap_ is not None and q.z < lap_[side].z and abs(q.x) < a.body['hipw'] + a.body['thigh_r'] + .12 \
+                and -a.body['thigh'] * 1.05 < q.y < .15:
+            q.z = q.z + (lap_[side].z - q.z) * lapw_      # never down into the thighs or the seat
+        if getattr(P, 'tprof', None) is not None and fold(lambda m_: 0. if K_[m_][1].get('h' + side) is not None else 1., 8) > .5:
+            # never through the chest or the belly: round them, or resting on them
+            q = P.keep_out(q, bendf, sides, HAND_R * P.m.get('hs', 1.0))
         if held < .5:
             # no arm ever locks out straight on its way to a pose this body can't reach: the hand stops just short
             sh_ = V((sg * (P.sx - .045), 0, -.1))
@@ -762,6 +957,8 @@ def pose_actor(S_, a, f):
         def jt(m_, side=side, kk=kk, kb=kb):
             k_ = K_[m_][1]
             j_ = P.joint(k_['g'], side, GEST[k_['g']][side])
+            if lap_ is not None and k_['g'] in LOW:
+                j_ = tuple(lerp(u_, v_, lapw_) for u_, v_ in zip(j_, LAPJ))
             if k_.get(kk) is not None:
                 j_ = P.joint_at(side, M, k_[kk], k_.get(kb), j_)
             return np.array(j_, float)
@@ -775,7 +972,7 @@ def pose_actor(S_, a, f):
         sg_ = -1 if side == 'L' else 1
         spk_ = fold(lambda m_, side=side: 1. if GEST[K_[m_][1]['g']][side] != GEST['rest'][side] else .15, 10)
         j[0] += 3.5 * noise(f / 37, seed + 31 + sg_) * st_['loose']
-        j[1] += 3 * noise(f / 41, seed + 37 + sg_) * st_['loose'] + 5 * str_ * S * st_['amp'] * spk_
+        j[1] += 3 * noise(f / 41, seed + 37 + sg_) * st_['loose'] + 5 * str_ * S * ampf_ * spk_
         j[2] += 2 * noise(f / 47, seed + 41 + sg_)
         if wave_ and side == 'R':
             j[2] += 16 * math.sin(f / 3.2)
@@ -785,12 +982,22 @@ def pose_actor(S_, a, f):
 
         def fs(m_, kp=kp):
             k_ = K_[m_][1]
-            return handrig.fvec(k_.get(kp) or GEST[k_['g']].get(kp, 'relax'))
+            v_ = handrig.fvec(k_.get(kp) or GEST[k_['g']].get(kp, 'relax'))
+            if lap_ is not None and k_['g'] in LOW and not k_.get(kp):
+                v_ = v_ + (handrig.fvec('lap') - v_) * lapw_
+            return v_
         dfs = lambda m_, side=side: 7 + (tgt(side, m_) - tgt(side, max(m_ - 1, 0))).length * 6
+        sh0_ = None
+        if side == 'R' and K_[ki][1]['g'] == 'read':
+            # a thumb that scrolls now and then while the eyes read: not a loop, a few strokes, then a pause
+            sc_ = clamp((noise(f / 22, seed + 61) - .1) * 3)
+            sh0_ = .35 * sc_ * math.sin(f / 2.6)
         sh = np.concatenate([fold(lambda m_, i_=i_: fs(m_)[i_ * 3:i_ * 3 + 3], dfs, delay=late + 1 + (3 - i_) * .7) for i_ in range(4)]
                             + [fold(lambda m_: fs(m_)[12:], dfs, delay=late + 1)])
         if K_[ki][1].get(kp) in (None, 'relax', 'open') and GEST[K_[ki][1]['g']].get(kp, 'relax') in ('relax', 'open'):
             sh[:12] += .035 * noise(f / 43, seed + 51 + sg_)
+        if sh0_:
+            sh[14] += sh0_
 
         # hands on the face and elbow hints come and go with the move
         def last_of(table, m_):
@@ -806,7 +1013,9 @@ def pose_actor(S_, a, f):
         w_ = fold(lambda m_: 1. if ftab(K_[m_][1]['g']) else 0., dh, delay=late)
         if w_ > 1e-3:
             dflt = last_of(ftab, ki)
-            fw_ = (tuple(fold(lambda m_: last_of(ftab, m_) if last_of(ftab, m_) is not None else dflt, dh, delay=late)), w_)
+            # how far clear of the face the hand rests: a phone at the ear sits between the hand and the head
+            th_ = .1 if K_[ki][1]['g'] == 'phone' else .06
+            fw_ = (tuple(fold(lambda m_: last_of(ftab, m_) if last_of(ftab, m_) is not None else dflt, dh, delay=late)), w_, th_)
         a.face_w = getattr(a, 'face_w', {})
         a.face_w[side] = fw_[1] if fw_ else 0.
         el_ = None
@@ -836,27 +1045,37 @@ def pose_actor(S_, a, f):
         return np.array(aim(T_) if T_ is not None else (0., 0.))
     hy, hpi = fold(lk, 13, delay=2)
     # blink on a big head turn: exactly what real eyes do
-    bl = max(blink_at(f, seed), (1 if abs(y1 - y0) > .5 and 0 <= f - cur[0] < 3 else 0))
-    # micro saccades while listening
-    sacc = _h(int(f / 26) + seed) - .5
-    sacz = _h(int(f / 33) + seed + 3) - .5
+    bl = max(blink_at(f, seed, st_.get('blink', 1.0)), (1 if abs(y1 - y0) > .5 and 0 <= f - cur[0] < 3 else 0))
+    # micro saccades: steadier eyes move less and less often
+    gz_ = st_.get('gaze', .4)
+    sacc = (_h(int(f / (30 - 10 * gz_)) + seed) - .5) * (.6 + gz_)
+    sacz = (_h(int(f / (36 - 10 * gz_)) + seed + 3) - .5) * (.6 + gz_)
     ey_y, ey_p = fold(lk, 5)
     nod = fold(lambda m_: K_[m_][1].get('nod', 0), 8)
+    away_ = 0.0
     if S < .1:
-        # listening: the small nods of someone following along
+        # listening: the small nods of someone following along, as much as they agree and as is their habit
         others = max((S_.speaking(o_, f) for o_ in S_.actors if o_ != a.name), default=0)
-        nod += .04 * others * max(0, math.sin(f / 13 + seed))
+        nod += .04 * others * max(0, math.sin(f / 13 + seed)) * st_.get('nod', 1.0) * FEEL_NOD[feel_]
+        # a glance away now and then: more for someone whose eyes wander, or who is unsettled by what they hear
+        lean_ = gz_ * .8 + (.35 if feel_ == 'unsettled' else 0.0)
+        away_ = clamp((noise(f / 58, seed + 91) - (1 - lean_)) * 3.5) * others
     if feet and walk_amt > 0:
         nod += .02 * math.sin(2 * math.pi * feet[4]) * walk_amt
     nod += fold(lambda m_: CARRY.get(K_[m_][1]['f'], 0), 14)
-    head = (clamp(hpi * .5, -.3, .3) + .07 * str_ * st_['amp'] * S + .02 * math.sin(f / 23 + seed) + nod,
-            .025 * S * noise(f / 17, seed + 6) * st_['amp'] + .012 * noise(f / 50, seed + 8) - .9 * sides + fold(lambda m_: K_[m_][1].get('tilt', 0), 9),
-            clamp(hy * .55, -.4, .4) + .10 * S * noise(f / 21, seed + 4) * st_['amp'] - .85 * wtw_ + fold(lambda m_: K_[m_][1].get('turn', 0), 5))
+    if lg_ is not None:
+        nod += .05 * burst_ - .1 * lg_[1] * clamp(1 - lg_[0] / 10)      # the head goes back, then bobs with the breath
+    head = (clamp(hpi * .5, -.3, .3) + .07 * str_ * ampf_ * S + .02 * math.sin(f / 23 + seed) + nod,
+            .025 * S * noise(f / 17, seed + 6) * ampf_ + .012 * noise(f / 50, seed + 8) - .9 * sides + fold(lambda m_: K_[m_][1].get('tilt', 0), 9),
+            clamp(hy * .55, -.4, .4) + .10 * S * noise(f / 21, seed + 4) * ampf_ - .85 * wtw_ + fold(lambda m_: K_[m_][1].get('turn', 0), 5))
     # eye target remaining after the head moved: clamp stays in a friendly range
-    lx = clamp((ey_y - head[2]) * 1.4 + sacc * .10, -.6, .6)
-    ly = clamp((ey_p - head[0]) * 1.2 + sacz * .08 + fold(lambda m_: K_[m_][1].get('ly', 0), 5), -.6, .6)
+    lx = clamp((ey_y - head[2]) * 1.4 + sacc * .10 + away_ * .22 * (1 if seed % 2 else -1), -.6, .6)
+    ly = clamp((ey_p - head[0]) * 1.2 + sacz * .08 + away_ * .2 + fold(lambda m_: K_[m_][1].get('ly', 0), 5), -.6, .6)
     # the face: mood underneath, words on top, and the mood never quite leaves while they talk
-    mc = Mo['c']
+    mc = Mo['c'].copy()
+    for k_s in ('smileL', 'smileR'):
+        if mc[FI[k_s]] > 0:
+            mc[FI[k_s]] *= st_.get('smile', 1.0)        # how far a pleasant face smiles is their own
     sp = S_.face_speech(a.name, f)
     if sp is not None:
         fc = mc * .98
@@ -865,9 +1084,13 @@ def pose_actor(S_, a, f):
     else:
         fc = mc.copy()
     fc[FI['jawSide']] += .10 * noise(f / 46, seed + 21) * (.4 + .6 * S)
+    if lg_ is not None and sp is None:
+        fc[FI['jaw']] += (.22 + .18 * min(1.3, st_['amp'])) * burst_ + .12 * lg_[1]
+        for k_s in ('squintL', 'squintR'):
+            fc[FI[k_s]] += .35 * lg_[1]
     fc[FI['press']] = clamp(1 - 3.1 * fc[FI['jaw']] - 1.1 * fc[FI['upLip']] - .9 * fc[FI['lowLip']] - .5 * fc[FI['fv']])
     # brows rise on stress; a talker's brows are never still
-    br = .55 * str_ * st_['amp'] * S
+    br = .55 * str_ * ampf_ * S
     # the two eyes meet on what they look at (no look target: a comfortable middle distance)
     dv_ = (Lk - hp).length if Lk is not None else 8.0
     P.verg = min(.07, math.atan2(P.es * .97, max(1.2, dv_)))
@@ -876,6 +1099,7 @@ def pose_actor(S_, a, f):
            fc=fc, handL=hL, handR=hR, jL=rig['L'][0], jR=rig['R'][0], shapeL=rig['L'][1], shapeR=rig['R'][1],
            faceL=rig['L'][2], faceR=rig['R'][2], elL=rig['L'][3], elR=rig['R'][3],
            footL=fL, footR=fR, roll=(rollL, rollR), lift=(lfL, lfR),
+           sit=(.09 - a.body['seat_drop'] + .008, seatA) if sol is not None else None,
            capeSway=(.05 * noise(f / 30, 3) + .22 * walk_amt + .03 * S * noise(f / 11, 2)),
            hairJ=((.016 * math.sin(2 * math.pi * feet[4] - 1.1) * walk_amt if feet else 0) + .006 * str_ * S,
                   (y1 - y0) * -.035 * math.sin(math.pi * he)))

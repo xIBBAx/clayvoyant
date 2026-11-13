@@ -35,6 +35,7 @@ def stage(marks, spots, things=None, door=None, outdoor=False, windows=False, ba
 def _room(C, wallc, floor='wood', back=6.0, half=9.5, height=7.6, holes=(), side_holes=False, skirt=True):
     """Floor, back wall with openings, two side walls. Returns nothing: the room is the scene."""
     r = C.get('seed', 1)
+    C['_half'] = half         # how far the side walls are: someone who walks in from off the set comes through there
     if floor == 'wood':
         K.planks(-half - 1, half + 1, -16, back, 26, WOODS, seed=r)
     elif floor == 'tile':
@@ -198,7 +199,7 @@ def home_desk(C):
     _room(C, '#e9d9c0', 'wood', back, holes=holes)
     _outside(C, back, 'garden')
     K.window(-3.9, 3.65, back, 2.3, 1.85, panes=(2, 2), curtains='#b34d3f')
-    d = K.desk(-3.9, 3.9, 1.7, .72, top='#b98a5e', drawers=False)
+    d = K.desk(-3.9, 3.9, 1.7, .72, top='#b98a5e', drawers=False, user=-1)      # its chair is on the room side
     lap = K.laptop(0, .0, 1.53, d, rot=0)
     K.mug(.95, -.1, 1.53, d, hex_=acc)
     K.books(-1.1, .1, 1.53, d, seed=6)
@@ -354,7 +355,7 @@ def classroom(C):
     K.chair(-4.6, 4.75, 0, hex_='#3f6f6a')
     for row, y in enumerate((-2.2, -5.2)):
         for col, x in enumerate((-4.8, -1.6, 1.6, 4.8)):
-            K.desk(x, y, 1.05, .55, 1.3, top='#c2946a', leg='#4a5a66', drawers=False)
+            K.desk(x, y, 1.05, .55, 1.3, top='#c2946a', leg='#4a5a66', drawers=False, user=-1)
             K.chair(x, y - 1.05, math.pi, .74, hex_=['#c1553f', '#dfa42f', '#3f8f8c', '#2f5d80'][(row + col) % 4], leg='#4a5a66')
             if (row + col) % 2 == 0:
                 K.books(x - .3, y, 1.38, n=2, seed=row * 4 + col)
@@ -386,4 +387,6 @@ SETS = dict(office=office, reception=reception, meeting_room=meeting_room, home_
 
 
 def build(name, C):
-    return SETS.get(name, office)(C)
+    st = SETS.get(name, office)(C)
+    st.setdefault('half', C.get('_half'))
+    return st
