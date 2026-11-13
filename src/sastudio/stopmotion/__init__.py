@@ -119,7 +119,7 @@ def _gesture_keys(who: str, g: str, f0: int, f1: int, to: str | None, set_info: 
     """Acting keys for one gesture of the direction vocabulary on a line from f0 to f1 -> (keys, uses the hands).
     mood: the face to come back to after a gesture that changes it (a laugh)."""
     info = D.GESTURES[g]
-    k = lambda f, **d: dict(who=who, frame=int(f), **d)  # noqa: E731
+    k = lambda at, /, **d: dict(who=who, frame=int(at), **d)  # noqa: E731  (a key may set the face, `f`)
     if g == "laugh":
         # the face, the breath, the head and the shoulders, together (engine: acting.Actor.laugh_at)
         return [k(f0 + 2, laugh=1, f="grin"), k(f0 + 40, laugh=0, f=mood or "happy")], False

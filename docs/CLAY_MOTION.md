@@ -134,7 +134,8 @@ and a cushion gives under the weight. A short person on a high sofa points the t
 floor; a tall one on a low chair sits with the knees up. On a sofa people settle back towards the
 backrest; at a desk they sit up.
 
-**Getting to a seat.** Somebody walks to a place in front of the seat with room to turn round,
+**Getting to a seat.** A sofa and a bench seat two side by side; a chair or a stool, one.
+Somebody walks to a place in front of the seat with room to turn round,
 turns with small steps, steps back and lowers: the hips go back before they go down, and the chest
 comes forward over the feet. Getting up is the same in reverse, and someone seated who is sent
 somewhere stands up first. Somebody blocked on a seat who walks in sits down when they get there.
@@ -142,9 +143,17 @@ A chair at a table is pulled out for them and drawn in under them.
 
 **Standing and walking.** Feet come down on the real surface under the whole sole. A planted foot
 never skates: a walk ends with the feet side by side across the way they walked, and a turn on the
-spot steps round one foot at a time. Walks are routed round the furniture with room for the legs
+spot goes in pairs of steps, the leading foot opening out and the other coming beside it, never past
+it. Somebody who walks into a room with no door comes through an opening in its side wall. Walks are routed round the furniture with room for the legs
 and their stride. A standing place too close to furniture or to another person is moved the least
 distance that clears it, and the log says so.
+
+**The set itself.** Every loose thing a set puts down (a mug, a laptop, papers, books, a phone, a
+monitor, a plant) rests on the highest point under it, and things that share a surface keep out of
+each other: the smallest push that separates two outlines, or else the nearest free place on the
+same surface, or else the bigger thing makes room; a thing may overhang its surface as long as its
+weight is over it. Furniture rests on the floor. Walls with their windows, doors and skirting are one
+construction, and so are floors laid edge to edge.
 
 **Arms and hands.** Elbows and forearms stay outside the body: a hand on its way across the chest
 goes round it, and a hand laid on the chest rests on it, whatever the build. Seated, hands that
@@ -155,7 +164,7 @@ the hand that holds it.
 **Checked before anything is drawn.** Before a shot is filmed, every drawing is posed and measured
 (`engine/clay/contacts.py`), triangle against triangle: each character against the set and the
 props, against every other character, and against their own body away from the joints (a sleeve is
-joined to its shoulder; past that it must stay out). A hand or a foot whose path from one drawing
+joined to its shoulder; past that it must stay out), and the set against itself. A hand or a foot whose path from one drawing
 to the next goes through something counts too. A shot that would show a body inside anything is
 not filmed: the log says who, which part, in what, when and how deep, and every one is listed in
 the shot's `contacts.json`. `sastudio film --allow-intersections` films it anyway, still listing

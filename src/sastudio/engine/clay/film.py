@@ -902,6 +902,41 @@ def seat_ground(S, body, actor=None):
     return turn_spot(actor, p, S) if actor is not None else p
 
 
+SEATED = {}     # seat mark -> the actors sitting on it now (a bench or a sofa has room for two)
+
+
+def seat_for(a, name, m):
+    """The measured seat for actor a at the seat mark `name`: the mark's own place, or beside whoever already sits there
+    when the seat is long enough for two (a bench, a sofa), measured again at that place."""
+    S = (m or {}).get('seat_aff')
+    if not isinstance(S, dict):
+        return (m or {}).get('seat')
+    for k_ in list(SEATED):
+        if a in SEATED[k_] and k_ != name:
+            SEATED[k_].remove(a)
+    here = SEATED.setdefault(name, [])
+    there = [b for b in here if b is not a]
+    if a not in here:
+        here.append(a)
+    if not there:
+        return S
+    if len(there) >= m.get('room', 1):
+        print(f"FILM {a.name}: the {name} seat is taken by {there[0].name} and has no room beside them", flush=True)
+        return S
+    sd = next((x for x in K.SEATS if x['group'] is S['group']), None)
+    if sd is None:
+        return S
+    used = [getattr(b, 'seat_lat', S['lat']) for b in there]
+    step = (a.body.footprint() + max(b.body.footprint() for b in there if getattr(b, 'body', None))) * 1.1 if getattr(a, 'body', None) else 1.0
+    for lat in sorted((u_ + sg * step for u_ in used for sg in (1, -1)), key=abs):
+        if abs(lat) <= sd['half_width'] and all(abs(lat - u_) >= step - 1e-6 for u_ in used):
+            a.seat_lat = lat
+            print(f"FILM {a.name} sits beside {there[0].name} on the {name}", flush=True)
+            return measure_seat(sd, S['prefer'], lat, f'{name}:{a.name}')
+    print(f"FILM {a.name}: no room beside {there[0].name} on the {name}", flush=True)
+    return S
+
+
 def body_of(P):
     """A sculpted puppet's measurements for body.py; None for a model somebody brought (it does not sit)."""
     if getattr(P, 'guest', False):
@@ -945,7 +980,7 @@ DOORS = [list(d) for d in JOB.get('door') or []]     # [open, close] frames
 def free_seat(a, f):
     """The nearest seat nobody is using."""
     here = a.locate(f)[0]
-    seats = [(n, m) for n, m in MARKS.items() if m.get('seat') and n not in TAKEN]
+    seats = [(n, m) for n, m in MARKS.items() if m.get('seat') and (n not in TAKEN or len(SEATED.get(n, [])) < m.get('room', 1))]
     if not seats:
         return None
     n, m = min(seats, key=lambda q: (q[1]['pos'][0] - here[0]) ** 2 + (q[1]['pos'][1] - here[1]) ** 2)
@@ -964,11 +999,14 @@ for c in JOB.get('cast') or []:
     else:
         body = Puppet(c.get('rig') or c['id'])
     bd = body_of(body)
-    if seat and not start:
-        # somebody who walks in sits down when they get there (see the keys below), not before
-        init['seat'] = seat
     a = PERF.add(A.Actor(c['id'], body, pos, c.get('style'), **init))
     a.body = bd
+    if isinstance(seat, dict) and not start:
+        seat = seat_for(a, c.get('mark'), MARKS.get(c.get('mark') or ''))
+    if seat and not start:
+        # somebody who walks in sits down when they get there (see the keys below), not before
+        a.init['seat'] = seat
+        a.keys = [(-999, dict(a.init))]
     if bd is not None:
         # a body's own proportions show in how it walks: longer legs take longer steps, a heavier build moves more
         a.st['step'] = round(a.st['step'] * max(.85, min(1.18, bd['thigh'] / .72)), 4)
@@ -1616,6 +1654,9 @@ def stand_first(a, f):
     if a.state(f)[1][1].get('seat'):
         a.key(f, dict(seat=False))
         a.finish()
+    for k_ in list(SEATED):
+        if a in SEATED[k_]:
+            SEATED[k_].remove(a)        # up: the seat is free for somebody else
     n = 0
     while a.seat_amt(f) > .02 and n < 400:
         f += 1
@@ -1639,12 +1680,16 @@ for k in JOB.get('keys') or []:
         m = free_seat(a, f) if to == 'seat' else (MARKS.get(to) if isinstance(to, str) else None)
         if to == 'seat' and m is None:
             continue
+        mname = next((n_ for n_, v_ in MARKS.items() if v_ is m), None)
         if to == 'home' and sit and getattr(a, 'entering', False) and a.mark is not None and a.mark.get('seat'):
             m = a.mark          # walking in to where they sit: they sit down when they get there
+            mname = next((n_ for n_, v_ in MARKS.items() if v_ is m), None)
         a.entering = False
         if not guest_:
             f = stand_first(a, f)
-        S = m.get('seat_aff') if m else None
+        S = (seat_for(a, mname, m) if m and m.get('seat') and sit and not guest_ else m.get('seat_aff')) if m else None
+        if not isinstance(S, dict):
+            S = None
         if S is not None and getattr(a, 'body', None) is not None:
             dest = seat_ground(S, a.body, a)    # in front of the seat with room to turn, or where a chair was
         elif m:
@@ -1678,7 +1723,8 @@ for k in JOB.get('keys') or []:
             face_ = m.get('face', yaw_s)
             done = a.turn(end + 2, yaw_s)
             a.key(end - 10, dict(face=face_))
-            a.key(max(end + 4, done - 4), dict(seat=S or m['seat'], face=face_))
+            # once the feet are still: after the turn, or after the closing step when there was nothing to turn
+            a.key(max(end + 9, done), dict(seat=S or m['seat'], face=face_))
         elif m:
             fc_ = m.get('face')
             if not leave and not guest_:
@@ -2130,8 +2176,17 @@ if MODE == 'export':
 import contacts as CT  # noqa: E402
 
 _CAST = {o.name for a in PERF.actors.values() for o in getattr(a.P, 'parts', [])}
+
+
+def offstage(a):
+    """Waiting beyond the side walls to walk in, or gone out through them: where the set has no floor."""
+    half = STG.get('half')
+    return half is not None and abs(a.P.root.matrix_world.translation.x) > half
+
+
 PROBE = CT.Probe(PERF, lambda: [o for o in bpy.data.objects if o.type == 'MESH' and o.name not in _CAST and o.visible_camera
-                                and _in_room(o)], held=[(c, who) for o, _a, _b, who in HELD for c in [o] + list(o.children_recursive)])
+                                and _in_room(o)], held=[(c, who) for o, _a, _b, who in HELD for c in [o] + list(o.children_recursive)],
+                 offstage=offstage)
 LEARNT = ('seat_lift', 'foot_push', 'foot_lift', 'hand_lift', 'hand_nudge', 'hand_now', 'walk_lift', 'last_head', 'last_yaw',
           'last_hand', 'lap_lift')
 
@@ -2145,7 +2200,7 @@ def forget():
             a.P.face_more = {}
     GRIP.clear()
     PERF._primed = False
-    PROBE.last = {}
+    PROBE.reset()
 
 
 def frame_at(f):
@@ -2159,8 +2214,15 @@ def frame_at(f):
 
 
 def said(c):
-    """One contact, in words."""
-    deep = f", {c['depth'] * 50:.1f} cm deep" if c['depth'] else ''
+    """One contact, in words (one unit of the set is 50 cm)."""
+    cm = c['depth'] * 50
+    if c['kind'] == 'float' and c['what'] == 'seat':
+        return f"frame {c['frame']}: {c['actor']} sits {cm:.1f} cm above {c['other']}, held up by nothing (float)"
+    if c['kind'] == 'float':
+        return f"frame {c['frame']}: {c['actor']}'s feet are {cm:.1f} cm above {c['other']} and nothing else holds them up (float)"
+    if c['kind'] == 'skate':
+        return f"frame {c['frame']}: {c['actor']}'s {c['what']} slid {cm:.1f} cm on {c['other']} while standing on it (skate)"
+    deep = f", {cm:.1f} cm deep" if c['depth'] else ''
     where = {'set': 'inside', 'cast': 'inside', 'self': 'inside', 'between': 'passed through', 'dressing': 'inside'}[c['kind']]
     return f"frame {c['frame']}: {c['actor']}'s {c['what']} {where} {c['other']} ({c['kind']}, {c['pairs']} crossing faces{deep})"
 

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "clayvoyant"
-version = "0.3.2"
+version = "0.4.0"
 description = "Clay stop-motion films, written as plain text: sculpted characters, sets, cameras, voices and subtitles from a YAML project. Made for security awareness; see the scam coming."
 readme = "README.md"
 license = "MIT"

@@ -142,6 +142,8 @@ DRESSING: dict[str, str] = {
 }
 
 WINDOWED = {"office", "reception", "home_desk", "cafe"}   # sets with a window in the back wall
+# seats long enough for two, side by side (a sofa, a bench); every other mark holds one body
+SEAT_ROOM = {"home_desk": {"sofa": 2}, "street": {"bench": 2}}
 # seats that have a table in front of them (typing needs one)
 TABLE_SEATS = {"office": {"desk", "desk_2"}, "meeting_room": {"head_of_table", "left_seat", "right_seat"}, "home_desk": {"desk"},
                "cafe": {"table_left", "table_right", "table_left_2", "table_right_2"},
@@ -415,15 +417,29 @@ def _staging(s, d: dict, set_info: dict, set_name: str) -> list[Problem]:
     seats = set(set_info.get("seats") or [])
     desks = {m for m in seats if m in TABLE_SEATS.get(set_name, set())}
     blocking = d.get("blocking") or {}
-    by_mark: dict[str, str] = {}
+    room = SEAT_ROOM.get(set_name, {})
+    by_mark: dict[str, list] = {}
     for cid, mark in blocking.items():
-        if mark in by_mark:
-            out.append(Problem("error", f"{where}.blocking.{cid}", f"'{cid}' and '{by_mark[mark]}' are both on the {mark} mark: "
-                               "two bodies cannot stand or sit in one place.", "Give one of them another mark."))
-        by_mark.setdefault(mark, cid)
+        held = by_mark.setdefault(mark, [])
+        if len(held) >= room.get(mark, 1):
+            out.append(Problem("error", f"{where}.blocking.{cid}", f"'{cid}' and '{held[0]}' are both on the {mark} mark: "
+                               + ("it seats two at most." if room.get(mark, 1) > 1 else "two bodies cannot stand or sit in one place."),
+                               "Give one of them another mark."))
+        held.append(cid)
     arrives = {ln.who for ln in s.lines if "walk_in" in (ln.act or [])}
     seated = {cid for cid, mark in blocking.items() if mark in seats and cid not in arrives}
-    taken = {mark: cid for cid, mark in blocking.items() if mark in seats}
+    taken: dict[str, list] = {}
+    for cid, mark in blocking.items():
+        if mark in seats:
+            taken.setdefault(mark, []).append(cid)
+
+    def holder(mark, who):
+        return next((c for c in taken.get(mark, []) if c != who), None) if len(taken.get(mark, [])) >= room.get(mark, 1) else None
+
+    def leave(who):
+        for m_ in list(taken):
+            if who in taken[m_]:
+                taken[m_].remove(who)
     gone: dict[str, str] = {}
     spoke: set[str] = set()
     for ln in s.lines:
@@ -444,40 +460,34 @@ def _staging(s, d: dict, set_info: dict, set_name: str) -> list[Problem]:
             out.append(Problem("warning", f"{w}.act", f"'{ln.who}' is not sitting here, so stand_up does nothing.",
                                "Block them to a seat, or give them sit_down first."))
         if "sit_down" in acts:
+            free = [m for m in seats if len(taken.get(m, [])) < room.get(m, 1)]
             if ln.who in seated:
                 out.append(Problem("warning", f"{w}.act", f"'{ln.who}' is already sitting, so sit_down does nothing."))
-            elif not [m for m in seats if m not in taken]:
-                out.append(Problem("error", f"{w}.act", f"There is no free seat for '{ln.who}' on the {set_name} set: "
-                                   f"{', '.join(f'{c} is on {m}' for m, c in taken.items()) or 'it has none'}.",
+            elif not free:
+                who_where = "; ".join(" and ".join(c) + " on " + m for m, c in taken.items() if c) or "it has none"
+                out.append(Problem("error", f"{w}.act", f"There is no free seat for '{ln.who}' on the {set_name} set: {who_where}.",
                                    "Free a seat (stand_up, or another mark), or leave out sit_down."))
             else:
-                free = [m for m in seats if m not in taken]
-                taken[free[0]] = ln.who
+                taken.setdefault(free[0], []).append(ln.who)
                 seated.add(ln.who)
         if "stand_up" in acts and ln.who in seated:
             seated.discard(ln.who)
-            for m, c in list(taken.items()):
-                if c == ln.who:
-                    del taken[m]
+            leave(ln.who)
         if ln.go:
             if ln.go in seats:
-                holder = taken.get(ln.go)
-                if holder and holder != ln.who:
-                    out.append(Problem("error", f"{w}.go", f"{holder} is sitting on {ln.go}: '{ln.who}' cannot be sent there.",
-                                       "Send them to a free seat or a standing mark."))
+                other = holder(ln.go, ln.who)
+                if other:
+                    out.append(Problem("error", f"{w}.go", f"{other} is sitting on {ln.go} and there is no room beside them: "
+                                       f"'{ln.who}' cannot be sent there.", "Send them to a free seat or a standing mark."))
                 else:
-                    for m, c in list(taken.items()):
-                        if c == ln.who:
-                            del taken[m]
-                    taken[ln.go] = ln.who
+                    leave(ln.who)
+                    taken.setdefault(ln.go, []).append(ln.who)
                     seated.add(ln.who)
             else:
                 seated.discard(ln.who)
-                for m, c in list(taken.items()):
-                    if c == ln.who:
-                        del taken[m]
+                leave(ln.who)
         if "typing" in acts:
-            mark = next((m for m, c in taken.items() if c == ln.who), None)
+            mark = next((m for m, c in taken.items() if ln.who in c), None)
             if mark is None or mark not in desks:
                 out.append(Problem("warning", f"{w}.act", f"'{ln.who}' is not sitting at a desk, so their hands have no table "
                                    "to type on: they mime it in the air.", "Block them to a seat at a table: "
@@ -485,9 +495,7 @@ def _staging(s, d: dict, set_info: dict, set_name: str) -> list[Problem]:
         if "walk_out" in acts:
             gone[ln.who] = ln.id
             seated.discard(ln.who)
-            for m, c in list(taken.items()):
-                if c == ln.who:
-                    del taken[m]
+            leave(ln.who)
     for cid, g in (d.get("business") or {}).items():
         if g == "typing" and blocking.get(cid) not in desks:
             out.append(Problem("warning", f"{where}.business.{cid}", f"'{cid}' types as the scene opens but is not at a desk.",

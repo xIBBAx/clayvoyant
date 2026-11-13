@@ -292,6 +292,9 @@ class Puppet:
         shoem = clayv('shoe_' + name, .45, 0, .3, .12, cgrain=.02)
         s.shoeL = add(obj(name + '_sL', load(D + 'shoe.npz', shoem), None))
         s.shoeR = add(obj(name + '_sR', load(D + 'shoe.npz', shoem), None))
+        sv_ = np.array([v.co[:] for v in s.shoeL.data.vertices])
+        sv_ = sv_[sv_[:, 2] <= sv_[:, 2].min() + .03]
+        s.sole = (float(sv_[:, 1].min()), float(sv_[:, 1].max()))     # the sole runs from its toe (ahead) to its heel
         s.hipw = .178 if m['hw'] > .34 else .16
         s.legl = (s.hip - .13) / 2 * 1.015
         s.cape = None

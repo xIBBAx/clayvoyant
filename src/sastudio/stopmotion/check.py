@@ -22,7 +22,8 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 
-KINDS = {"set": "inside", "cast": "inside", "self": "inside", "between": "passed through", "dressing": "inside"}
+KINDS = {"set": "inside", "cast": "inside", "self": "inside", "between": "passed through", "dressing": "inside",
+         "float": "held up by nothing above", "skate": "slid on"}
 
 
 @dataclass
@@ -60,10 +61,18 @@ class Report:
 
 
 def said(c: dict) -> str:
-    """One contact in words: who, which part, inside what, when."""
-    deep = f", {c['depth'] * 50:.1f} cm deep" if c.get("depth") else ""
-    where = KINDS.get(c.get("kind"), "inside")
+    """One contact in words: who, which part, inside what, when (one unit of the set is 50 cm)."""
     shot = f"{c['shot']} " if c.get("shot") else ""
+    cm = (c.get("depth") or 0) * 50
+    if c.get("kind") == "float" and c.get("what") == "seat":
+        return f"{shot}frame {c['frame']}: {c['actor']} sits {cm:.1f} cm above {c['other']}, held up by nothing (float)"
+    if c.get("kind") == "float":
+        return (f"{shot}frame {c['frame']}: {c['actor']}'s feet are {cm:.1f} cm above {c['other']} "
+                f"and nothing else holds them up (float)")
+    if c.get("kind") == "skate":
+        return f"{shot}frame {c['frame']}: {c['actor']}'s {c['what']} slid {cm:.1f} cm on {c['other']} while standing on it (skate)"
+    deep = f", {cm:.1f} cm deep" if c.get("depth") else ""
+    where = KINDS.get(c.get("kind"), "inside")
     return (f"{shot}frame {c['frame']}: {c['actor']}'s {c['what']} {where} {c['other']} "
             f"({c['kind']}, {c['pairs']} crossing faces{deep})")
 

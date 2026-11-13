@@ -9,6 +9,7 @@ shot that stopped half way picks up where it was. A performance is built from th
 
 Conventions: an actor faces -Y, z is up, a character stands about 3.4 units tall, 24 frames a second.
 """
+import bisect
 import math
 
 import numpy as np
@@ -214,6 +215,11 @@ LAPJ = (80, 30, -24)                  # a hand resting on a thigh: palm down and
 HAND_R = .085                         # from the wrist to the surface of the hand, near enough, at hs 1
 SIT_FRAMES = 22      # how long sitting down or standing up takes
 SOLE = .004       # the shoe's lowest point sits this far under the foot's target: lift it so the sole rests on top
+# Blinks a minute at rest, talking and reading: 17, 26 and 4.5 across 150 people (Bentivoglio et al. 1997, Movement
+# Disorders 12:1028). A habit (STYLE blink) scales all three; reading a page or a screen and typing count as reading
+BLINK_REST, BLINK_TALK, BLINK_READ = 17.0, 26.0, 4.5
+READING = ('read', 'typing')
+BLINK = (.6, 1, 1, .6, .25, 0)      # one blink, a drawing at a time: down quickly, up more slowly
 
 
 def _wph(e, n):
@@ -222,6 +228,14 @@ def _wph(e, n):
     r = min(1.5, n)
     x = clamp(s / r)
     return s + (1 - (1 - x) * (1 - x))
+
+
+def standing_foot(p, side, psi, stance, cw=0.0):
+    """Where a foot rests for a body standing at p with its feet pointing psi (side -1 left, 1 right): a little apart, the
+    left a touch ahead. cw (-1..1) puts the weight on one hip and eases the free foot back (contrapposto)."""
+    back = (.02 - .05 * max(0.0, cw)) if side < 0 else (-.03 - .05 * max(0.0, -cw))
+    return (p[0] + math.cos(psi) * stance * .8 * side - math.sin(psi) * back,
+            p[1] + math.sin(psi) * stance * .8 * side + math.cos(psi) * back, 0)
 
 
 class Actor:
@@ -255,6 +269,7 @@ class Actor:
         to = tuple(to) + ((p0[2],) if len(to) == 2 else ())
         d = math.hypot(to[0] - p0[0], to[1] - p0[1])
         psi = a.stance(f)
+        a.__dict__.pop('_ents', None)
         if snap or d < .05:
             a.walks.append((f, f, to, to, 0, 1, psi, psi, 'walk'))
             return f
@@ -273,6 +288,7 @@ class Actor:
         if abs(d) < .45:
             return f
         n = 2 * max(1, math.ceil(abs(d) / 1.65))       # in pairs: up to about 95 degrees a pair
+        a.__dict__.pop('_ents', None)
         dur = int(n * a.st.get('turn_step', 8) + 4)
         p = a.walks[-1][3] if a.walks else a.pos0
         a.walks.append((f, f + dur, p, p, n, 0.0, psi, psi + d, 'turn'))
@@ -296,6 +312,8 @@ class Actor:
             st.update(d)
             a.keys.append((f, st))
         a.walks.sort(key=lambda w: w[0])
+        a.__dict__.pop('_ents', None)
+        a.__dict__.pop('_blinks', None)
 
     def steps(a):
         """Frames where a shoe lands: for footsteps in the mix."""
@@ -312,89 +330,168 @@ class Actor:
         return out
 
     def locate(a, f):
-        """-> pelvis position, feet (moving foot, standing foot, which, lift, phase) or None, walk heading, walk amount"""
-        p = a.pos0
-        cur = None
-        for w in a.walks:
+        """-> pelvis position, feet (moving foot, standing foot, which, lift, phase[, yaws]) or None, walk heading, walk
+        amount. Each walk or turn starts from where the one before left the feet: a foot is never put down anywhere but
+        by a step."""
+        k = -1
+        for i_, w in enumerate(a.walks):
             if w[0] > f:
                 break
-            cur = w
-        stance = a.st['stance']
+            k = i_
+        if k < 0:
+            return a.pos0, None, 0, 0
+        cur = a.walks[k]
+        if cur[8] == 'turn' and cur[0] <= f < cur[1]:
+            return a._turning(k, f)
+        if f >= cur[1]:
+            return a._after(k, f)
+        return a._walking(k, f)
 
-        def stand(p_, side, psi):
-            # a foot of a body standing at p_ with its feet pointing psi: beside the other, a little apart
-            back = .02 if side < 0 else -.03
-            return (p_[0] + math.cos(psi) * stance * side - math.sin(psi) * back,
-                    p_[1] + math.sin(psi) * stance * side + math.cos(psi) * back, 0)
-        if cur is not None and cur[8] == 'turn' and cur[0] <= f < cur[1]:
-            # turning on the spot, in pairs of steps: the foot on the side turned to opens out first, then the other
-            # comes round beside it, never past it (toes never cross); the other stays planted while one steps
-            f0, f1, p0, p1, n = cur[:5]
-            psi0, D = cur[6], _ang(cur[7] - cur[6])
-            pairs = max(1, n // 2)
-            ph = clamp((f - f0) / max(1, f1 - f0)) * n
-            i = min(n - 1, int(ph))
-            fr = ph - i
-            first = 1 if D > 0 else -1
-            ang = lambda j: psi0 + D * (j + 1) / pairs if j >= 0 else psi0
-            j = i // 2
-            frm, to = ang(j - 1), ang(j)
-            side = first if i % 2 == 0 else -first
-            mv = tuple(lerp(u_, v_, sm(fr)) for u_, v_ in zip(stand(p0, side, frm), stand(p0, side, to)))
-            still = frm if i % 2 == 0 else to          # the trailing foot waits where it was; the leading one where it opened to
-            yaws = (frm + _ang(to - frm) * sm(fr), still)
-            return p0, (mv, stand(p0, -side, still), side, math.sin(math.pi * fr) * .07, fr, yaws), 0, 0
-        if cur is None or f >= cur[1]:
-            if cur is not None:
-                p = cur[3]
-                f0, f1, p0, p1, n, dist = cur[:6]
-                # the settling step: the trailing foot comes in beside the other, so nobody ever skates to a halt
-                if f1 > f0 and n and f < f1 + 9 and cur[8] == 'walk':
-                    moving = 1 if n % 2 == 0 else -1     # the foot that moved last
-                    dx, dy = p1[0] - p0[0], p1[1] - p0[1]
-                    L = math.hypot(dx, dy) or 1
-                    ux, uy = dx / L, dy / L
-                    fr = (f - f1) / 9
-                    dl_ = dist * (n - .5) / n
-                    last = (p0[0] + ux * dl_ - uy * stance * -moving, p0[1] + uy * dl_ + ux * stance * -moving, 0)
-                    mv = tuple(lerp(u_, v_, sm(fr)) for u_, v_ in zip(last, stand(p1, -moving, cur[7])))
-                    return p, (mv, stand(p1, moving, cur[7]), -moving, math.sin(math.pi * fr) * .09, fr), 0, 0
-            return p, None, 0, 0
+    def _stand(a, p_, side, psi):
+        """A foot of a body standing at p_ with its feet pointing psi: exactly where the still pose puts it."""
+        return standing_foot(p_, side, psi, a.st['stance'])
+
+    def _plant(a, cur, k, side):
+        """Where foot `side` lands for plant k of walk cur: ahead of the hips, on the line of the walk."""
+        f0, f1, p0, p1, n, dist = cur[:6]
+        dx, dy = p1[0] - p0[0], p1[1] - p0[1]
+        L = math.hypot(dx, dy) or 1
+        ux, uy = dx / L, dy / L
+        d_ = dist * clamp((k - .5) / n)
+        stance = a.st['stance']
+        return (p0[0] + ux * d_ - uy * stance * side, p0[1] + uy * d_ + ux * stance * side, 0)
+
+    def _entry(a, k):
+        """Where each foot is and which way it points as walk or turn k begins, and which foot moves first: where the
+        one before left them. A walk that follows another at once carries the stride on from the feet as they are; one
+        given before the last was over leaves from mid-stride, the foot in the air carrying on."""
+        ents = a.__dict__.setdefault('_ents', {})
+        if k in ents:
+            return ents[k]
+        w = a.walks[k]
+        psi = w[6]
+        ent = dict(pos={s_: a._stand(w[2], s_, psi) for s_ in (-1, 1)}, yaw={-1: psi, 1: psi}, first=1, lift=0.0)
+        pv = a.walks[k - 1] if k > 0 else None
+        moved = pv is not None and pv[1] > pv[0] and (pv[8] == 'turn' or pv[4])
+        feet = None
+        if moved and w[0] < pv[1]:
+            feet = (a._turning if pv[8] == 'turn' else a._walking)(k - 1, w[0])[1]
+        elif moved and pv[8] == 'walk' and w[0] < pv[1] + 9:
+            feet = a._walking(k - 1, pv[1])[1]
+        if feet is not None:
+            mv, st, side, lift = feet[:4]
+            yaws = feet[5] if len(feet) > 5 else (pv[7], pv[7])
+            ent['pos'] = {side: (mv[0], mv[1], 0), -side: (st[0], st[1], 0)}
+            ent['yaw'] = {side: yaws[0], -side: yaws[1]}
+            ent['lift'] = lift
+            if lift > 1e-6:
+                ent['first'] = side
+            elif w[8] == 'walk':
+                # the foot further behind on the new way goes first
+                dx, dy = w[3][0] - w[2][0], w[3][1] - w[2][1]
+                pr = {s_: (ent['pos'][s_][0] - w[2][0]) * dx + (ent['pos'][s_][1] - w[2][1]) * dy for s_ in (-1, 1)}
+                if abs(pr[1] - pr[-1]) > .01 * (math.hypot(dx, dy) or 1):
+                    ent['first'] = 1 if pr[1] < pr[-1] else -1
+        ents[k] = ent
+        return ent
+
+    def _turning(a, k, f):
+        """Turning on the spot, in pairs of steps: the foot on the side turned to opens out first, then the other
+        comes round beside it, never past it (toes never cross); the other stays planted while one steps."""
+        cur = a.walks[k]
+        f0, f1, p0, p1, n = cur[:5]
+        psi0, D = cur[6], _ang(cur[7] - cur[6])
+        pairs = max(1, n // 2)
+        ph = clamp((f - f0) / max(1, f1 - f0)) * n
+        i = min(n - 1, int(ph))
+        fr = ph - i
+        first = 1 if D > 0 else -1
+        ang = lambda j: psi0 + D * (j + 1) / pairs if j >= 0 else psi0
+        j = i // 2
+        frm, to = ang(j - 1), ang(j)
+        side = first if i % 2 == 0 else -first
+        if j == 0:
+            # the first pair leaves from where the feet are
+            ent = a._entry(k)
+            A, yA = ent['pos'][side], ent['yaw'][side]
+            other, yo = (ent['pos'][-side], ent['yaw'][-side]) if i % 2 == 0 else (a._stand(p0, -side, to), to)
+        else:
+            A, yA = a._stand(p0, side, frm), frm
+            # the trailing foot waits where it was; the leading one where it opened to
+            other, yo = (a._stand(p0, -side, frm), frm) if i % 2 == 0 else (a._stand(p0, -side, to), to)
+        mv = tuple(lerp(u_, v_, sm(fr)) for u_, v_ in zip(A, a._stand(p0, side, to)))
+        return p0, (mv, other, side, math.sin(math.pi * fr) * .07, fr, (yA + _ang(to - yA) * sm(fr), yo)), 0, 0
+
+    def _after(a, k, f):
+        """Once walk or turn k is over: the trailing foot steps in beside the other, so nobody ever skates to a halt;
+        if the next walk or turn starts before it would have, the feet wait where they are, mid-stride."""
+        cur = a.walks[k]
+        f0, f1, p0, p1, n, dist = cur[:6]
+        if not (f1 > f0 and n and cur[8] == 'walk' and f < f1 + 9):
+            return cur[3], None, 0, 0
+        first = a._entry(k)['first']
+        last_ = first if n % 2 == 0 else -first          # the foot that moved last
+        trail = a._plant(cur, n, -last_)
+        here = a._stand(p1, last_, cur[7])
+        psi_w = math.atan2(p1[0] - p0[0], -(p1[1] - p0[1]))
+        if k + 1 < len(a.walks) and a.walks[k + 1][0] < f1 + 9:
+            return p1, (trail, here, -last_, 0.0, 0.0, (psi_w, cur[7])), 0, 0
+        fr = (f - f1) / 9
+        mv = tuple(lerp(u_, v_, sm(fr)) for u_, v_ in zip(trail, a._stand(p1, -last_, cur[7])))
+        return p1, (mv, here, -last_, math.sin(math.pi * fr) * .09, fr, (psi_w + _ang(cur[7] - psi_w) * sm(fr), cur[7])), 0, 0
+
+    def _walking(a, k, f):
+        cur = a.walks[k]
         f0, f1, p0, p1, n, dist = cur[:6]
         t = (f - f0) / max(1, f1 - f0)
         e = sm(t) * .5 + t * .5
         pos = tuple(lerp(u, v, e) for u, v in zip(p0, p1))
         dx, dy = p1[0] - p0[0], p1[1] - p0[1]
-        L = math.hypot(dx, dy) or 1
-        ux, uy = dx / L, dy / L
-        px, py = -uy, ux          # the walker's own right
         # the foot lands AHEAD of the hips and the hips pass over it at mid-stance: n+1 foot moves, a half step to start,
         # full steps, and a closing step that lands beside the other foot
         nn = n + 1
         ph = _wph(e, n)
         i = min(nn - 1, int(ph))
         fr = ph - i
-
-        def plant(k, side):
-            d_ = dist * clamp((k - .5) / n)
-            return (p0[0] + ux * d_ + px * stance * side, p0[1] + uy * d_ + py * stance * side, 0)
-        moving = 1 if i % 2 == 0 else -1
+        ent = a._entry(k)
+        first = ent['first']
+        moving = first if i % 2 == 0 else -first
         # the first steps leave from where the feet actually are; the last lands where it should stay
-        A = stand(p0, moving, cur[6]) if i <= 1 else plant(i - 1, moving)
-        B = stand(p1, moving, cur[7]) if i == nn - 1 else plant(i + 1, moving)
-        st = stand(p0, -moving, cur[6]) if i == 0 else plant(i, -moving)
+        A = ent['pos'][moving] if i <= 1 else a._plant(cur, i - 1, moving)
+        B = a._stand(p1, moving, cur[7]) if i == nn - 1 else a._plant(cur, i + 1, moving)
+        st = ent['pos'][-moving] if i == 0 else a._plant(cur, i, -moving)
         a.runk = clamp((dist / max(1, f1 - f0) - .13) / .09)
         lift = math.sin(math.pi * fr) * (.11 + .3 * a.runk)
+        if i == 0 and ent['lift']:
+            lift = max(lift, ent['lift'] * (1 - sm(fr)))      # a foot already in the air when the way changed stays up
         mv = tuple(lerp(x, y, sm(fr)) for x, y in zip(A, B))
+        # each foot keeps the way it landed pointing until it lifts, and turns in the air: a foot on the floor never
+        # swivels under a body that turns at a corner
+        psi_w = math.atan2(dx, -dy)
+        ya = ent['yaw'][moving] if i <= 1 else psi_w
+        yb = cur[7] if i == nn - 1 else psi_w
+        yaws = (ya + _ang(yb - ya) * sm(fr), ent['yaw'][-moving] if i == 0 else psi_w)
         # the arms and the torso go into the walk over a beat; a walk cut short by the next one carries the stride across
-        ib_ = a.walks.index(cur)
         base_ = 0.
-        if ib_ > 0 and a.walks[ib_ - 1][1] > f0 and a.walks[ib_ - 1][1] > a.walks[ib_ - 1][0]:
-            pw_ = a.walks[ib_ - 1]
+        if k > 0 and a.walks[k - 1][1] > f0 and a.walks[k - 1][1] > a.walks[k - 1][0]:
+            pw_ = a.walks[k - 1]
             base_ = sm(min(clamp((f0 - pw_[0]) / 16), clamp((pw_[1] - f0) / 16)))
         in_ = base_ + (1 - base_) * sm(clamp((f - f0) / 16))
         amt = min(in_, sm(clamp((f1 - f) / 16)))
-        return pos, (mv, st, moving, lift, fr), math.atan2(dx, -dy), amt
+        return pos, (mv, st, moving, lift, fr, yaws), psi_w, amt
+
+    def settled(a, f):
+        """0 the moment the feet stop moving, 1 a second and a quarter later, back to 0 as the next walk or turn nears:
+        how far the stance may ease into its habits (the weight on one hip, the free foot ahead) without a slide."""
+        last_end, nxt = -10 ** 9, 10 ** 9
+        for w in a.walks:
+            if w[1] <= w[0]:
+                continue
+            if w[0] > f:
+                nxt = w[0]
+                break
+            last_end = max(last_end, w[1] + (9 if w[8] == 'walk' and w[4] else 0))
+        return sm(clamp((f - last_end) / 30)) * sm(clamp((nxt - f) / 20))
 
     def heading(a, f, face):
         """Which way the body points. People turn at a person's speed: a half turn takes about a second, it starts just before
@@ -457,6 +554,66 @@ class Actor:
             return None
         t = f - start
         return t, clamp(t / 3) * clamp(1 - (t - 26) / 14)
+
+    def blink(a, f, S_):
+        """How far the eyes are shut at f (0..1). This person blinks as often as their habit says at rest, more while they
+        talk, far less while they read or type, and once just after somebody they listen to finishes a line (listeners
+        blink at the end of a turn: Hömke, Holler and Levinson 2018). Worked out once for the whole scene, so every shot
+        of it blinks at the same moments, and the same scene always blinks the same way."""
+        got = a.__dict__.get('_blinks')
+        if got is None or f > got[0] - 600:
+            # the same blinks from the same start, only further on (blinks a while before the end never change)
+            got = a._blinks = a._blink_times(S_, max(f + 2400, got[0] if got else 0))
+        ev = got[1]
+        i = bisect.bisect_right(ev, f) - 1
+        d = f - ev[i] if i >= 0 else -1
+        return BLINK[d] if 0 <= d < len(BLINK) else 0
+
+    def _blink_times(a, S_, upto):
+        """-> (the last frame worked out, the frames where a blink starts)"""
+        mine = [(l.s, l.e) for l in S_.lines if l.who == a.name]
+        theirs = [l.e for l in S_.lines if l.who != a.name]
+        frames = [k[0] for k in a.keys if k[0] > -999] + [l.s for l in S_.lines] + [l.e for l in S_.lines] + [0]
+        lo, hi = min(frames) - 200, max(max(frames) + 900, upto)
+        base = a.st.get('blink', 1.0) / (60.0 * S_.fps)
+        keys = [k for k in a.keys if k[0] > -999]
+        out, clock, i, ki, g = [], 0.0, 0, 0, a.keys[0][1].get('g')
+        due = .2 + .8 * _h(a.seed + .5)
+        for t in range(lo, hi):
+            while ki < len(keys) and keys[ki][0] <= t:
+                g = keys[ki][1].get('g', g)
+                ki += 1
+            per = BLINK_READ if g in READING else BLINK_TALK if any(s_ <= t < e_ for s_, e_ in mine) else BLINK_REST
+            clock += per * base
+            if clock >= due and (not out or t - out[-1] >= 14):
+                out.append(t)
+                clock, i = 0.0, i + 1
+                due = .45 + 1.1 * _h(a.seed + i * 1.37)
+        for e_ in theirs:
+            # a listener's blink as the other one finishes, most of the time, when the eyes are not just back open
+            at = e_ + 3 + int(6 * _h(a.seed * 3.1 + e_ * .73))
+            if _h(a.seed * 5.3 + e_ * 1.17) < .7 and not any(abs(at - b_) < 14 for b_ in out):
+                out.append(at)
+        return hi, sorted(out)
+
+    def aversion(a, f, S_):
+        """A speaker's look away (0..1) and which way (-1/1, and up or down): as most lines begin, while the thought is
+        put into words, and back on the listener well before the line ends to hand the turn over (Kendon 1967; Andrist,
+        Mutlu and Gleicher 2013, who measured it in people and found agents that did it seemed to be thinking). Longer
+        lines and wandering eyes make it likelier; no two lines do it alike."""
+        for l in S_.lines:
+            if l.who == a.name and l.s - 2 <= f < l.e:
+                n = l.e - l.s
+                if n < 24:
+                    return 0.0, 1, 1
+                h = _h(a.seed * 7.13 + l.s * .37)
+                if h > .3 + .45 * a.st.get('gaze', .4) + .25 * clamp((n - 48) / 96):
+                    return 0.0, 1, 1
+                hold = min(int(10 + 22 * _h(a.seed + l.s * 1.91)), int(n * .45))
+                t = f - l.s
+                v = sm(clamp((t - 2) / 5)) * sm(clamp((2 + hold - t) / 7))
+                return v, (1 if _h(a.seed + l.s * 2.71) > .5 else -1), (1 if _h(a.seed + l.s * 3.33) < .4 else -1)
+        return 0.0, 1, 1
 
     def seat_info(a, f):
         """The measured seat (film.measure_seat) this actor sits on, is sitting down on or getting up from at f."""
@@ -745,9 +902,19 @@ def pose_actor(S_, a, f):
         pm_, ps_ = pm_ * walk_amt, ps_ * walk_amt
         rollL = pm_ if moving < 0 else ps_
         rollR = pm_ if moving > 0 else ps_
-        # the foot pivots on its toe or its heel, not its middle: lift it by what the tilt would sink into the floor
-        lfL += .2 * abs(math.sin(rollL))
-        lfR += .2 * abs(math.sin(rollR))
+        # a tilted foot turns on whatever part of it is still on the floor: the ball of the foot when the heel is up, the
+        # heel when the toes are up. Lifted, and moved along itself, by exactly what that takes, so that part stays put
+        toe_, heel_ = getattr(P, 'sole', (-.373, .159))      # where the sole ends, ahead of the ankle and behind it
+        yL_ = yaw if shoeL is None else shoeL
+        yR_ = yaw if shoeR is None else shoeR
+        yp_ = toe_ if rollL > 0 else heel_
+        dh_ = yp_ * (1 - math.cos(rollL))
+        fL = (fL[0] - dh_ * math.sin(yL_), fL[1] + dh_ * math.cos(yL_), fL[2])
+        lfL -= yp_ * math.sin(rollL)
+        yp_ = toe_ if rollR > 0 else heel_
+        dh_ = yp_ * (1 - math.cos(rollR))
+        fR = (fR[0] - dh_ * math.sin(yR_), fR[1] + dh_ * math.cos(yR_), fR[2])
+        lfR -= yp_ * math.sin(rollR)
         bendf += (.055 + .13 * getattr(a, 'runk', 0)) * walk_amt
         # weight falls over the standing foot; shoulders turn against the hips
         sides += .03 * moving * -math.sin(math.pi * fr) * walk_amt
@@ -759,14 +926,13 @@ def pose_actor(S_, a, f):
         lfL = lfR = rollL = rollR = 0
         # contrapposto: the weight sits over one hip, the free foot eases ahead; every so often the weight changes
         # sides, slowly, the way people actually stand
-        cw_ = math.tanh(3 * noise(f / 300, seed + 5)) * st_.get('contra', 0)
+        # (eased in once the feet have been still a while, and out before they move: the free foot never skates)
+        cw_ = math.tanh(3 * noise(f / 300, seed + 5)) * st_.get('contra', 0) * a.settled(f)
         ps_ = a.stance(f)
-        rx_, ry_, bx_, by_ = math.cos(ps_), math.sin(ps_), -math.sin(ps_), math.cos(ps_)    # the stance's right, and back
         shoeL = shoeR = ps_
-        bl_, br_ = .02 - .05 * max(0, cw_), -.03 - .05 * max(0, -cw_)
-        fL = (x - rx_ * ss * .8 + bx_ * bl_, y - ry_ * ss * .8 + by_ * bl_, 0)
-        fR = (x + rx_ * ss * .8 + bx_ * br_, y + ry_ * ss * .8 + by_ * br_, 0)
-        x, y = x - rx_ * .025 * cw_, y - ry_ * .025 * cw_
+        fL = standing_foot((x, y), -1, ps_, ss, cw_)
+        fR = standing_foot((x, y), 1, ps_, ss, cw_)
+        x, y = x - math.cos(ps_) * .025 * cw_, y - math.sin(ps_) * .025 * cw_
     sitF = st_.get('sit', SIT_FRAMES)
     seatA = clamp(fold(lambda m_: 1. if K_[m_][1].get('seat') else 0., sitF, ease=eb_))
     ST = a.seat_info(f) if seatA > 0 and getattr(a, 'body', None) else None
@@ -793,10 +959,10 @@ def pose_actor(S_, a, f):
         mvl_ = ((fL[0] + fR[0]) / 2 - (ox_ + fx_ * au_ + rx_ * ST['lat'])) * rx_ + ((fL[1] + fR[1]) / 2 - (oy_ + fy_ * au_ + ry_ * ST['lat'])) * ry_
         lead_ = 'L' if mvl_ > 0 else 'R'
         for side_, sg_ in (('L', -1), ('R', 1)):
-            t0_ = 0.0 if side_ == lead_ else .17
-            # a small step back to where the seated feet go, one foot and then the other, before the weight goes down
-            # (and, getting up, the same steps forward once the weight is over the feet again)
-            fe_ = clamp((seatA - t0_) / .38)
+            t0_ = 0.0 if side_ == lead_ else .27
+            # a small step back to where the seated feet go, one foot and then the other (never both off the floor at
+            # once), before the weight goes down; getting up, the same steps forward once the weight is over the feet
+            fe_ = clamp((seatA - t0_) / .27)
             lat_ = ST['lat'] + sg_ * (a.body['hipw'] + .035)
             sf_ = (ox_ + fx_ * au_ + rx_ * lat_, oy_ + fy_ * au_ + ry_ * lat_, 0)
             if side_ == 'L':
@@ -836,8 +1002,8 @@ def pose_actor(S_, a, f):
         fL = (fL[0], fL[1], fL[2] + a.foot_lift.get((here_, 'L'), 0.0))
         fR = (fR[0], fR[1], fR[2] + a.foot_lift.get((here_, 'R'), 0.0))
     # each foot comes down on the solid surface under it (floor, rug, a table's base), not through it
-    fL = (fL[0], fL[1], fL[2] + S_.ground_foot(fL[0], fL[1], yaw) - S_.floor + fz + SOLE)
-    fR = (fR[0], fR[1], fR[2] + S_.ground_foot(fR[0], fR[1], yaw) - S_.floor + fz + SOLE)
+    fL = (fL[0], fL[1], fL[2] + S_.ground_foot(fL[0], fL[1], yaw if shoeL is None else shoeL) - S_.floor + fz + SOLE)
+    fR = (fR[0], fR[1], fR[2] + S_.ground_foot(fR[0], fR[1], yaw if shoeR is None else shoeR) - S_.floor + fz + SOLE)
     wl_ = getattr(a, 'walk_lift', None)
     if wl_ and wl_.get('f') == f:
         # mid-stride, a rolling heel or toe was measured in the floor this frame: lifted by exactly that, this frame only
@@ -1060,14 +1226,17 @@ def pose_actor(S_, a, f):
         return np.array(aim(T_) if T_ is not None else (0., 0.))
     hy, hpi = fold(lk, 13, delay=2)
     # blink on a big head turn: exactly what real eyes do
-    bl = max(blink_at(f, seed, st_.get('blink', 1.0)), (1 if abs(y1 - y0) > .5 and 0 <= f - cur[0] < 3 else 0))
+    bl = max(a.blink(f, S_), (1 if abs(y1 - y0) > .5 and 0 <= f - cur[0] < 3 else 0))
     # micro saccades: steadier eyes move less and less often
     gz_ = st_.get('gaze', .4)
     sacc = (_h(int(f / (30 - 10 * gz_)) + seed) - .5) * (.6 + gz_)
     sacz = (_h(int(f / (36 - 10 * gz_)) + seed + 3) - .5) * (.6 + gz_)
     ey_y, ey_p = fold(lk, 5)
     nod = fold(lambda m_: K_[m_][1].get('nod', 0), 8)
-    away_ = 0.0
+    away_, awd_, awv_ = 0.0, (1 if seed % 2 else -1), 1
+    if S >= .1:
+        # speaking: a look away as the line begins, then back on whoever it is said to (the head goes a little with it)
+        away_, awd_, awv_ = a.aversion(f, S_)
     if S < .1:
         # listening: the small nods of someone following along, as much as they agree and as is their habit
         others = max((S_.speaking(o_, f) for o_ in S_.actors if o_ != a.name), default=0)
@@ -1082,10 +1251,11 @@ def pose_actor(S_, a, f):
         nod += .05 * burst_ - .1 * lg_[1] * clamp(1 - lg_[0] / 10)      # the head goes back, then bobs with the breath
     head = (clamp(hpi * .5, -.3, .3) + .07 * str_ * ampf_ * S + .02 * math.sin(f / 23 + seed) + nod,
             .025 * S * noise(f / 17, seed + 6) * ampf_ + .012 * noise(f / 50, seed + 8) - .9 * sides + fold(lambda m_: K_[m_][1].get('tilt', 0), 9),
-            clamp(hy * .55, -.4, .4) + .10 * S * noise(f / 21, seed + 4) * ampf_ - .85 * wtw_ + fold(lambda m_: K_[m_][1].get('turn', 0), 5))
+            clamp(hy * .55, -.4, .4) + .10 * S * noise(f / 21, seed + 4) * ampf_ - .85 * wtw_ + fold(lambda m_: K_[m_][1].get('turn', 0), 5)
+            + (.07 * away_ * awd_ if S >= .1 else 0.0))
     # eye target remaining after the head moved: clamp stays in a friendly range
-    lx = clamp((ey_y - head[2]) * 1.4 + sacc * .10 + away_ * .22 * (1 if seed % 2 else -1), -.6, .6)
-    ly = clamp((ey_p - head[0]) * 1.2 + sacz * .08 + away_ * .2 + fold(lambda m_: K_[m_][1].get('ly', 0), 5), -.6, .6)
+    lx = clamp((ey_y - head[2]) * 1.4 + sacc * .10 + away_ * .22 * awd_, -.6, .6)
+    ly = clamp((ey_p - head[0]) * 1.2 + sacz * .08 + away_ * (.2 if awv_ > 0 else -.08) + fold(lambda m_: K_[m_][1].get('ly', 0), 5), -.6, .6)
     # the face: mood underneath, words on top, and the mood never quite leaves while they talk
     mc = Mo['c'].copy()
     for k_s in ('smileL', 'smileR'):

@@ -143,6 +143,14 @@ def test_every_gesture_and_feeling_has_an_engine_counterpart():
     assert set(SM.OPENINGS) == set(D.TRANSITIONS)
 
 
+def test_every_gesture_becomes_acting_keys_and_a_laugh_comes_back_to_the_face_it_left():
+    for g in D.GESTURES:
+        keys, _hands = SM._gesture_keys("ana", g, 100, 160, "ben", {"door": True}, mood="worry")
+        assert all(k["who"] == "ana" and isinstance(k["frame"], int) for k in keys), g
+    keys, hands = SM._gesture_keys("ana", "laugh", 100, 160, "ben", {}, mood="worry")
+    assert not hands and (keys[0]["laugh"], keys[0]["f"]) == (1, "grin") and (keys[-1]["laugh"], keys[-1]["f"]) == (0, "worry")
+
+
 def test_sets_the_engine_builds_are_the_sets_direction_knows():
     src = (ENGINE / "clay" / "sets.py").read_text(encoding="utf-8")
     built = set(re.findall(r"(\w+)=\1[,)]", src[src.index("SETS = dict("):]))

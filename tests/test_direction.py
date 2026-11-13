@@ -355,12 +355,10 @@ def _staged(tmp_path, direction: str, lines: str):
 
 
 @pytest.mark.parametrize("direction,lines,level,needle", [
-    ("      set: home_desk\n      blocking: { ana: sofa, dev: sofa }\n",
-     '      - { id: l1, who: ana, say: "Hi." }\n      - { id: l2, who: dev, say: "Hi." }\n', "error", "both on the sofa mark"),
-    ("      set: street\n      blocking: { ana: bench }\n",
-     '      - { id: l1, who: ana, say: "Hi." }\n      - { id: l2, who: dev, say: "Hi.", act: [sit_down] }\n', "error", "no free seat"),
-    ("      set: home_desk\n      blocking: { ana: sofa }\n",
-     '      - { id: l1, who: ana, say: "Hi." }\n      - { id: l2, who: dev, say: "Hi.", go: sofa }\n', "error", "is sitting on sofa"),
+    ("      set: home_desk\n      blocking: { ana: desk, dev: desk }\n",
+     '      - { id: l1, who: ana, say: "Hi." }\n      - { id: l2, who: dev, say: "Hi." }\n', "error", "both on the desk mark"),
+    ("      set: office\n      blocking: { ana: desk }\n",
+     '      - { id: l1, who: ana, say: "Hi." }\n      - { id: l2, who: dev, say: "Hi.", go: desk }\n', "error", "is sitting on desk"),
     ("      set: office\n",
      '      - { id: l1, who: ana, say: "Bye.", act: [walk_out] }\n      - { id: l2, who: ana, say: "Hi." }\n', "error", "walked out"),
     ("      set: office\n",
@@ -393,3 +391,13 @@ def test_seats_with_a_table_are_the_marks_the_sets_give_a_table():
         body = body[:body.index("\ndef ", 10)] if "\ndef " in body[10:] else body
         tables = set(re.findall(r"(\w+)=mark\([^)]*table=", body))
         assert tables == D.TABLE_SEATS.get(name, set()), name
+
+
+def test_a_bench_or_a_sofa_seats_two_and_no_more(tmp_path, monkeypatch):
+    two = _staged(tmp_path / "a", "      set: street\n      blocking: { ana: bench }\n",
+                  '      - { id: l1, who: ana, say: "Sit." }\n      - { id: l2, who: dev, say: "Thanks.", go: bench }\n')
+    assert [p for p in D.validate(two) if p.level == "error"] == []
+    monkeypatch.setitem(D.SEAT_ROOM, "street", {"bench": 1})
+    full = _staged(tmp_path / "b", "      set: street\n      blocking: { ana: bench }\n",
+                   '      - { id: l1, who: ana, say: "Sit." }\n      - { id: l2, who: dev, say: "Thanks.", act: [sit_down] }\n')
+    assert any("no free seat" in p.message for p in D.validate(full) if p.level == "error")

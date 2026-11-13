@@ -10,9 +10,18 @@ world space, triangle against triangle:
            cuff, a shoe over its ankle) the join is not a contact; everything away from the join is.
   between  a hand or a foot whose path from the last drawing to this one runs through something solid, even though it
            is clear in both drawings
+  float    a body that nothing holds up: standing, no sole within 5 mm of what is under it; seated, the seat of the body
+           (the backs of the thighs, the bottom of the torso) not on the seat; getting up or down, neither
+  skate    a foot standing on something that slides along it: every point of the sole that stood on it at the last
+           drawing and still does has moved more than 5 mm a frame
 
 Touching is fine (a body rests a few millimetres above what holds it). Anything inside is reported with the frame,
 the character, the part, what it is in, how many triangle pairs cross and how deep the deepest point is.
+
+The ground measures follow the physical plausibility measures of motion research: penetrate, float and skate with a
+5 mm tolerance (PhysDiff, arXiv:2212.02500), the 2.5 cm skid of a foot in contact (GMD, arXiv:2305.12577, here held
+to 5 mm a frame), and contact of the body's seat and feet with the scene (PROX, arXiv:1908.06963). One unit of the
+set is 50 cm.
 
 The probe never changes the scene. film.py uses it to refuse to draw a shot that would show a body inside
 something (and to say exactly where), and tools/check_contacts.py uses it to check a filmed project.
@@ -42,6 +51,12 @@ SELF = [('hL', 'torso'), ('hR', 'torso'), ('hL', 'h'), ('hR', 'h'), ('hL', 'hR')
         ('hR', 'sL'), ('hR', 'sR')]
 # names of set objects that are not solid: vapour, birds in the sky, the cards that shape window light
 NOT_SOLID = ('steam', 'wing', 'gob', 'vap')
+# what holds a body up (in set units: one is 50 cm)
+FOOT = .01       # a sole this close to what is under it stands on it (5 mm, as PhysDiff allows)
+SEATED = .02     # the seat of a seated body this close to its seat sits on it (1 cm: the cushion is pressed to meet it)
+SKATE = .01      # a standing foot that moves along what it stands on by more than this a frame (5 mm) slides on it
+SOLE = .03       # the lowest 1.5 cm of a shoe is its sole
+REACH = .6       # how far under a sole or a seat to look for what holds it
 
 
 def _suffix(actor, name):
@@ -144,12 +159,18 @@ def _depth(a, b, at=None, reach=.18):
 class Probe:
     """Measures one drawing at a time. perf: the Performance; set_objects: callable -> the set's solid objects now."""
 
-    def __init__(s, perf, set_objects, held=()):
+    def __init__(s, perf, set_objects, held=(), offstage=None):
         s.perf = perf
         s.set_objects = set_objects
         s.held = held           # props carried in a hand: [(object, actor name)]
+        s.offstage = offstage   # callable(actor) -> True while they wait off the set (beyond its walls: no floor there)
         s.static = {}           # set objects that never move: built once
         s.last = {}             # actor -> {part: centre} at the last drawing measured, for paths between drawings
+        s.soles = {}            # actor -> (frame, {shoe: {vertex: where it stood}}) at the last drawing measured
+
+    def reset(s):
+        """Forget the last drawing measured: the next one starts a new run of drawings."""
+        s.last, s.soles = {}, {}
 
     def _set_meshes(s, dg):
         out = []
@@ -270,6 +291,57 @@ class Probe:
                             out.append(dict(frame=f, actor=name, part=sfx, what=PARTS.get(sfx, sfx), other=_thing(w.o.name),
                                             kind='between', pairs=0, depth=round((h1[0] - h2[0]).length, 4)))
             s.last[name] = now
+        # what holds each body up: its feet or its seat; and a foot standing on something does not slide along it
+        supports = [w for w in world if w.o.name not in held_names]
+        for name, parts in cast.items():
+            a = s.perf.actors[name]
+            if 'model' not in parts and not (s.offstage is not None and s.offstage(a)):
+                out += s._held_up(f, name, a, parts, supports)
+        return out
+
+    def _held_up(s, f, name, a, parts, world):
+        shoes = [(sfx, parts[sfx][0]) for sfx in ('sL', 'sR') if parts.get(sfx) and len(parts[sfx][0].v)]
+        if not shoes:
+            return []
+        out = []
+        seated = a.seat_amt(f) if hasattr(a, 'seat_amt') else 0.0
+        soles, low = {}, (np.inf, 'sL', None)
+        for sfx, m in shoes:
+            idx = np.nonzero(m.v[:, 2] <= m.lo[2] + SOLE)[0]
+            gaps, under = _below(world, m.v[idx])
+            soles[sfx] = (m, idx, gaps, under)
+            k = int(np.argmin(gaps))
+            if gaps[k] < low[0]:
+                low = (float(gaps[k]), sfx, under[k])
+        seat, seat_on = _seat_gap(a, parts, world) if seated > .01 else (np.inf, None)
+        if seated >= .99 and seat > SEATED:
+            # sitting: the seat of the body is on the seat, whatever the feet do (they may hang)
+            out.append(dict(frame=f, actor=name, part='torso', what='seat', other=_thing(seat_on) if seat_on else 'nothing',
+                            kind='float', pairs=0, depth=round(min(seat, REACH), 4)))
+        elif low[0] > FOOT and seat > SEATED:
+            # standing, or on the way up or down: something has to carry the weight
+            out.append(dict(frame=f, actor=name, part=low[1], what='feet', other=_thing(low[2]) if low[2] else 'nothing',
+                            kind='float', pairs=0, depth=round(min(low[0], REACH), 4)))
+        # every point of a sole that stood on something at the last drawing measured and still stands on it: if not one
+        # of them stayed where it was (a foot may pivot on its toe or its heel), the foot slid
+        prev = s.soles.get(name)
+        now = {}
+        for sfx, (m, idx, gaps, under) in soles.items():
+            on = gaps <= FOOT
+            now[sfx] = dict(zip(idx[on].tolist(), m.v[idx[on], :2]))
+            before = prev[1].get(sfx) if prev is not None else None
+            if not before or not now[sfx]:
+                continue
+            both = [i for i in now[sfx] if i in before]
+            if not both:
+                continue
+            df = max(1, f - prev[0])
+            moved = min(float(np.hypot(*(now[sfx][i] - before[i]))) for i in both)
+            if moved > SKATE * df:
+                k = int(np.argmin(gaps))
+                out.append(dict(frame=f, actor=name, part=sfx, what=PARTS[sfx], other=_thing(under[k]) if under[k] else 'nothing',
+                                kind='skate', pairs=len(both), depth=round(moved, 4)))
+        s.soles[name] = (f, now)
         return out
 
 
@@ -294,6 +366,51 @@ def _past_join(pairs, seg, n1):
             break
         end = r
     return [pq for pq in pairs if ring(pq[0]) > end]
+
+
+def _below(world, pts):
+    """How high each point is above the first solid surface under it (below zero: inside it), and which object that is.
+    Looked for from 2.5 cm above the point, so a point a little inside a surface is measured as inside it.
+    pts: (n, 3) -> (gaps (n,), names); a point with nothing under it within REACH is inf above nothing."""
+    gaps = np.full(len(pts), np.inf)
+    under = [None] * len(pts)
+    if not len(pts):
+        return gaps, under
+    lo, hi = pts.min(axis=0), pts.max(axis=0)
+    down = V((0, 0, -1))
+    for w in world:
+        if (w.lo[0] > hi[0] or w.hi[0] < lo[0] or w.lo[1] > hi[1] or w.hi[1] < lo[1] or w.lo[2] > hi[2] + .05
+                or w.hi[2] < lo[2] - REACH):
+            continue
+        t = w.tree()
+        if t is None:
+            continue
+        inside = np.nonzero((pts[:, 0] >= w.lo[0]) & (pts[:, 0] <= w.hi[0]) & (pts[:, 1] >= w.lo[1]) & (pts[:, 1] <= w.hi[1]))[0]
+        for i in inside:
+            p = pts[i]
+            loc = t.ray_cast(V((p[0], p[1], p[2] + .05)), down, REACH + .05)[0]
+            if loc is not None and p[2] - loc.z < gaps[i]:
+                gaps[i], under[i] = p[2] - loc.z, w.o.name
+    return gaps, under
+
+
+def _seat_gap(a, parts, world):
+    """How far the seat of a body is above what is under it: the bottom of the torso and the backs of the thighs, the
+    places a seated body rests on (PROX's contact regions). -> (gap, the object under it)"""
+    pts = []
+    for m in parts.get('torso', ())[:1]:
+        pts.append(m.v[m.v[:, 2] <= m.lo[2] + SOLE])
+    for sfx in ('lL', 'lR'):
+        lb = _limb(a, sfx)
+        for m in parts.get(sfx, ())[:1]:
+            thigh = m.v[: lb[0] * lb[1]] if lb else m.v
+            if len(thigh):
+                pts.append(thigh[thigh[:, 2] <= thigh[:, 2].min() + SOLE])
+    if not pts:
+        return np.inf, None
+    gaps, under = _below(world, np.concatenate(pts))
+    k = int(np.argmin(gaps))
+    return float(gaps[k]), under[k]
 
 
 REST = .012     # how deep a thing may settle into what holds it (a table's foot into the lumps of a clay floor)
@@ -352,10 +469,11 @@ def set_check(objects, dg=None, moving=()):
                 continue
             da, db = _depth(a, b), _depth(b, a)
             deep = max(da, db)
-            # resting: the crossing is at the bottom of one of them, in the top of the other, and shallow
-            zc = np.array([a.centre(p)[2] for p, _q in pairs[:200]])
-            low_a, low_b = a.lo[2], b.lo[2]
-            resting = deep <= REST and ((zc <= low_a + .03).all() or (zc <= low_b + .03).all())
+            # resting: the crossing is at the bottom of one of them, in the top of the other, and shallow. Where a face
+            # crosses is its lowest corner at most: a long face down a chair's leg still crosses only at its foot
+            za = np.array([a.v[a.p[p], 2].min() for p, _q in pairs[:200]])
+            zb = np.array([b.v[b.p[q], 2].min() for _p, q in pairs[:200]])
+            resting = deep <= REST and ((za <= a.lo[2] + .03).all() or (zb <= b.lo[2] + .03).all())
             # hung on a wall: shallow, and one of them is a wall
             walled = deep <= REST and any(_thing(n).split('.')[0] in ('back', 'side', 'skirt', 'wall') for n in (a.o.name, b.o.name))
             if resting or walled:

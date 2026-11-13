@@ -216,8 +216,9 @@ Measured on one laptop on 2026-11-11 (Intel Core i7-10750H, 12 threads, GeForce 
 - The `final` preset (1920x1080) has not yet been run for a whole film; the sample was built with
   `preview`. CI has no Blender, so the clay smoke test runs only where Blender is installed.
 - The starter scenes are general guidance, not policy. Replace each procedure with your own.
-- On the sofa of the home set, a seated character still sinks into the cushion; Nineteen Thirty
-  shows it ([#28](https://github.com/xIBBAx/clayvoyant/issues/28)).
+- A body is checked against everything solid before a shot is filmed, and a shot that would show
+  one inside something is not filmed. Imported models are measured against the set and the cast,
+  not against themselves.
 - The `india` template's Hindi has not yet been reviewed by fluent speakers from its audience
   ([#20](https://github.com/xIBBAx/clayvoyant/issues/20)). Read every line aloud with someone who
   will watch it before you show it.
