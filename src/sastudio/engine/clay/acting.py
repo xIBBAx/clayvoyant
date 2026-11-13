@@ -287,7 +287,10 @@ class Actor:
         hd_ = math.atan2(to[0] - p0[0], -(to[1] - p0[1]))
         lw_ = a.walks[-1] if a.walks else None
         still_ = lw_ is None or f >= lw_[1] + (9 if lw_[8] == 'walk' and lw_[4] else 0)
-        if still_ and abs(_ang(hd_ - psi)) > 1.75:
+        # (or carrying on along a route, from where the last leg arrived: a corner that sharp is not stepped round
+        # either; the feet come together, the body turns on the spot, and the walk goes on)
+        corner_ = lw_ is not None and lw_[8] == 'walk' and lw_[1] > lw_[0] and f >= lw_[1]
+        if (still_ or corner_) and abs(_ang(hd_ - psi)) > 1.75:
             # setting off behind or well to one side: round on the spot first, then away (a first step that far round
             # would cross one foot over the other)
             f = a.turn(f, hd_)
@@ -564,29 +567,35 @@ class Actor:
         the first step and finishes just after it, and a walk that runs into another walk turns from one direction to the next."""
         RATE = .125     # radians a frame at most, on average
         yaw = face
-        W = [w for w in a.walks if w[1] > w[0] and math.hypot(w[3][0] - w[2][0], w[3][1] - w[2][1]) > 1e-3]
-        TT = [w for w in a.walks if w[8] == 'turn']
-        for i_, w in enumerate(W):
+        # every walk and every turn on the spot, in the order they happen: each one starts from wherever the one before
+        # left the body, so nothing ever snaps round
+        M = sorted((w for w in a.walks if w[1] > w[0] and (w[8] == 'turn' or math.hypot(w[3][0] - w[2][0], w[3][1] - w[2][1]) > 1e-3)),
+                   key=lambda w: w[0])
+        for i_, w in enumerate(M):
             f0, f1 = w[0], w[1]
             if f0 - 30 > f:
                 break
+            nxt = M[i_ + 1][0] if i_ + 1 < len(M) else 1e9
+            if w[8] == 'turn':
+                if f < f0:
+                    break
+                # a turn on the spot: the body goes round with its stepping feet; then, unless it is about to walk or
+                # turn again, it settles on whatever the scene wants
+                yaw = yaw + _ang(w[7] - yaw) * sm(clamp((f - f0) / max(1, f1 - f0)))
+                if nxt - f1 > 20:
+                    yaw = yaw + _ang(face - yaw) * sm(clamp((f - f1) / 10))
+                continue
             Y = math.atan2(w[3][0] - w[2][0], -(w[3][1] - w[2][1]))
             Ti = clamp(abs(_ang(Y - yaw)) / RATE, 8, 25) if clamp((f1 - f0) / 24.) >= .5 else 8
             wi = sm(clamp((f - (f0 - Ti * .34)) / Ti))
             Y = yaw + _ang(Y - yaw)                # always the short way round
             yaw = yaw + (Y - yaw) * wi
-            nxt = W[i_ + 1][0] if i_ + 1 < len(W) else 1e9
             To = clamp(abs(_ang(Y - face)) / RATE, 8, 25)
-            if nxt - f1 > To + 10 and not any(0 <= t_[0] - f1 <= 3 for t_ in TT):
-                # the walk is over: come round to whatever the scene wants, as the last step settles
+            if nxt - f1 > To + 10:
+                # the walk is over and nothing follows it at once (another walk, or the turn that takes them round once
+                # the feet have come together): come round to whatever the scene wants, as the last step settles
                 wo = sm(clamp((f - (f1 - To * .2)) / To))
                 yaw = yaw + _ang(face - yaw) * wo
-        for t_ in TT:
-            # a turn on the spot: the body goes round with its stepping feet, then settles on whatever the scene wants
-            if t_[0] > f:
-                break
-            yt = t_[6] + _ang(t_[7] - t_[6]) * sm(clamp((f - t_[0]) / max(1, t_[1] - t_[0])))
-            yaw = yt if f <= t_[1] else yt + _ang(face - yt) * sm(clamp((f - t_[1]) / 10))
         return yaw
 
     def seat_amt(a, f):
@@ -987,14 +996,15 @@ def pose_actor(S_, a, f):
         z_b = 0
         ss = st_['stance']
         lfL = lfR = rollL = rollR = 0
-        # contrapposto: the weight sits over one hip, the free foot eases ahead; every so often the weight changes
-        # sides, slowly, the way people actually stand
-        # (eased in once the feet have been still a while, and out before they move: the free foot never skates)
+        # contrapposto: the weight sits over one hip; every so often it changes sides, slowly, the way people actually
+        # stand (eased in once the feet have been still a while, and out before they move). The hips carry it: the feet
+        # stay exactly where they were put down, pointing the way they were put down (a foot that eased forward or
+        # turned with the hips on its own would slide or swivel on the floor)
         cw_ = math.tanh(3 * noise(f / 300, seed + 5)) * st_.get('contra', 0) * a.settled(f)
         ps_ = a.stance(f)
         shoeL = shoeR = ps_
-        fL = standing_foot((x, y), -1, ps_, ss, cw_)
-        fR = standing_foot((x, y), 1, ps_, ss, cw_)
+        fL = standing_foot((x, y), -1, ps_, ss)
+        fR = standing_foot((x, y), 1, ps_, ss)
         x, y = x - math.cos(ps_) * .025 * cw_, y - math.sin(ps_) * .025 * cw_
     sitF = st_.get('sit', SIT_FRAMES)
     seatA = clamp(fold(lambda m_: 1. if K_[m_][1].get('seat') else 0., sitF, ease=eb_))
@@ -1003,10 +1013,6 @@ def pose_actor(S_, a, f):
     # standing still: whatever the gestures add, the torso's side lean stays small (walking and sitting keep theirs)
     standA = (1 - seatA) * (1 - walk_amt)
     sides = lerp(sides, .03 * math.tanh(sides / .03), standA)
-    if shoeL is not None and not (feet and len(feet) > 5):
-        # feet planted while the body turns to someone: the toes follow the hips a little, never across each other
-        dy_ = clamp(_ang(yaw - shoeL), -.3, .3) * .5
-        shoeL, shoeR = shoeL + dy_, shoeR + dy_
     if ST is not None:
         # which way each shoe pointed standing: a foot keeps it until it lifts to step to its seated place
         sy0_ = (yaw if shoeL is None else shoeL, yaw if shoeR is None else shoeR)

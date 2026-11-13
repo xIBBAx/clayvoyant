@@ -249,6 +249,8 @@ class Probe:
         # each body against itself, away from its joins
         for name, parts in cast.items():
             a = s.perf.actors[name]
+            if 'model' in parts or not hasattr(a.P, 'hipw'):
+                continue        # an imported model is measured whole, against everything else: it has no parts of its own
             joins = _joins(a)
             for p1, p2 in SELF:
                 for m1 in parts.get(p1, ()):
@@ -322,8 +324,9 @@ class Probe:
             # standing, or on the way up or down: something has to carry the weight
             out.append(dict(frame=f, actor=name, part=low[1], what='feet', other=_thing(low[2]) if low[2] else 'nothing',
                             kind='float', pairs=0, depth=round(min(low[0], REACH), 4)))
-        # every point of a sole that stood on something at the last drawing measured and still stands on it: if not one
-        # of them stayed where it was (a foot may pivot on its toe or its heel), the foot slid
+        # every point of a sole that stood on something at the last drawing measured and still stands on it stays where it
+        # was: a foot rolling onto its toe or its heel lifts the rest of the sole off the floor (up, not along it), but a
+        # foot that slides or turns on the floor moves the points it stands on, and the one that moved furthest counts
         prev = s.soles.get(name)
         now = {}
         for sfx, (m, idx, gaps, under) in soles.items():
@@ -336,7 +339,7 @@ class Probe:
             if not both:
                 continue
             df = max(1, f - prev[0])
-            moved = min(float(np.hypot(*(now[sfx][i] - before[i]))) for i in both)
+            moved = max(float(np.hypot(*(now[sfx][i] - before[i]))) for i in both)
             if moved > SKATE * df:
                 k = int(np.argmin(gaps))
                 out.append(dict(frame=f, actor=name, part=sfx, what=PARTS[sfx], other=_thing(under[k]) if under[k] else 'nothing',

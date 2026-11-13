@@ -2360,6 +2360,10 @@ def forget():
             a.__dict__.pop(k, None)
         if hasattr(a.P, 'face_more'):
             a.P.face_more = {}
+    # a carried thing goes back to where it was first put in the hand: the next pass fits it from there, as the first did
+    for o, _f0, _f1, _who in HELD:
+        if o.name in GRIP:
+            o.location = GRIP[o.name][0]
     GRIP.clear()
     PERF._primed = False
     PROBE.reset()
@@ -2441,9 +2445,10 @@ out = JOB['out']
 os.makedirs(out, exist_ok=True)
 frames = [f for f in FRAMES if not os.path.exists(os.path.join(out, f'{f:06d}.png'))]
 print(f'FILM frames {len(frames)} of {len(FRAMES)} to do', flush=True)
-if frames and JOB.get('contacts', 'refuse') != 'allow':
+if frames:
     # Before anything is drawn: every drawing of the shot is posed as it will be filmed and measured. A shot that would
-    # show a body inside something is not filmed; the log says who, which part, in what and when.
+    # show a body inside something is not filmed; the log says who, which part, in what and when. Allowed by the film
+    # command (--allow-intersections), it is filmed, and every contact is still measured and listed.
     tc = time.time()
     found = dressing_contacts()
     for f in FRAMES:
@@ -2454,12 +2459,13 @@ if frames and JOB.get('contacts', 'refuse') != 'allow':
     if found:
         for c in found[:30]:
             print('FILM contact ' + said(c), flush=True)
-        print(f'FILM refused: {len(found)} contact(s) in {len(FRAMES)} drawings; every one is in {os.path.join(out, "contacts.json")}',
+        where_ = os.path.join(out, 'contacts.json')
+        if JOB.get('contacts', 'refuse') != 'allow':
+            print(f'FILM refused: {len(found)} contact(s) in {len(FRAMES)} drawings; every one is in {where_}', flush=True)
+            sys.exit(3)
+        print(f'FILM filming anyway (--allow-intersections): {len(found)} contact(s) in {len(FRAMES)} drawings; every one is in {where_}',
               flush=True)
-        sys.exit(3)
     forget()
-elif frames:
-    print('FILM contacts not checked (allowed by the film command)', flush=True)
 t0 = time.time()
 steps = sorted({f for a in PERF.actors.values() for f in a.steps()})
 json.dump(dict(steps=steps), open(os.path.join(out, 'events.json'), 'w'))

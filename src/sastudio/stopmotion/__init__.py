@@ -362,9 +362,10 @@ def opening_job(scene_part: dict, plan: D.ScenePlan, scene, frames: list[int], p
 
 
 _FINGERPRINT: list[str] = []
-# the engine files whose code decides what a filmed shot looks like (contacts.py only measures: it draws nothing)
+# the engine files whose code decides what a filmed shot looks like (contacts.py too: settling uses its measures to
+# put hands and arms right, so a change to it can change a drawing)
 PICTURE_FILES = ("film.py", "acting.py", "body.py", "puppet.py", "handrig.py", "faceops.py", "claymat.py", "sets.py", "setkit.py",
-                 "guest.py")
+                 "guest.py", "contacts.py")
 
 
 def engine_fingerprint() -> str:
@@ -543,6 +544,10 @@ def run_blender(job: dict, work: Path, log=print, timeout: float = 48 * 3600) ->
                 contacts.append(line[5:])
             elif line.startswith("FILM contacts checked"):
                 log("    " + line[5:])
+            elif line.startswith("FILM filming anyway"):
+                log("    warning: " + line[5:])
+                for c in contacts[:16]:
+                    log("      " + c[len("contact "):])
             if line.startswith("FILM device"):
                 cpu = job["device"] == "GPU" and line.startswith("FILM device CPU")
                 log(("    warning: " if cpu else "    ") + line[5:]
@@ -580,18 +585,36 @@ def rig_stamps(project, cast: list[str]) -> dict:
     return {cid: (rig / cid / ".params").read_text() if (rig / cid / ".params").exists() else "" for cid in cast}
 
 
+def _reusable(folder: Path, label: str) -> None:
+    """A finished shot is reused only if it would pass the check now: one filmed with --allow-intersections that shows a
+    body passing through something is refused by a plain `film`, as it would have been when it was filmed."""
+    if os.environ.get("SASTUDIO_ALLOW_INTERSECTIONS") == "1" or not (folder / "contacts.json").is_file():
+        return
+    try:
+        found = json.loads((folder / "contacts.json").read_text("utf-8"))
+    except ValueError:
+        return
+    if found:
+        raise ContactError(f"{label} was filmed with --allow-intersections and {len(found)} of its drawings' contacts are "
+                           f"listed in {folder / 'contacts.json'}: a body passes through something.",
+                           "Fix the staging (`sastudio check` shows every drawing), or film it again with "
+                           "sastudio film --allow-intersections.")
+
+
 def _film(project, job: dict, frames: list[int], label: str, what: str, log=print) -> Path:
     """Film a job (or reuse it): returns the folder holding its frames, named by scene frame number."""
     cast = [c["id"] for c in job["cast"]]
     key = _digest(job, rig_stamps(project, cast))
     out = project.root / ".studio" / "cache" / "clay" / f"{label}.{key}"
     if (out / ".done").exists() and all((out / f"{f:06d}.png").exists() for f in frames):
+        _reusable(out, label)
         log(f"  {label}: unchanged, reused")
         return out
     # the same job filmed under another label (a shot added earlier in the scene renumbers the ones after it):
     # reuse it when finished, carry on filming into it when it was interrupted
     for other in sorted(out.parent.glob(f"*.{key}")) if out.parent.is_dir() and not out.exists() else []:
         if (other / ".done").exists() and all((other / f"{f:06d}.png").exists() for f in frames):
+            _reusable(other, label)
             log(f"  {label}: unchanged, reused (filmed as {other.name.rsplit('.', 1)[0]})")
             return other
         out = other

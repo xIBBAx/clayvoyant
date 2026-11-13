@@ -357,10 +357,34 @@ def test_a_change_to_the_engine_s_code_films_again_and_a_comment_does_not(monkey
     acting.write_text(src.replace("SIT_FRAMES = 22", "SIT_FRAMES = 23", 1), "utf-8")
     assert key() != base
     acting.write_text(src, "utf-8")
-    (eng / "clay" / "contacts.py").write_text("x = 1\n", "utf-8")     # the contact probe measures; it never draws
+    assert key() == base
+    contacts = eng / "clay" / "contacts.py"
+    csrc = contacts.read_text("utf-8")
+    contacts.write_text(csrc.replace("FOOT = .01", "FOOT = .02", 1), "utf-8")   # settling measures with it: it can change a drawing
+    assert key() != base
+    contacts.write_text(csrc, "utf-8")
     assert key() == base
     assert SM._digest(dict(job, contacts="allow"), {}) == base
     SM._FINGERPRINT.clear()
+
+
+def test_a_shot_filmed_with_intersections_allowed_is_not_quietly_reused_by_a_plain_film(tmp_path, monkeypatch):
+    import json as js
+
+    shot = tmp_path / "the_call_s01.abc"
+    shot.mkdir()
+    (shot / "contacts.json").write_text(js.dumps([dict(frame=4, actor="ana", what="left leg", other="cush", kind="set",
+                                                       pairs=12, depth=.02)]), "utf-8")
+    monkeypatch.delenv("SASTUDIO_ALLOW_INTERSECTIONS", raising=False)
+    with pytest.raises(SM.ContactError, match="allow-intersections"):
+        SM._reusable(shot, "the_call_s01")
+    monkeypatch.setenv("SASTUDIO_ALLOW_INTERSECTIONS", "1")
+    SM._reusable(shot, "the_call_s01")                    # allowed again: reused, as it was filmed
+    monkeypatch.delenv("SASTUDIO_ALLOW_INTERSECTIONS")
+    (shot / "contacts.json").write_text("[]", "utf-8")
+    SM._reusable(shot, "the_call_s01")                    # checked and clean
+    (shot / "contacts.json").unlink()
+    SM._reusable(shot, "the_call_s01")                    # filmed before shots kept their check
 
 
 def test_a_check_that_did_not_finish_is_never_a_pass():

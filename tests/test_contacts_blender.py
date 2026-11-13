@@ -259,3 +259,111 @@ def test_sitting_down_and_getting_up_step_each_foot_once_and_a_foot_on_the_floor
     assert max(x[4] for x in slides) < .002, max(slides, key=lambda x: x[4])      # 1 mm: a foot on the floor stays put
     assert max(x[4] for x in turns) < .01, max(turns, key=lambda x: x[4])         # and does not swivel
     assert max(x[4] for x in backs) < .02, max(backs, key=lambda x: x[4])         # each step goes one way (1 cm)
+
+
+def test_the_body_faces_the_way_it_walks_after_a_turn_and_never_snaps_round():
+    res = _engine("""
+        import math, acting as A
+        class P: pass
+        out = {}
+        # walk, come round on the spot, walk on the other way; then set off behind (a turn is put in first); then walk
+        # up to somewhere and turn round there, the way people come to a seat
+        a = A.Actor('x', P(), (0, 0))
+        e1 = a.walk(0, (4.0, 0.0))
+        t1 = a.turn(e1 + 2, 0.0)
+        e2 = a.walk(t1 + 6, (-4.0, 0.0))
+        t2 = a.turn(e2 + 2, 0.0)
+        e3 = a.walk(t2 + 30, (-4.0, 3.0))          # straight behind them
+        t3 = a.turn(e3 + 2, 0.0)
+        a.finish()
+        walks = [w for w in a.walks if w[8] == 'walk' and w[1] > w[0]]
+        worst_mid, worst_step = 0.0, 0.0
+        prev = None
+        for f in range(-5, t3 + 40):
+            y = a.heading(f, 0.0)
+            if prev is not None:
+                worst_step = max(worst_step, abs(A._ang(y - prev)))
+            prev = y
+            for w in walks:
+                n = w[1] - w[0]
+                if w[0] + .3 * n <= f <= w[0] + .7 * n:          # the middle of every walk: facing the way it goes
+                    hd = math.atan2(w[3][0] - w[2][0], -(w[3][1] - w[2][1]))
+                    worst_mid = max(worst_mid, abs(A._ang(y - hd)))
+        out = dict(mid=worst_mid, step=worst_step, walks=len(walks), turns=sum(w[8] == 'turn' for w in a.walks))
+        print(json.dumps(out))
+    """)
+    assert res["walks"] == 3 and res["turns"] == 4, res      # the walk that set off behind turned on the spot first
+    assert res["mid"] < .06, res                              # walking, the body points the way it goes, never sideways
+    assert res["step"] < .3, res                              # and it never snaps round from one frame to the next
+
+
+def test_a_route_that_doubles_back_turns_on_the_spot_and_the_feet_never_touch():
+    res = _engine("""
+        import math, acting as A, body as Bd
+        class P: pass
+        a = A.Actor('x', P(), (0, 0))
+        e1 = a.walk(0, (3.0, 0.0))                  # a route whose second leg doubles back past the first
+        e2 = a.walk(e1, (0.0, 2.0))
+        a.walk(e2, (-2.0, -1.0))
+        a.finish()
+        st = a.st['stance']
+        prev, worst_slide, worst_turn, closest = None, 0.0, 0.0, 9.0
+        for f in range(-2, a.walks[-1][1] + 20):
+            pos, feet, _h, _m = a.locate(f)
+            if feet:
+                mv, sd, side, lift = feet[:4]
+                yw = feet[5] if len(feet) > 5 else (None, None)
+                foot = {side: (mv, lift, yw[0]), -side: (sd, 0.0, yw[1])}
+            else:
+                psi = a.stance(f)
+                foot = {s: (A.standing_foot(pos, s, psi, st), 0.0, psi) for s in (-1, 1)}
+            if foot[1][2] is not None and foot[-1][2] is not None:
+                closest = min(closest, Bd.feet_gap(foot[1][0], foot[1][2], foot[-1][0], foot[-1][2])[0])
+            if prev is not None:
+                for s in (-1, 1):
+                    (p0, l0, y0), (p1, l1, y1) = prev[s], foot[s]
+                    if l0 < 1e-9 and l1 < 1e-9:
+                        worst_slide = max(worst_slide, math.hypot(p1[0] - p0[0], p1[1] - p0[1]))
+                        if y0 is not None and y1 is not None:
+                            worst_turn = max(worst_turn, abs(A._ang(y1 - y0)))
+            prev = foot
+        print(json.dumps(dict(slide=worst_slide, turn=worst_turn, closest=closest,
+                              turns=sum(w[8] == 'turn' for w in a.walks))))
+    """)
+    assert res["turns"] >= 1, res             # a corner that sharp is turned on the spot, not stepped round
+    assert res["closest"] >= .019, res        # so the shoes never touch or cross
+    assert res["slide"] < 1e-6 and res["turn"] < 1e-6, res
+
+
+def test_an_imported_model_in_the_shot_is_measured_without_breaking_the_check(tmp_path):
+    """An imported model is measured whole against the set and the cast; the check (and so filming) must not stop at it."""
+    pytest.importorskip("skimage", reason="needs the clay extra: pip install -e '.[clay]'")
+    _blender()
+    from sastudio.project import load_project
+    from sastudio.render import clay
+    from sastudio.stopmotion import check as C
+
+    from .conftest import write_project
+
+    if not clay.engine_included():
+        pytest.skip("the clay engine is not in this installation")
+    root = write_project(tmp_path / "guest")
+    t = (root / "studio.yaml").read_text(encoding="utf-8")
+    t = t.replace("  preset: draft", "  renderer: clay\n  preset: draft")
+    t = t.replace("    voice: { provider: offline, settings: { rate: 200 } }",
+                  '    voice: { provider: offline, settings: { rate: 200 } }\n'
+                  '    look: { model: models/figure.glb, model_license: "made for the tests" }', 1)
+    a, b = t.index("  - id: one\n"), t.index("  - id: two\n")
+    t = t[:a] + ('  - id: one\n    title: "Scene One"\n    direction:\n      set: office\n'
+                 '      blocking: { ana: standing_left, dev: standing_right }\n    lines:\n'
+                 '      - { id: l1, who: ana, to: dev, say: "Morning. Did you see the email?" }\n'
+                 '      - { id: l2, who: dev, to: ana, say: "I did. I reported it." }\n') + t[b:]
+    (root / "studio.yaml").write_text(t, encoding="utf-8")
+    (root / "models").mkdir()
+    shutil.copy(ROOT / "tests" / "data" / "rigged_figure.glb", root / "models" / "figure.glb")
+    project = load_project(root)
+    jobs = C.planned_jobs(project, scene_ids=["one"], log=lambda *_: None)
+    assert jobs and any(any(c.get("model") for c in j["cast"]) for _l, j in jobs)
+    rep = C.check(jobs, every=3, workers=2, log=lambda *_: None)
+    assert not rep.failed, [(s.label, s.error) for s in rep.failed]
+    assert rep.drawings > 0
