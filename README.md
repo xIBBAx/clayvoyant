@@ -186,8 +186,10 @@ flowchart LR
 ```
 
 Acting is a pure function of the frame, so any shot can be filmed alone, shots of one scene always
-agree, and a shot that stopped half way resumes at its first missing drawing. Sculpts, voices and
-shots are cached by content. [ARCHITECTURE.md](https://github.com/xIBBAx/clayvoyant/blob/main/docs/ARCHITECTURE.md) and
+agree, and a shot that stopped half way resumes at its first missing drawing. Every drawing is held
+to the measures motion research uses for physical plausibility before it is drawn: nothing inside
+anything, nobody floating, no foot sliding ([RESEARCH.md](https://github.com/xIBBAx/clayvoyant/blob/main/docs/RESEARCH.md)).
+Sculpts, voices and shots are cached by content. [ARCHITECTURE.md](https://github.com/xIBBAx/clayvoyant/blob/main/docs/ARCHITECTURE.md) and
 [CLAY_MOTION.md](https://github.com/xIBBAx/clayvoyant/blob/main/docs/CLAY_MOTION.md) have the detail.
 
 ## What it costs to run
@@ -239,6 +241,7 @@ Measured on one laptop on 2026-11-11 (Intel Core i7-10750H, 12 threads, GeForce 
 | [Voice providers](https://github.com/xIBBAx/clayvoyant/blob/main/docs/VOICE_PROVIDERS.md) and [API keys](https://github.com/xIBBAx/clayvoyant/blob/main/docs/API_SETUP.md) | Kokoro, recordings, Sarvam, ElevenLabs |
 | [Rendering](https://github.com/xIBBAx/clayvoyant/blob/main/docs/RENDERING.md) | presets, outputs, subtitles, incremental builds |
 | [Architecture](https://github.com/xIBBAx/clayvoyant/blob/main/docs/ARCHITECTURE.md) and [glossary](https://github.com/xIBBAx/clayvoyant/blob/main/docs/GLOSSARY.md) | how it fits together |
+| [Research](https://github.com/xIBBAx/clayvoyant/blob/main/docs/RESEARCH.md) | the published measures and studies the engine follows, and where |
 | [Troubleshooting](https://github.com/xIBBAx/clayvoyant/blob/main/docs/TROUBLESHOOTING.md) | common errors and their fixes |
 | [Roadmap](https://github.com/xIBBAx/clayvoyant/blob/main/docs/ROADMAP.md) and [testing](https://github.com/xIBBAx/clayvoyant/blob/main/docs/TESTING.md) | what comes next; how it is checked |
 

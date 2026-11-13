@@ -61,15 +61,22 @@ number, which is what makes shots cacheable and resumable.
 
 - **Walking.** Feet plant ahead of the hips and stay planted; the pelvis rises over the standing
   foot and sinks between steps; heel strikes, toe leaves; arms swing against the legs; a walk
-  starts with a half step and ends with a settling one.
+  starts with a half step and ends with a settling one. Every walk, turn and stop starts from where
+  the feet actually are, so a route with corners is one walk, not a string of fresh starts. A foot
+  on the floor keeps its place and its direction until it lifts, and turns in the air; a rising
+  heel pivots on the ball of the foot, a heel strike on the heel.
 - **Sitting.** Worked out from each body's own legs and each seat's measured shape (below).
 - **Hands.** More than forty gestures, each a place for the hand, a finger shape and a wrist. Hands travel in
   arcs, arrive a beat apart, settle past their mark, and never snap when a new gesture interrupts.
 - **Speech in the body.** The stressed sounds of a line nod the head, lift the brows and beat the
   hands. A speaker changes gesture on the thought, not on a timer.
-- **Eyes.** Eyes lead, the head follows, the body last. Blinks, small saccades, a blink on every
-  big turn. Listeners look at the speaker, nod as far as they agree with what they hear, and glance
-  away now and then if that is their habit or they are unsettled.
+- **Eyes.** Eyes lead, the head follows, the body last. Small saccades, and a blink on every big
+  turn. Blinking follows what a person is doing: about 17 a minute at rest, 26 while talking and
+  4.5 while reading or typing, scaled by their habit, and a listener blinks just after most lines
+  end. A speaker looks away as most lines begin, the longer ones nearly always, and is back on the
+  listener well before the end. Listeners look at the speaker, nod as far as they agree with what
+  they hear, and glance away now and then if that is their habit or they are unsettled.
+  [RESEARCH.md](RESEARCH.md) gives the studies these numbers come from.
 - **Feelings.** Twenty-one faces, blended from one to the next, that stay under the words. How a
   line is said decides what the speaker's hands do: open and easy, firm, unsettled (close to the
   body, a hand to the chest) or thinking (a hand to the chin). A laugh is bursts of breath that move
@@ -142,9 +149,10 @@ somewhere stands up first. Somebody blocked on a seat who walks in sits down whe
 A chair at a table is pulled out for them and drawn in under them.
 
 **Standing and walking.** Feet come down on the real surface under the whole sole. A planted foot
-never skates: a walk ends with the feet side by side across the way they walked, and a turn on the
+never skates or swivels: a walk ends with the feet side by side across the way they walked, a walk
+that turns a corner or is sent somewhere else carries on from where the feet are, and a turn on the
 spot goes in pairs of steps, the leading foot opening out and the other coming beside it, never past
-it. Somebody who walks into a room with no door comes through an opening in its side wall. Walks are routed round the furniture with room for the legs
+it. Sitting down, one foot steps back and then the other: never both off the floor at once. Somebody who walks into a room with no door comes through an opening in its side wall. Walks are routed round the furniture with room for the legs
 and their stride. A standing place too close to furniture or to another person is moved the least
 distance that clears it, and the log says so.
 
@@ -165,7 +173,10 @@ the hand that holds it.
 (`engine/clay/contacts.py`), triangle against triangle: each character against the set and the
 props, against every other character, and against their own body away from the joints (a sleeve is
 joined to its shoulder; past that it must stay out), and the set against itself. A hand or a foot whose path from one drawing
-to the next goes through something counts too. A shot that would show a body inside anything is
+to the next goes through something counts too. So does a body that nothing holds up (`float`: no
+sole within 5 mm of what is under it, or, seated, a seat that is not on the seat) and a standing foot
+that slides on what it stands on (`skate`: more than 5 mm a frame), the measures motion research
+uses for physical plausibility ([RESEARCH.md](RESEARCH.md)). A shot that would show a body inside anything is
 not filmed: the log says who, which part, in what, when and how deep, and every one is listed in
 the shot's `contacts.json`. `sastudio film --allow-intersections` films it anyway, still listing
 them.
@@ -178,7 +189,7 @@ python tools/check_contacts.py my-film    # the same, for maintainers
 
 A check that cannot finish fails; it is never counted as clean. `sastudio validate` reports staging
 a body cannot do before any of this: two people on one mark, a seat that is already taken, typing
-away from a desk, a line spoken after its speaker walked out.
+away from a desk, a line spoken after its speaker walked out, an imported model sent to sit.
 
 The shot cache is keyed by the engine's code as well as by `stopmotion.ENGINE_VERSION`, so a change
 to how anything is posed or built films the affected shots again; a comment does not.

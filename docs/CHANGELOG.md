@@ -12,9 +12,12 @@ Bodies that do not pass through things, and people who move like themselves.
 - **Getting to a seat.** People walk in standing, turn with small steps where there is room, step back and lower;
   getting up is the same in reverse, and somebody seated who is sent somewhere stands up first. Somebody blocked on a
   seat who walks in used to sit down for the whole walk.
-- **Feet.** A planted foot never skates: a walk ends with the feet side by side, and a turn on the spot goes in pairs
-  of steps that never cross. Walks keep room for the legs and their stride. A room with no door has a way in at each
-  side.
+- **Feet.** A foot on the floor never moves or turns until it lifts. Every walk, turn and stop starts from where the
+  feet actually are, so a route with corners, or a change of mind halfway, carries the stride on instead of
+  re-planting the feet (a foot used to jump up to 20 cm along the floor where one leg of a route met the next). A
+  planted foot keeps its direction and turns in the air; a rising heel pivots on the ball of the foot; a turn on
+  the spot goes in pairs of steps that never cross; sitting down, one foot steps back and then the other, never both
+  at once. Walks keep room for the legs and their stride. A room with no door has a way in at each side.
 - **Standing room.** A standing place too close to furniture or to someone else is moved the least distance that
   clears it, never out of the room; the log says so. The `sofa_side` mark of `home_desk` stood inside the sofa's arm.
 - **Arms and hands.** Elbows, forearms and hands stay outside the body; seated, hands rest on the thighs; a hand on
@@ -22,8 +25,10 @@ Bodies that do not pass through things, and people who move like themselves.
   off a laptop before it is closed. Two desks put their modesty panel where the sitter's knees go.
 - **Checked before anything is drawn.** Every drawing of a shot is posed and measured before it is filmed
   (`engine/clay/contacts.py`): against the set, the props, the other people and the body itself away from its
-  joints, and between one drawing and the next. A shot that would show a body inside something is refused, with who,
-  which part, in what and when; `sastudio film --allow-intersections` films it anyway and still lists them.
+  joints, and between one drawing and the next; what holds each body up (its feet within 5 mm of what is under them,
+  or its seat on the seat) and whether a standing foot slides (5 mm a frame), the measures motion research uses for
+  physical plausibility. A shot that fails is refused, with who, which part, in what and when;
+  `sastudio film --allow-intersections` films it anyway and still lists them.
 - **`sastudio check PROJECT`** poses every planned shot and measures it without drawing (`--filmed` for the last
   filming); `tools/check_contacts.py` uses the same probe, checks every drawing by default and fails when Blender does
   not finish.
@@ -31,12 +36,16 @@ Bodies that do not pass through things, and people who move like themselves.
   (young, adult, older) and `gaze`, `blink`, `smile`, `gestures`, `reaction`, `stride`. Longer legs take longer steps.
   What a speaker's hands do follows how the line is said; listeners nod as far as they agree; `laugh` is a gesture;
   a phone being read is read.
+- **Eyes.** Blinking follows what a person is doing: about 17 a minute at rest, 26 talking and 4.5 reading or
+  typing, scaled by their habit; a listener blinks as a line ends; a speaker looks away as most lines begin and is
+  back on the listener before the end. Every shot of a scene blinks at the same moments.
+- **[docs/RESEARCH.md](RESEARCH.md)** credits the published measures and studies the engine follows, and where.
 - **The set itself.** Every loose thing a set puts down rests on what is under it and keeps out of everything else on
   that surface (a cup on the cafe table stood partly inside the laptop beside it; books stood in the office printer);
   furniture rests on the floor; the set is measured against itself before filming.
 - **A sofa and a bench seat two**, side by side, each measured at their own place.
 - **Staging a body cannot do** is reported by `sastudio validate`: two people on one mark, a seat already taken,
-  typing away from a desk, a line spoken after its speaker walked out.
+  typing away from a desk, a line spoken after its speaker walked out, an imported model sent to sit.
 - **The shot cache** is keyed by the engine's code as well as `ENGINE_VERSION` (now 11): a forgotten bump can no
   longer leave stale shots behind.
 

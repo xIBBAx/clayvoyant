@@ -127,8 +127,8 @@ clothes ([how](CLAY_MOTION.md)). More can be said about a person there:
 | `acting.looseness` | how much the body sways and drifts (0.2 to 1.6) |
 | `acting.posture` | -1 slouched to 1 very upright |
 | `acting.pace` | how fast they walk (0.6 to 1.6) |
-| `acting.gaze` | 0 holds the eyes steady on whoever matters, 1 looks about and glances away while listening |
-| `acting.blink`, `.smile`, `.gestures` | how often they blink, how far a pleasant face smiles, how often a speaker's hands find a new shape (1 is average) |
+| `acting.gaze` | 0 holds the eyes steady on whoever matters, 1 looks about: glances away while listening, and looks away as a line begins more often |
+| `acting.blink`, `.smile`, `.gestures` | how often they blink, how far a pleasant face smiles, how often a speaker's hands find a new shape (1 is average: about 17 blinks a minute at rest, 26 talking, 4.5 reading or typing) |
 | `acting.reaction` | seconds before their face answers what it hears (0 to 1.5) |
 | `acting.stride` | step length, on top of what their legs give (0.7 to 1.3) |
 | `seed` | every character id gets its own small differences in the face; a seed picks another set |

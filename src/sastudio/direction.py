@@ -326,6 +326,7 @@ def validate(project) -> list[Problem]:
             out.append(Problem("error", f"{where}.open_with", f"Unknown camera '{d['open_with']}'.",
                                _suggest(d["open_with"], SHOTS)))
         out += _staging(s, d, set_info, set_name)
+        out += _guests(project, s, d, set_info, present)
         line_ids = [ln.id for ln in s.lines]
         covered: dict[str, int] = {}
         pieces: dict[str, list[tuple[float, float, str]]] = {}
@@ -406,6 +407,24 @@ def validate(project) -> list[Problem]:
                 if b.get("feeling") and b["feeling"] not in EMOTIONS:
                     out.append(Problem("warning", f"{wb}.feeling", f"'{b['feeling']}' is not an expression the clay renderer "
                                        "knows; it will look neutral.", _suggest(b["feeling"], EMOTIONS)))
+    return out
+
+
+def _guests(project, s, d: dict, set_info: dict, present) -> list[Problem]:
+    """An imported model (look.model) stands, walks, turns, looks, talks and gestures, but cannot sit: say so before
+    filming, where it is asked for, instead of a shot refused because a body stands inside a sofa."""
+    out: list[Problem] = []
+    seats = set(set_info.get("seats") or [])
+    guests = {c for c in present if c in project.characters and (project.characters[c].look or {}).get("model")}
+    for cid in sorted(guests):
+        mark = (d.get("blocking") or {}).get(cid)
+        if mark in seats:
+            out.append(Problem("error", f"{s.id}.direction.blocking.{cid}", f"'{cid}' is an imported model, and imported "
+                               f"models do not sit: {mark} is a seat.", "Give them a standing mark."))
+    for ln in s.lines:
+        if ln.who in guests and ("sit_down" in (ln.act or []) or (ln.go and ln.go in seats)):
+            out.append(Problem("error", f"{s.id}.{ln.id}", f"'{ln.who}' is an imported model, and imported models do not sit.",
+                               "Leave out sit_down, or send them to a standing mark."))
     return out
 
 

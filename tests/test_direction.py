@@ -374,6 +374,35 @@ def test_what_a_body_cannot_do_is_reported(tmp_path, direction, lines, level, ne
     assert any(needle in m for m in found), found
 
 
+def test_an_imported_model_is_never_sent_to_sit_and_validate_says_where(tmp_path):
+    import shutil
+
+    def guest_project(sub, direction, lines):
+        root = write_project(tmp_path / sub)
+        t = (root / "studio.yaml").read_text(encoding="utf-8")
+        t = t.replace("    voice: { provider: offline, settings: { rate: 200 } }",
+                      '    voice: { provider: offline, settings: { rate: 200 } }\n'
+                      '    look: { model: models/figure.glb, model_license: "made for the tests" }', 1)
+        a, b = t.index("  - id: one\n"), t.index("  - id: two\n")
+        t = t[:a] + f"  - id: one\n    title: \"Scene One\"\n    direction:\n{direction}    lines:\n{lines}" + t[b:]
+        (root / "studio.yaml").write_text(t, encoding="utf-8")
+        (root / "models").mkdir()
+        shutil.copy(Path(__file__).parent / "data" / "rigged_figure.glb", root / "models" / "figure.glb")
+        return load_project(root)
+
+    seated = guest_project("a", "      set: home_desk\n      blocking: { ana: sofa }\n",
+                           '      - { id: l1, who: ana, say: "Hi." }\n      - { id: l2, who: dev, say: "Hi." }\n')
+    errs = [p for p in D.validate(seated) if p.level == "error"]
+    assert any("imported model" in p.message and p.where == "one.direction.blocking.ana" for p in errs), errs
+    told = guest_project("b", "      set: office\n      blocking: { ana: standing_left }\n",
+                         '      - { id: l1, who: ana, say: "Hi.", act: [sit_down] }\n      - { id: l2, who: dev, say: "Hi." }\n')
+    errs = [p for p in D.validate(told) if p.level == "error"]
+    assert any("imported model" in p.message and p.where == "one.l1" for p in errs), errs
+    standing = guest_project("c", "      set: office\n      blocking: { ana: standing_left }\n",
+                             '      - { id: l1, who: ana, say: "Hi." }\n      - { id: l2, who: dev, say: "Hi.", act: [sit_down] }\n')
+    assert not [p for p in D.validate(standing) if "imported model" in p.message]
+
+
 def test_ordinary_staging_is_left_alone(tmp_path):
     proj = _staged(tmp_path, "      set: office\n      blocking: { ana: desk, dev: standing_left }\n      business: { ana: typing }\n",
                    '      - { id: l1, who: dev, say: "Morning.", act: [walk_in] }\n'

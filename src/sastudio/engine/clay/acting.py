@@ -232,7 +232,7 @@ def _wph(e, n):
 
 def standing_foot(p, side, psi, stance, cw=0.0):
     """Where a foot rests for a body standing at p with its feet pointing psi (side -1 left, 1 right): a little apart, the
-    left a touch ahead. cw (-1..1) puts the weight on one hip and eases the free foot back (contrapposto)."""
+    left a touch ahead. cw (-1..1) puts the weight on one hip and eases the free foot ahead (contrapposto)."""
     back = (.02 - .05 * max(0.0, cw)) if side < 0 else (-.03 - .05 * max(0.0, -cw))
     return (p[0] + math.cos(psi) * stance * .8 * side - math.sin(psi) * back,
             p[1] + math.sin(psi) * stance * .8 * side + math.cos(psi) * back, 0)
@@ -558,7 +558,7 @@ class Actor:
     def blink(a, f, S_):
         """How far the eyes are shut at f (0..1). This person blinks as often as their habit says at rest, more while they
         talk, far less while they read or type, and once just after somebody they listen to finishes a line (listeners
-        blink at the end of a turn: Hömke, Holler and Levinson 2018). Worked out once for the whole scene, so every shot
+        blink at the end of a turn: Hömke, Holler and Levinson 2017). Worked out once for the whole scene, so every shot
         of it blinks at the same moments, and the same scene always blinks the same way."""
         got = a.__dict__.get('_blinks')
         if got is None or f > got[0] - 600:
