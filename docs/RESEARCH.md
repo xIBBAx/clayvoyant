@@ -31,8 +31,32 @@ shot that fails is not filmed.
   rises pivots on the ball of the foot, and a heel strike on the heel (`engine/clay/acting.py`).
   These are exactly the slides the measures above catch.
 
+- **Between drawings.** A body can pass through something between two drawings even when neither
+  drawing shows it inside; continuous collision detection tests the motion between steps, not only
+  the steps ([Redon, Kheddar and Coquillart, Computer Graphics Forum 2002](https://doi.org/10.1111/1467-8659.t01-1-00587)).
+  The probe tests the straight way of every hand and foot from one drawing to the next, and the engine
+  brings a hand whose way would cross something back towards the body until it clears (`film.settle`).
+- **Hair.** A strand bends easily and resists stretching, and hair that meets a body or an object is
+  moved back to its surface ([Ward et al., IEEE TVCG 2007](https://doi.org/10.1109/TVCG.2007.30)),
+  the constraint projection of position-based dynamics
+  ([Müller et al., JVCIR 2007](https://doi.org/10.1016/j.jvcir.2007.01.005)). Sultan lays the ends of
+  hair that would be inside a wall on its surface and shares the give a little way into the hair
+  (`film.press_hair`).
+- **Turning and turning back.** People round a corner with a step turn, stepping out with the foot on
+  the side they turn to, which keeps a wide base of support; a turn begins as a rapid stop
+  ([Hase and Stein, J Neurophysiol 1999](https://doi.org/10.1152/jn.1999.81.6.2914); for 90-degree
+  turns, [Taylor, Dabnichki and Strike, Hum Mov Sci 2005](https://doi.org/10.1016/j.humov.2005.07.005)).
+  Sultan steps corners that way, and a walker sent back the way they came stops first (the foot in
+  the air comes down, the other joins it), turns on the spot, and sets off again (`Actor.walk`).
+
 ## Sitting down
 
+- **The feet carry the body until the seat does.** Rising from a chair, the ground forces under the
+  feet peak at or before the moment the seat lets go
+  ([Hirschfeld, Thorsteinsdottir and Olsson, J Neurophysiol 1999](https://doi.org/10.1152/jn.1999.82.6.3021)):
+  the feet take the weight first. Sultan keeps the feet flat on the floor until the seat carries the
+  body, and only then lets the heels come up on a seat too high for the legs; getting up, the heels
+  are down again before the body leaves the seat.
 - Studies of people sitting, captured in motion
   ([SAMP, Hassan et al., ICCV 2021](https://arxiv.org/abs/2108.08284);
   [COUCH, Zhang et al., ECCV 2022](https://arxiv.org/abs/2205.00541)), show the order every sit follows:
