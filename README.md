@@ -96,7 +96,8 @@ headscarf, a bindi. No two characters share a face, even when described alike.
 
 **Performances.** They walk on planted feet, sit down, turn to whoever is speaking, point, shrug,
 fold their arms, type with their hands on the desk, carry a mug, read a phone. Mouths follow the
-sounds of the words; eyes lead and the head follows; listeners react. What nobody wrote is acted
+sounds of the words; eyes lead and the head follows; listeners react. Every footstep, seat, door and
+keyboard is heard where it happens, in a room the size of the set. What nobody wrote is acted
 anyway, and what you write wins:
 
 ```yaml
@@ -213,8 +214,9 @@ Measured on one laptop on 2026-11-11 (Intel Core i7-10750H, 12 threads, GeForce 
 - Imported models stand, walk, turn, look, talk and gesture; they do not sit or use hands.
 - Lip sync follows the voice's phoneme timings when the provider reports them (Kokoro does), and
   otherwise the spelling and the loudness of the voice.
-- There is no sound-effect or music library yet: a film has its dialogue and, if you add one, a
-  music track. Rendering on a remote GPU is not built.
+- Sound effects are made by code, or come from recordings you bring or a CC0 pack you install; they
+  place a scene, they are not studio Foley. Laughter and breathing are not made. Rendering on a
+  remote GPU is not built.
 - Another language is another film: you write each line's translation in the scene file and
   render once per language. Nothing translates for you.
 - The `final` preset (1920x1080) has not yet been run for a whole film; the sample was built with
@@ -242,6 +244,7 @@ Measured on one laptop on 2026-11-11 (Intel Core i7-10750H, 12 threads, GeForce 
 | [Scenes](https://github.com/xIBBAx/clayvoyant/blob/main/docs/SCENES.md) and [configuration](https://github.com/xIBBAx/clayvoyant/blob/main/docs/CONFIGURATION.md) | writing scenes, tokens, translations |
 | [Voice providers](https://github.com/xIBBAx/clayvoyant/blob/main/docs/VOICE_PROVIDERS.md) and [API keys](https://github.com/xIBBAx/clayvoyant/blob/main/docs/API_SETUP.md) | Kokoro, recordings, Sarvam, ElevenLabs |
 | [Rendering](https://github.com/xIBBAx/clayvoyant/blob/main/docs/RENDERING.md) | presets, outputs, subtitles, incremental builds |
+| [Sound](https://github.com/xIBBAx/clayvoyant/blob/main/docs/SOUND.md) | footsteps, doors, rooms, music and mastering, all from what happens on screen |
 | [Architecture](https://github.com/xIBBAx/clayvoyant/blob/main/docs/ARCHITECTURE.md) and [glossary](https://github.com/xIBBAx/clayvoyant/blob/main/docs/GLOSSARY.md) | how it fits together |
 | [Research](https://github.com/xIBBAx/clayvoyant/blob/main/docs/RESEARCH.md) | the published measures and studies the engine follows, and where |
 | [Troubleshooting](https://github.com/xIBBAx/clayvoyant/blob/main/docs/TROUBLESHOOTING.md) | common errors and their fixes |
