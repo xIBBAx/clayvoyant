@@ -2304,8 +2304,8 @@ def fit_grips(f):
     every thing has its own size). -> True when something moved."""
     moved = False
     for o, f0, f1, who in HELD:
-        if not f0 <= f < f1:
-            continue
+        if not f0 <= f < f1 or o.hide_render:
+            continue        # (a thing not shown is not where the hand is: Blender leaves hidden things where they were)
         a = PERF.actors.get(who)
         if a is None or not a.P.vis or getattr(a, 'cull', False):
             continue
