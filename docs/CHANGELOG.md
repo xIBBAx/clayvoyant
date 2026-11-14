@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.4.0 (2026-11-13)
+## 0.4.0 (2026-11-14)
 
 Bodies that do not pass through things, and people who move like themselves. The clay engine has a name:
 **Sultan**, after Ibrahim Sultan, who made Clayvoyant (`sastudio --version` says it).

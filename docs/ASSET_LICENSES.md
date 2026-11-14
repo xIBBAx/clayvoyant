@@ -43,7 +43,7 @@ Made by Ibrahim Sultan for this project, and shared under the same MIT License a
 | Rooms and their air: reverberation and room tone for every set | `src/sastudio/sound/ambience.py` | Made by this code: each room's reverberation from its real size (Sabine), each place's air from shaped noise the length of the scene; no recordings |
 | Sample film "Held Door" (project, characters, script) | `examples/held-door/` | Written for this project; all people and places are invented |
 | Its theme music, a placeholder | `examples/held-door/assets/music/theme.ogg` | Made by `tools/make_example_music.py` (numpy and FFmpeg) |
-| Fictional Quillmere Logistics logo (example only) | `examples/quillmere/assets/logo.png` | Drawn with code by `tools/make_example_assets.py` |
+| Fictional Quillmere Logistics logo (example only) | `examples/quillmere/assets/logo.png`, and the same file in `examples/the-fast-one/assets/` and `examples/held-door/assets/` | Drawn with code by `tools/make_example_assets.py` |
 | Example project | `examples/quillmere/` | Written for this project; its scenes are copies of starter scenes with one line changed |
 | Sample scripts (12 scenes, English, partly Hindi) | `src/sastudio/templates/starter/scenes/` | Written for this project |
 | Covers and thumbnail | `docs/media/film/cover-*.png`, `docs/media/film/thumbnail-1280x720.png` | Composed from the logo and portraits by `tools/make_readme_media.py` |
