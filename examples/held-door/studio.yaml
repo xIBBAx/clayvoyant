@@ -107,7 +107,7 @@ sound:
   master: { loudness: -17 }
 
 render:
-  preset: draft
+  preset: preview
   renderer: clay
   output: build
   burn_subtitles: true
