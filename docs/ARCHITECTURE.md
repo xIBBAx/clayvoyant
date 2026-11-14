@@ -43,6 +43,40 @@ flowchart TD
 7. **Assemble and verify** (`build.py`). Scenes are joined, the audio is mixed and mastered, the
    MP4 is muxed and checked with `ffprobe`, and subtitles, transcript and manifest are written.
 
+## The clay path
+
+A clay film (`sastudio film`) shares steps 1 to 5 and 7. Instead of drawing cards, it films every scene
+in Sultan, the clay engine, one shot at a time:
+
+```mermaid
+flowchart TD
+    A["Scene timeline + direction"] --> B["Plan the shots<br/>cameras, marks, walks, seats, acting keys"]
+    B --> C["One job per shot<br/>set, light, cast, lines, keys, camera"]
+    C --> D{"Shot key unchanged?<br/>job, rigs, engine version, engine code"}
+    D -- yes --> H
+    D -- no --> E["Sultan in Blender: build the set,<br/>pose every drawing and measure it"]
+    E -- "a body inside something" --> F["Refused: who, which part,<br/>in what, when, how deep"]
+    E -- clean --> G["Draw every drawing in Cycles<br/>held on twos"]
+    G --> H["Compose the scene with titles and subtitles"]
+    B --> I["Read each scene's sounds from its plan<br/>footfalls, seats, chairs, doors, lids, typing"]
+    I --> J["The soundtrack: dialogue, effects,<br/>the air of each place, music; mastered"]
+```
+
+1. **Plan** (`direction.py`, `stopmotion/`). The direction becomes shots, and each shot a job: the set,
+   the light, the cast with their marks, the lines with their timing, every acting key and the camera.
+2. **Pose and measure** (`engine/clay/film.py`, `contacts.py`). Every drawing of the shot is posed as it
+   will be filmed and measured triangle against triangle; the engine corrects what it can as it poses
+   (`film.settle`), and a shot that would still show a body inside anything is refused before a single
+   drawing is made ([CLAY_MOTION.md](CLAY_MOTION.md#nothing-passes-through-anything)).
+3. **Draw** (Blender's Cycles). Each drawing is held for two frames, as stop motion is.
+4. **Sound** (`engine/clay/sounds.py`, `sound/`). The same plan is read once per scene, without posing
+   or drawing, for everything in it that makes a sound; the events are placed on the drawing that first
+   shows their cause, made from recordings or by code, played in the room of their set, mixed under the
+   voices and mastered ([SOUND.md](SOUND.md)).
+
+Shots, scene videos and each scene's events are cached by content, so a change to the sound alone
+films nothing again, and a change to the engine's code films the affected shots again.
+
 ## Modules
 
 | Module | Responsibility |
@@ -63,6 +97,13 @@ flowchart TD
 | `voices/engine.py` | Plan, cache, budget, rate limit, retries, lock and ledger. |
 | `voices/lexicon.py` | Exports pronunciations in each provider's own format. |
 | `audio/ffmpeg.py` | Every FFmpeg and ffprobe call, always with an argument list. |
+| `sound/events.py` | Sound events: their kinds, a stable identity for each, placement on the first drawing that shows the cause, and one sound per action. |
+| `sound/foley.py` | Foley made by code: modal synthesis for impacts and footsteps, friction for creaks and scrapes, original ring tones. |
+| `sound/kit.py`, `sound/packs.py` | Where each sound comes from: your own recordings first, then an installed CC0 pack (fetched only by `sastudio sounds install`, checked against a pinned checksum), then Foley made by code. |
+| `sound/ambience.py` | Rooms (Sabine's reverberation time from each set's size and surfaces, early reflections) and the air of each place, never looped. |
+| `sound/mix.py` | Four buses, dialogue first: effects panned and played in their room, beds and music measured and set under the voices, ducking from an envelope of the dialogue, equal-power fades. |
+| `sound/meter.py`, `sound/master.py` | ITU-R BS.1770-4 loudness; the master's gain, its look-ahead true-peak limiter and the loop that measures the encoded film. |
+| `sound/dsp.py`, `sound/config.py`, `sound/soundtrack.py` | Deterministic signal tools; the `sound:` settings with their defaults; a film's whole soundtrack from the build's timelines. |
 | `timeline.py` | Beats, frame counts and audio placement. |
 | `subtitles.py` | Cues, wrapping, SRT, WebVTT, transcripts and timing checks. |
 | `render/cards.py`, `render/style.py` | The cards renderer and the compositor clay films share: fonts per script, colours, contrast, text fitting, subtitles. |
@@ -74,7 +115,7 @@ flowchart TD
 | `stopmotion/` | Writes a job per shot (set, light, cast, lines, acting keys, camera) and films it in Blender; shot cache, keyed by the engine's code too. `stopmotion/check.py`: `sastudio check`, every drawing posed and measured, nothing drawn. |
 | `lipsync.py` | Mouth shapes from phoneme timings, or from the words (Latin and nine Indian scripts) and the loudness of the voice. |
 | `engine/sculpt/` | The sculptor: signed-distance forms and marching cubes (numpy, scipy, scikit-image). |
-| `engine/clay/` | Sultan, the clay engine (`stopmotion.ENGINE_NAME`), named after Ibrahim Sultan. What Blender runs: the puppet, the hand and face rigs, acting, sets, light, the film runner, guest models. `body.py` is how a body of given proportions sits on a measured seat and how much room it needs (plain arithmetic, tested without Blender); `contacts.py` measures what passes through what in a posed drawing, what holds each body up and whether a standing foot slides, before a shot is filmed. [RESEARCH.md](RESEARCH.md) gives the published measures and studies the engine follows. |
+| `engine/clay/` | Sultan, the clay engine (`stopmotion.ENGINE_NAME`), named after Ibrahim Sultan. What Blender runs: the puppet, the hand and face rigs, acting, sets, light, the film runner, guest models. `body.py` is how a body of given proportions sits on a measured seat and how much room it needs (plain arithmetic, tested without Blender); `contacts.py` measures what passes through what in a posed drawing, what holds each body up and whether a standing foot slides, before a shot is filmed. `sounds.py` reads what makes a sound from a scene's plan. [RESEARCH.md](RESEARCH.md) gives the published measures and studies the engine follows. |
 | `build.py` | The pipeline above, incremental keys and the manifest. |
 | `doctor.py` | Environment checks. |
 | `safepath.py` | Keeps every path inside its folder; atomic writes. |
@@ -87,9 +128,9 @@ flowchart TD
 
 | Folder | What it holds |
 |---|---|
-| `examples/` | Complete projects: `the-fast-one` (the clay sample film), `nineteen-thirty` (the India sample, English and Hindi), `quillmere` (the cards renderer with a fictional company). |
+| `examples/` | Complete projects: `the-fast-one` (the clay sample film), `nineteen-thirty` (the India sample, English and Hindi), `held-door` (a short clay film whose sound is all made from what happens in it), `quillmere` (the cards renderer with a fictional company). |
 | `tests/` | The test suite. Tests that need Blender or FFmpeg skip with a reason when they are missing; none touch the network. |
-| `tools/` | Maintainer scripts, run from the repository root. `check_contacts.py` checks a filmed (or planned) project for intersections; the `make_*` scripts rebuild every picture and film in `docs/media` from the code, so none of them is hand-made. |
+| `tools/` | Maintainer scripts, run from the repository root. `check_contacts.py` checks a filmed (or planned) project for intersections; the `make_*` scripts rebuild every picture and film in `docs/media` from the code, so none of them is hand-made; `make_example_music.py` makes Held Door's placeholder theme the same way. |
 | `docs/` | The guides, `releases/` (the notes published with each version) and `media/` (everything the README shows). |
 
 ## A project folder

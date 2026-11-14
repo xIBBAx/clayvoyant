@@ -189,7 +189,9 @@ construction, and so are floors laid edge to edge.
 goes round it, a hand laid on the chest rests on it, and hands resting on the thighs of a broad body
 sit far enough out that the forearms clear the stomach, whatever the build. Seated, hands that
 would hang at the sides rest on the thighs. A hand on the face rests on the outside of that head,
-its hair and its glasses, whatever their shape. A carried mug or phone sits against the fingers of
+its hair and its glasses, whatever their shape; a hand that is not laid on the face keeps out of
+its own head and hair altogether, so a gesture made near the face as the head bows in a laugh goes
+round it, moved only in the drawings where it would be inside, by the least that clears it. A carried mug or phone sits against the fingers of
 the hand that holds it, and never goes into the body carrying it; it is in the hand once the fingers
 have closed round it and gone as soon as they open, never through a hand still closing. Hands that
 meet by design (palms together, clasped) touch, one never inside the other, and a hand resting close
@@ -256,6 +258,10 @@ may draw nothing before it is stopped, default 20) and `SASTUDIO_CLAY_RETRIES` (
 
 ## Not built yet
 
-Sound effects and ambience (a music bed of your own does work: `render.music`, ducked under the
-dialogue); props beyond the mug and the phone; crowds; weather; rendering on a remote machine; a
-visual editor. See [ROADMAP.md](ROADMAP.md).
+Picking a thing up or putting it down, and its sound
+([#35](https://github.com/xIBBAx/clayvoyant/issues/35)); a laugh, a sigh or a breath in the character's
+own voice ([#36](https://github.com/xIBBAx/clayvoyant/issues/36)); walks that go round people standing
+in the way, not only the furniture ([#37](https://github.com/xIBBAx/clayvoyant/issues/37)); transitions
+that happen in the story ([#39](https://github.com/xIBBAx/clayvoyant/issues/39)); props beyond the mug
+and the phone; crowds; weather; rendering on a remote machine; a visual editor. The sound of everything
+else that happens is built: [SOUND.md](SOUND.md). See [ROADMAP.md](ROADMAP.md).

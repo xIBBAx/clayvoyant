@@ -117,6 +117,19 @@ helplines.)* For topics the starter does not cover, written to the same rules:
 generic, no invented policy, every procedure marked for the organisation to replace, each with a
 stated learning objective.
 
+## 0.4 — Sultan: solid bodies and sound
+
+*(Done in 0.4.)* The clay engine has a name, after the person who made it, and the three things a film
+needs before anyone believes it: bodies that never pass through anything, checked at every drawing
+before it is filmed; feet that stay where they are put; and the sound of what happens on screen, in
+rooms with their own air, mixed under the voices ([CLAY_MOTION.md](CLAY_MOTION.md),
+[SOUND.md](SOUND.md)). Next for the engine, each an issue: picking things up and putting them down
+([#35](https://github.com/xIBBAx/clayvoyant/issues/35)), a laugh or a breath in the character's own
+voice ([#36](https://github.com/xIBBAx/clayvoyant/issues/36)), walks that go round people
+([#37](https://github.com/xIBBAx/clayvoyant/issues/37)), a warning before filming when a line leaves too
+little time for a walk ([#38](https://github.com/xIBBAx/clayvoyant/issues/38)), and transitions that
+happen in the story ([#39](https://github.com/xIBBAx/clayvoyant/issues/39)).
+
 ## Towards richer animation
 
 The project's timeline is already independent of the renderer: every line has a speaker, exact
@@ -129,13 +142,12 @@ on that contract rather than on any particular engine.
 2. **Layered 2D characters.** *(0.2 draws its own from a text description.)* Next: a documented
    portrait format split into layers (body, head, eyes, a mouth set), supplied by the user as PNGs, with mouth shapes driven by a lip-sync tool or
    the voice provider's timings. Anyone can draw a character for it; no 3D software needed.
-3. **A renderer plug-in interface (0.4).** A small, versioned contract (timeline in, frames out)
+3. **A renderer plug-in interface.** A small, versioned contract (timeline in, frames out)
    with contract tests, so independently written 2D or 3D back ends can ship as separate packages.
 4. **Clay films: more of everything.** The clay renderer is released ([CLAY_MOTION.md](CLAY_MOTION.md)).
-   Next for it: sound effects, ambience and music beds placed by the direction (footsteps are already
-   timed by the engine); more props to hold and use; more sets and a way to describe your own in
-   YAML; background people; weather; short sleeves, skirts and more garments; fingers on imported
-   models; rendering on a remote machine; a visual editor for blocking and cameras.
+   *(0.4 adds the sound of what happens.)* Next for it: more props to hold and use; more sets and a way
+   to describe your own in YAML; background people; weather; short sleeves, skirts and more garments;
+   fingers on imported models; rendering on a remote machine; a visual editor for blocking and cameras.
 
 ## Not planned
 

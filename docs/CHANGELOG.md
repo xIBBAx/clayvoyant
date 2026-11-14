@@ -26,7 +26,8 @@ Bodies that do not pass through things, and people who move like themselves. The
 - **Standing room.** A standing place too close to furniture or to someone else is moved the least distance that
   clears it, never out of the room; the log says so. The `sofa_side` mark of `home_desk` stood inside the sofa's arm.
 - **Arms and hands.** Elbows, forearms and hands stay outside the body; seated, hands rest on the thighs; a hand on
-  the face rests on that head, its hair and its glasses; a carried mug or phone sits against the fingers; hands come
+  the face rests on that head, its hair and its glasses, and a hand that is not on the face keeps out of them (a
+  gesture near the face as the head bows in a laugh went into it); a carried mug or phone sits against the fingers; hands come
   off a laptop before it is closed; forearms clear the stomach of whoever they belong to; a carried thing never goes
   into the body carrying it; clasped hands and palms
   together touch instead of fusing, and a hand resting close to the other arm stays out of its sleeve; a ponytail stays off a chair's back. Two desks put their modesty panel where the
@@ -49,7 +50,8 @@ Bodies that do not pass through things, and people who move like themselves. The
   back on the listener before the end. Every shot of a scene blinks at the same moments.
 - **[docs/RESEARCH.md](RESEARCH.md)** credits the published measures and studies the engine follows, and where.
 - **The set itself.** Every loose thing a set puts down rests on what is under it and keeps out of everything else on
-  that surface (a cup on the cafe table stood partly inside the laptop beside it; books stood in the office printer);
+  that surface (a cup on the cafe table stood partly inside the laptop beside it; books stood in the office printer; the office
+  cabinet stood where the second desk's chair is pushed back, so whoever sat there got up with a leg in the seat);
   furniture rests on the floor; the set is measured against itself before filming.
 - **A sofa and a bench seat two**, side by side, each measured at their own place.
 - **Staging a body cannot do** is reported by `sastudio validate`: two people on one mark, a seat already taken,
@@ -66,8 +68,9 @@ Bodies that do not pass through things, and people who move like themselves. The
 - **Chairs fit the legs.** A chair is drawn in only as far as the legs let it, when a table's foot or edge would meet
   the knees or the feet.
 - **Hair bends.** A ponytail against a wall lies on it instead of passing through it.
-- **Carried things and moving hands.** A mug or a phone is in the hand once the fingers have closed round it; a hand
-  never goes through a table's edge between one drawing and the next.
+- **Carried things and moving hands.** A mug or a phone is in the hand once the fingers have closed round it, and is
+  fitted to them only from the drawing it appears in (fitted while still hidden, it came into the closed fingers a
+  centimetre deep); a hand never goes through a table's edge between one drawing and the next.
 - **Room for people side by side.** Standing room counts the hands hanging at a body's sides, two seated side by side
   sit a shoulder's width apart, and heels come up on a high seat only once it carries the weight.
 
