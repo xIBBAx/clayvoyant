@@ -96,9 +96,16 @@ The film now sounds like what it shows ([docs/SOUND.md](SOUND.md)).
   `sastudio sounds list` and `sastudio sounds preview` name and play every sound.
 - Changing only the sound films nothing again: the scene's events are read once and kept.
 - numpy is now a dependency of the base package (the sound engine is written with it).
+- **`examples/held-door`**, a new sample: two scenes whose sound is all made from what happens in them. Nineteen Thirty
+  is filmed again in English (`docs/media/nineteen-thirty.en-IN.mp4`).
 
 ### Fixed
 
+- A shot on one person could be filmed through somebody else: at the Held Door reception, the shot on Sana stood
+  straight out from her face, with Nadia's head between it and the lens. The camera now walks round the subject to the
+  nearest place where the face is clear (`engine/clay/film.py`, `in_the_way`).
+- A shot on somebody who had turned round more than half a circle since the scene began was filmed from behind them:
+  their turns kept counting past pi, and the camera, which stands on the side a face is turned to, took the wrong side.
 - On Python 3.11 a film with real voices (Kokoro, your own recordings, a paid voice) stopped while preparing its first
   line, in every release since 0.1.0: the trimmed take is written as 24-bit audio, which FFmpeg stores with an
   extensible header, and Python's own `wave` module reads those only from 3.12. The package now reads WAV headers

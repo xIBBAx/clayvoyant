@@ -112,7 +112,9 @@ notifications are synthetic by nature; the ring is an original four-note figure.
 the nearest surfaces, then a diffuse tail whose highs die sooner than its lows. Each set has its real
 size and floor, so its reverberation time comes from Sabine's formula, RT60 = 0.161 V / A: about
 0.5 s for the carpeted meeting room, 0.9 s for the tiled cafe, 1.6 s for the stone corridor, and none
-outdoors but a slap back from the buildings.
+outdoors but a slap back from the buildings. The room's answer starts alike at every frequency and is
+heard 12 to 18 dB under the sound itself (more in a room that rings longer), as a sound recorded close
+and then placed in its room: a room never makes a step louder than it is.
 
 **The air of a place.** Every place has its room tone, made the length of the scene from noise shaped
 like the real thing, never looped: ventilation and the mains hum of an office; a quiet home; the
@@ -205,13 +207,15 @@ recording):
 
 | Sound | Alone | Walking in a room, with its air |
 |---|---|---|
-| Footsteps made by code: wood, tile, carpet | 0.02, 0.04, 0.34 | 0.36, 0.69, 0.39 |
-| Kenney's recorded footsteps (CC0): wood, concrete | 0.07 to 0.27, 0.29 to 0.85 | 0.50, 0.64 |
+| Footsteps made by code: wood, tile, carpet | 0.02, 0.04, 0.34 | 0.59 (office), 0.69 (cafe), 0.46 (meeting room) |
+| Kenney's recorded footsteps (CC0): wood, concrete | 0.07 to 0.27, 0.29 to 0.85 | 0.51 (office), 0.52 (corridor) |
 | Doors, laptop, mug, typing, chairs, seats made by code | 0.01 to 0.10 | |
 
-Heard alone, every sound made by code reads as made by code, and so do short game recordings. In a
-room with its air, the footsteps made by code sit in the same band as recordings. They are good
-enough to place a scene, not studio Foley: for that, bring your own recordings (`sound.library`).
+"Walking in a room" is eight steps through the engine's own mix: placed by the effects bus in the
+set's room, under that set's air, at the mix's levels (2026-11-14). Heard alone, every sound made by
+code reads as made by code, and so do short game recordings. In a room with its air, the footsteps
+made by code sit in the same band as recordings. They are good enough to place a scene, not studio
+Foley: for that, bring your own recordings (`sound.library`).
 
 ## Licensing
 
