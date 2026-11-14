@@ -252,6 +252,7 @@ direction:
 | `sip` | right arm | once | mug |
 | `check_phone` | head, right arm | hold | phone |
 | `lean_in` | torso | once |  |
+| `laugh` | head, torso | once |  |
 | `turn_to` | head, torso | once |  |
 | `sit_down` | legs, torso | once | a seat |
 | `stand_up` | legs, torso | once | a seat |
@@ -259,10 +260,19 @@ direction:
 | `walk_out` | legs, torso | once |  |
 
 Two gestures in one line may not use the same body part; a gesture that needs a prop or a seat
-needs a set that has one. `sit_down` walks to the nearest free seat; `walk_in` enters through the
+needs a set that has one. `sastudio validate` also follows the staging line by line and refuses what
+a body cannot do: two people on one mark (a sofa or a bench seats two), a seat that is already
+taken, a line spoken after its speaker walked out or before they walked in; typing away from a
+desk is a warning. `sit_down` walks to the nearest free seat; `walk_in` enters through the
 set's door (or from the side, where there is none) and arrives as the line begins; `typing` puts
 the hands on the table of whoever is sitting at one; a mug or a phone appears in the hand that
-holds it. A speaker with no gesture of their own talks with their hands, changing on the thought.
+holds it. A speaker with no gesture of their own talks with their hands, changing on the thought,
+and how they move follows how the line is said: open and easy, firm (a raised finger, palms down),
+unsettled (hands close to the body, a hand to the chest, hands clasped) or thinking (a hand to the
+chin). A listener nods along as far as they agree with what they hear: someone worried or annoyed
+hardly nods, and glances away now and then. A `laugh` is bursts of breath that shake the shoulders
+and the head, with the face, then the face comes back to the line's emotion. `check_phone` reads
+whatever is in the hand: a little forward, the eyes on it, a thumb that scrolls now and then.
 
 Emotions: `neutral`, `happy`, `worried`, `surprised`, `suspicious`, `confident`, `embarrassed`,
 `relieved`, and the finer shades `grin`, `shock`, `sad`, `smug`, `deadpan`, `think`, `annoyed`,
@@ -274,10 +284,10 @@ character is given another.
 | `office` | *desk*, *desk_2*, standing_left, standing_right, window, door | laptop, laptop_2, phone, mug, badge, printer, plant, poster | yes |
 | `reception` | counter, visitor, standing_left, standing_right, door | badge, badge_reader, phone, visitor_book, plant, poster, monitor | yes |
 | `meeting_room` | *head_of_table*, *left_seat*, *right_seat*, screen, door | laptop, phone, mug, screen, poster | yes |
-| `home_desk` | *desk* (faces the window), *sofa* (faces the room), sofa_side, window | laptop, phone, mug, plant, router | no |
+| `home_desk` | *desk* (faces the window), *sofa* (faces the room, seats two), sofa_side, window | laptop, phone, mug, plant, router | no |
 | `cafe` | *table_left*, *table_right*, *table_left_2*, *table_right_2*, counter, door | laptop, phone, mug, wifi_sign | yes |
 | `corridor` | left, centre, right, door | badge, phone, poster, badge_reader | yes |
-| `street` | pavement_left, pavement_right, *bench*, bus_stop, shop_door, far_left, far_right | phone, car, bus_stop | no |
+| `street` | pavement_left, pavement_right, *bench* (seats two), bus_stop, shop_door, far_left, far_right | phone, car, bus_stop | no |
 | `classroom` | teacher, board, *teacher_desk*, *front_desk_left*, *front_desk_right*, standing_left, standing_right, door | board, laptop, map, phone | yes |
 | `studio` | centre | | no |
 

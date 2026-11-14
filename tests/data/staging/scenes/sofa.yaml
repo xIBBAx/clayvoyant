@@ -1,0 +1,11 @@
+id: sofa
+title: Sofa
+direction: { set: home_desk, blocking: { mei: sofa, kofi: sofa_side } }
+lines:
+  - { id: s1, who: mei, to: kofi, emotion: worried, act: [phone_to_ear], say: "They say my account is frozen and I must pay now." }
+  - { id: s2, who: kofi, to: mei, emotion: concern, act: [lean_in], say: "Put it down for a moment. Nobody freezes an account by phone." }
+  - { id: s3, who: mei, to: kofi, emotion: hesitate, act: [stand_up], say: "But it sounded so real." }
+  - { id: s4, who: kofi, to: mei, emotion: warm, act: [open_palms], say: "That is the trick. Sit, we will check it together." }
+  - { id: s5, who: mei, to: kofi, emotion: relieved, act: [sit_down], say: "All right. I feel silly now." }
+  - { id: s6, who: kofi, to: mei, emotion: warm, say: "Silly is better than robbed." }
+  - { id: s7, who: mei, to: kofi, emotion: happy, act: [laugh], say: "Much better." }

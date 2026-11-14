@@ -105,14 +105,14 @@ with `sastudio clay portraits my-film`. In a clay film every character is sculpt
 ## Sculpted in clay
 
 `sastudio film` sculpts each character from the same design, with a real face, hands and
-clothes ([how](CLAY_MOTION.md)). Four more things can be said about a person there:
+clothes ([how](CLAY_MOTION.md)). More can be said about a person there:
 
 ```yaml
     look:
       design:
         body: { build: broad, height: tall }     # slim | average | broad; short | average | tall
         face: { jaw: 0.5, nose: -0.3, eyes: 0.4 }
-      acting: { energy: 1.2, looseness: 1.1, posture: 0.5, pace: 0.9 }
+      acting: { manner: calm, age: older, energy: 1.2, posture: 0.5 }
       seed: "second draft"                        # a different set of small differences in the face
 ```
 
@@ -121,12 +121,34 @@ clothes ([how](CLAY_MOTION.md)). Four more things can be said about a person the
 | `design.body.build`, `.height` | the width and the height of the figure |
 | `design.body.frame` | `feminine`, `masculine` or `neutral` proportions (default: from the character's `gender`) |
 | `design.face.*` | sliders from -1 to 1: `width`, `jaw`, `chin`, `nose`, `nose_width`, `cheeks`, `brows`, `eyes`, `length`, `mouth`, `lips` |
+| `acting.manner` | `calm`, `confident`, `nervous`, `lively`, `reserved`, `warm` or `stern`: their habits, below |
+| `acting.age` | `young`, `adult` (the default) or `older`: how long sitting down and getting up take, how fast they walk and turn, a slight stoop |
 | `acting.energy` | how big the gestures are (0.2 to 1.6) |
 | `acting.looseness` | how much the body sways and drifts (0.2 to 1.6) |
 | `acting.posture` | -1 slouched to 1 very upright |
 | `acting.pace` | how fast they walk (0.6 to 1.6) |
+| `acting.gaze` | 0 holds the eyes steady on whoever matters, 1 looks about: glances away while listening, and looks away as a line begins more often |
+| `acting.blink`, `.smile`, `.gestures` | how often they blink, how far a pleasant face smiles, how often a speaker's hands find a new shape (1 is average: about 17 blinks a minute at rest, 26 talking, 4.5 reading or typing) |
+| `acting.reaction` | seconds before their face answers what it hears (0 to 1.5) |
+| `acting.stride` | step length, on top of what their legs give (0.7 to 1.3) |
 | `seed` | every character id gets its own small differences in the face; a seed picks another set |
 | `clay` | `{ head: {...}, body: {...} }`: sculpt parameters set outright, for the curious (`engine/sculpt`) |
+
+A manner is a set of habits, and any number above changes one of them:
+
+| Manner | How it shows |
+|---|---|
+| `calm` | steady eyes, unhurried hands, reacts after a beat |
+| `confident` | holds your eye, stands up straight, firm and economical gestures |
+| `nervous` | eyes that wander, more blinking, small quick gestures, a little folded forward |
+| `lively` | big and frequent gestures, quick to react, smiles readily, nods along |
+| `reserved` | few and small gestures, slow to react, a small smile |
+| `warm` | smiles readily, nods along, easy eye contact |
+| `stern` | a fixed gaze, hardly smiles or nods, upright |
+
+The rest comes from the body itself: longer legs take longer steps, a heavier build moves more
+with each one, and a shorter person sits on a high sofa with the toes down. Two people given the
+same gesture do it their own way, and the same project always gives the same performance.
 
 Extras in clay: `glasses` and `earrings` are separate hard objects, `beard` and `moustache` are
 clay laid on the face that moves with the mouth, `freckles` and `bindi` are painted, `necklace`

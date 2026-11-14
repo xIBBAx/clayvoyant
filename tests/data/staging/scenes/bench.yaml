@@ -1,0 +1,10 @@
+id: bench
+title: Bench
+direction: { set: street, blocking: { kofi: bench, mei: pavement_right } }
+lines:
+  - { id: b1, who: mei, to: kofi, emotion: surprised, act: [shrug], say: "A parcel I never ordered is held at customs?" }
+  - { id: b2, who: kofi, to: mei, emotion: deadpan, act: [arms_folded], say: "And they want a fee by link. Delete it." }
+  - { id: b3, who: mei, to: kofi, emotion: happy, act: [thumbs_up], say: "Deleted." }
+  - { id: b3b, who: mei, to: kofi, emotion: relieved, go: bench, say: "Can I sit? My legs are still shaking." }
+  - { id: b4, who: kofi, to: mei, emotion: confident, act: [stand_up, nod], say: "Then let us get a coffee." }
+  - { id: b5, who: kofi, to: mei, emotion: happy, act: [walk_out], say: "My treat." }

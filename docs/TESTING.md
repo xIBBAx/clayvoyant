@@ -47,6 +47,22 @@ Blender 5.2.2 under WSL2:
 Not run: a clay film on native Windows or macOS; the `final` (1920x1080) preset for a whole film;
 Hindi dialogue in a clay film judged by a native listener.
 
+## Results for 0.4.0
+
+On 2026-11-13 and 14, on the same laptop (Intel Core i7-10750H, GeForce GTX 1660 Ti 6 GB, Blender 5.2.2 under
+WSL2):
+
+| Check | Result |
+|---|---|
+| `pytest -m "not blender"` | 533 passed, 1 skipped (the opt-in paid-API test) on Python 3.13; 532 passed, 2 skipped on 3.11 (the same, and one that needs scipy) |
+| `tests/test_sound.py` (meter, limiter, ducking, crossfades, placement, cues, bad files, encoded loudness, audio-only rebuilds) | 29 passed on Python 3.13 and 3.11 |
+| The Blender tests (`pytest -m blender`): sculpting and filming two drawings, feet that never slide or swivel, turns, a new direction replacing the old plan, turning back mid-stride, blinking, two walkers, sitting and getting up, an imported model, the sounds of the staging scenes read from their plans, a walking foot never hovering over a lower floorboard, a shot on one person seeing their face past everyone else, and every drawing of the staging project | 15 passed on the release engine (`327005d`), in 32 and 19 minutes. Measuring every second drawing, the staging check read a step taken between two measured drawings as a 20 cm slide (the same with the engine before this release's last fix); it measures every drawing now, as filming does |
+| Every drawing of four projects, posed and measured (`sastudio check`): the staging project (`tests/data/staging`: three bodies on a sofa, chairs, a bench and pupils' chairs, getting up, walking in and out, a phone, a mug, a desk), Nineteen Thirty, The Fast One and Held Door | 71 shots, 3,672 drawings: 0 contacts (238 in the staging project before this release's last fixes). The two camera fixes that came after move three shots of the staging project and two of Held Door, so those were measured again, every drawing: 0 contacts. The floorboard fix after them acts only on a drawing the check would refuse, so it moves nothing in these |
+| The `india` template as `init` makes it, the clay film the README shows: every second drawing of its 58 planned shots, posed and measured | 1,753 drawings: 0 contacts. The `starter`, `short` and `education` templates film drawn by default and nobody in them walks, sits or stands up; they were not checked in clay |
+| Nineteen Thirty in English at `preview`, filmed from nothing | 19 shots, 1,050 drawings, each measured before it was drawn: 0 contacts. 107.4 s of film; 2 h 46 min, with a second film rendering for an hour of it; 2.9 GB at most. Sound: -16.0 LUFS, -2.0 dBTP, both targets met |
+| Held Door at `preview`, filmed from nothing after the camera fixes | 14 shots, 510 drawings, each measured before it was drawn: 0 contacts. 68.8 s of film; 1 h 11 min, with other checks rendering beside it; 3.1 GB at most. Sound: -17.1 LUFS (its target, -17), -1.9 dBTP |
+| A new user on Python 3.11, from the built wheel, with the README's India commands: `init --template india`, `doctor`, `validate --strict`, `check` of one scene, and that scene filmed in clay at `draft` in Hindi with Kokoro voices | `validate`: 0 errors, 0 warnings. `check`: 10 shots, 521 drawings, 0 contacts. The film: 11 shots, each measured before it was drawn, 0 contacts; 54.1 s at 960x540, -16.0 LUFS, -2.0 dBTP; 37 min 46 s; 2.6 GB at most |
+
 ## Edge cases
 
 **PASS** = covered by an automated test or a command run for this release. **UNVERIFIED** = not
@@ -128,6 +144,26 @@ functions in `tests/`.
 | Missing fonts | N/A | fonts are bundled in the package |
 | Running out of memory | UNVERIFIED | peak memory is measured and `--jobs` documented; no low-memory test |
 | Missing Blender, missing sculpting packages, missing engine files | PASS | each stops with what to install (`test_missing_blender_says_how_to_fix_it`, `test_clay_commands_explain_the_missing_engine`); the engine loads no textures or add-ons |
+
+### Sound
+
+| Case | Status | Evidence |
+|---|---|---|
+| A music file shorter than the film, at another sample rate, in mono, as MP3 or WAV | PASS | `test_music_of_any_rate_and_layout_is_matched_looped_and_faded`: a 3 s, 44.1 kHz mono track under a 12 s film is looped without a hole and faded in and out |
+| A corrupt sound file; a missing one | PASS | `test_a_bad_sound_file_is_named_not_mixed`; `sastudio validate` names a missing music file and where it looked |
+| Music while somebody speaks, and in the pauses | PASS | `test_music_dips_under_speech_recovers_in_pauses_and_never_jumps`, `test_a_pause_between_words_does_not_bring_the_music_up` |
+| One music cue or place crossing into the next | PASS | `test_an_equal_power_crossfade_keeps_two_beds_at_the_same_level`, `test_ambience_crosses_from_one_place_to_the_next_without_a_hole` |
+| A short effect at any frame | PASS | `test_an_effect_is_placed_on_its_exact_sample`, `test_a_sound_lands_on_the_drawing_that_first_shows_its_cause` |
+| The same action in two overlapping shots; a cue for a sound the motion already makes | PASS | `test_one_action_is_one_sound_and_a_cue_wins_over_the_motion` |
+| The same film built twice | PASS | `test_event_identities_are_stable`, `test_the_mix_is_dialogue_first_and_the_same_every_time`, `test_no_two_steps_sound_the_same_and_each_is_made_the_same_way_twice` |
+| A loudness target the true-peak ceiling will not allow | PASS | `test_mastering_reaches_the_target_or_says_why`: the build says the target would take heavy limiting instead of claiming it |
+| Peaks between samples | PASS | `test_true_peaks_are_found_between_samples`, `test_the_limiter_never_lets_a_true_peak_over_the_ceiling` |
+| No sound settings at all; a film with no sound | PASS | `test_a_project_without_any_sound_settings_still_builds_a_mastered_film`, `test_a_silent_film_stays_silent` |
+| What people hear: the encoded film, not the mix before it | PASS | `test_the_encoded_film_measures_what_its_manifest_says_and_meets_its_targets` |
+| Only the sound changed | PASS | `test_changing_only_the_sound_renders_no_scene_again` |
+| A build stopped while writing sound | PASS | `test_wav_files_are_written_whole` |
+| A direction the plan drops (told to sit, sent away before arriving) | PASS | `test_sounds_come_from_what_the_engine_animates` (Blender): no sit is heard |
+| Laughter, sighs and breaths; picking things up and putting them down | N/A | not made ([#36](https://github.com/xIBBAx/clayvoyant/issues/36), [#35](https://github.com/xIBBAx/clayvoyant/issues/35)) |
 
 ### Files and folders
 

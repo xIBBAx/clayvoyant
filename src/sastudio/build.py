@@ -336,6 +336,11 @@ def build(project: Project, *, language: str | None = None, scene_ids=None, pres
     intro, outro = bookends(project, lang) if not scene_ids else (None, None)
     sequence = [t for t in [intro, *tls, outro] if t is not None]
     vis, sig = visuals(project, burn, fallback_lines)
+    from .sound import config as sound_config
+    from .sound import soundtrack
+
+    sound_plan = sound_config.plan(project)
+    clay_events: dict[str, list] = {}
     if renderer == "clay":
         from . import direction, stopmotion
 
@@ -354,6 +359,10 @@ def build(project: Project, *, language: str | None = None, scene_ids=None, pres
             opens = tl.beats[0].frames if tl.beats and tl.beats[0].kind == "title" else 0
             filmed = stopmotion.film_scene(project, scenes[tl.id], plans[tl.id], spans, preset, speak, log=log,
                                            phonemes=phonemes, title_frames=opens)
+            # what makes a sound in the scene, from the same plan the shots were filmed from (cached; nothing drawn)
+            if sound_plan.effects:
+                clay_events[tl.id] = stopmotion.scene_events(project, scenes[tl.id], plans[tl.id], spans, tl.frames, speak,
+                                                             phonemes, log=log)
             if stopmotion.TITLE_KEY + tl.id in filmed:
                 vis.clay_titles[tl.id] = filmed.pop(stopmotion.TITLE_KEY + tl.id)
                 vis.clay_fades[tl.id] = plans[tl.id].transition_in == "fade_from_black"
@@ -400,12 +409,13 @@ def build(project: Project, *, language: str | None = None, scene_ids=None, pres
                 result.rendered.append(tl.id)
                 log(f"  rendered {tl.id} ({tl.seconds:.1f}s)")
 
-    # Audio: frame-exact concatenation, then mix and normalise once for the whole film.
-    dialogue = work / "dialogue.wav"
-    ff.write_wav(dialogue, b"".join(scene_audio(tl) for tl in sequence))
-    music = project.path(rc["music"], "render.music") if rc.get("music") else None
+    # Sound: the dialogue, frame-exact, with the sounds of what happens, the air of each place and the music under it,
+    # mixed and mastered for the whole film (sastudio.sound), and measured again in the encoded film
+    dialogue_pcm = b"".join(scene_audio(tl) for tl in sequence)
+    ff.write_wav(work / "dialogue.wav", dialogue_pcm)
+    track, sound_info, placed, sound_plan = soundtrack.make(project, sequence, dialogue_pcm, FPS, clay_events, log=log)
+    soundtrack.save_events(work / "sound_events.json", placed)
     mixed = work / "film_audio.wav"
-    loud = ff.master_audio(dialogue, mixed, music=music, music_db=float(rc.get("music_volume_db", -24)))
 
     base = safe_name(project.display(project.title, lang)) + ("" if not scene_ids else "_" + "-".join(scene_ids))
     base = safe_name(base)
@@ -417,11 +427,17 @@ def build(project: Project, *, language: str | None = None, scene_ids=None, pres
     final = out / f"{base}.{lang}.mp4"
     tmp = out / f".{base}.{lang}.part.mp4"
     meta_title = project.title_for(lang)
-    ff.run([ff.ffmpeg_exe(), "-hide_banner", "-loglevel", "error", "-y", "-i", str(video_only), "-i", str(mixed),
-            "-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-ar", "48000",
-            "-map_metadata", "-1", "-metadata", f"title={meta_title}", "-metadata:s:a:0", f"language={_iso639_2(lang)}",
-            "-movflags", "+faststart", str(tmp)], what="Muxing")
-    os.replace(tmp, final)
+
+    def mux(wav: Path) -> Path:
+        ff.run([ff.ffmpeg_exe(), "-hide_banner", "-loglevel", "error", "-y", "-i", str(video_only), "-i", str(wav),
+                "-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy", "-c:a", "aac", "-b:a", f"{sound_plan.target.bitrate}k",
+                "-ar", "48000", "-map_metadata", "-1", "-metadata", f"title={meta_title}", "-metadata:s:a:0",
+                f"language={_iso639_2(lang)}", "-movflags", "+faststart", str(tmp)], what="Muxing")
+        os.replace(tmp, final)
+        return final
+
+    loud = soundtrack.finish(track, sound_plan, mixed, mux, log=log)
+    loud.update(mix=sound_info["mix"], credits=sound_info["credits"])
 
     cues = film_cues(sequence)
     result.warnings += check_subs(cues)
@@ -447,6 +463,8 @@ def build(project: Project, *, language: str | None = None, scene_ids=None, pres
         raise RenderError(f"The film has {probe['video_frames']} frames; the timeline has {total_frames}.")
     if abs(probe["audio_seconds"] - total_frames / FPS) > 0.1:
         raise RenderError(f"Audio is {probe['audio_seconds']:.2f}s but video is {total_frames / FPS:.2f}s.")
+    if loud["verdict"]["met"] is False:
+        result.warnings.append("The sound does not meet its targets: " + loud["verdict"]["said"] + ".")
     if fallback_lines:
         result.warnings.append(f"{len(fallback_lines)} line(s) use placeholder voices (labelled 'Preview voice').")
     if placeholders:
@@ -464,7 +482,8 @@ def build(project: Project, *, language: str | None = None, scene_ids=None, pres
     atomic_write_text(result.manifest, json.dumps(manifest, indent=1, ensure_ascii=False))
     result.video, result.srt, result.vtt, result.transcript = final, srt, vtt, transcript
     log(f"Done: {final.name} ({total_frames / FPS:.1f}s, {probe['width']}x{probe['height']}, "
-        f"{loud.get('lufs') if loud.get('lufs') is not None else 'silent'} LUFS) in {manifest['seconds_to_build']}s")
+        f"{loud['measured']['lufs'] if loud.get('measured') and loud['measured'].get('lufs') is not None else 'silent'} LUFS) "
+        f"in {manifest['seconds_to_build']}s")
     return result
 
 

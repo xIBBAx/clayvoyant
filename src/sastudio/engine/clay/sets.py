@@ -35,6 +35,7 @@ def stage(marks, spots, things=None, door=None, outdoor=False, windows=False, ba
 def _room(C, wallc, floor='wood', back=6.0, half=9.5, height=7.6, holes=(), side_holes=False, skirt=True):
     """Floor, back wall with openings, two side walls. Returns nothing: the room is the scene."""
     r = C.get('seed', 1)
+    C['_half'] = half         # how far the side walls are: someone who walks in from off the set comes through there
     if floor == 'wood':
         K.planks(-half - 1, half + 1, -16, back, 26, WOODS, seed=r)
     elif floor == 'tile':
@@ -44,8 +45,13 @@ def _room(C, wallc, floor='wood', back=6.0, half=9.5, height=7.6, holes=(), side
     elif floor == 'stone':
         K.tiles(-half - 1, half + 1, -16, back, 2.2, ['#b9b3a8', '#aea79b', '#c2bcb1'], seed=r)
     K.wall('back', -half, half, back, height, wallc, holes=holes)
+    # a room with no door in its back wall has a way in at each side, out of the camera's sight, so that somebody who
+    # walks in comes through an opening, not through a wall
+    side = [(PASSAGE[0], PASSAGE[1], 0, 4.4)] if side_holes else []
+    if side_holes:
+        C['_passage'] = PASSAGE
     for sg in (-1, 1):
-        K.side_wall('side', sg * half, -16, back, height, K.mix(wallc, '#000000', .06))
+        K.side_wall('side', sg * half, -16, back, height, K.mix(wallc, '#000000', .06), holes=side)
     K.ceiling(-half, half, -16, back + .2, height)
     if skirt:
         xs = sorted({-half, half, *[h[0] for h in holes if h[2] <= .01], *[h[1] for h in holes if h[2] <= .01]})
@@ -53,6 +59,9 @@ def _room(C, wallc, floor='wood', back=6.0, half=9.5, height=7.6, holes=(), side
         for a, b in zip(xs, xs[1:]):
             if (a, b) not in doors:
                 K.skirting(a, b, back)
+
+
+PASSAGE = (1.0, 3.4)      # where the side walls of a room without a door are open: y from, to
 
 
 def _outside(C, back, kind='city'):
@@ -99,9 +108,10 @@ def office(C):
     d2, lap2 = _work_desk(4.0, 2.6, C, 2, chair_col=acc)
     K.plant(-8.3, 4.6, 1.25, seed=2)
     K.plant(8.4, -2.2, 1.0, pot='#e9dcc3', seed=5)
-    K.cabinet(2.9, 5.45, 1.0, 1.7, hex_='#e3d9c6')
-    pr = K.printer(2.9, 5.4, 1.7)
-    K.books(3.5, 5.4, 1.7, seed=3)
+    # the cabinet stands clear of the second desk's chair, which needs room behind it to be pulled out and stood at
+    K.cabinet(2.2, 5.45, 1.0, 1.7, hex_='#e3d9c6')
+    pr = K.printer(2.15, 5.4, 1.7)
+    K.books(2.95, 5.4, 1.7, seed=3)
     K.bookcase(-8.9, 1.2, 1.2, 4.2, rz=math.pi / 2, seed=C.get('seed', 1))
     K.poster(9.3, 3.7, 3.4, ['THINK', 'before', 'you click'], accent=acc).rotation_euler = (0, 0, -math.pi / 2)
     K.rug(0, .4, 3.4, 2.0, hex_=K.mix(pri, '#ffffff', .25), border=bg)
@@ -137,7 +147,7 @@ def reception(C):
     K.table_round(-5.0, -.6, .7, .9, top='#e9dcc3')
     K.plant(8.4, 4.4, 1.3, seed=3)
     K.plant(-8.6, 4.6, 1.1, pot='#e9dcc3', seed=7)
-    K.poster(2.6, 3.6, back - .06, ['VISITORS', 'sign in', 'wear a badge'], accent=acc)
+    K.poster(3.2, 3.6, back - .06, ['VISITORS', 'sign in', 'wear a badge'], accent=acc)      # clear of the brand panel
     for x in (-4.5, 0, 4.5):
         K.ceiling_panel(x, .8, 7.5, e=170)
     K.pendant(-1.2, 3.0, 6.9, shade=acc, e=60, drop=1.6)
@@ -195,10 +205,10 @@ def home_desk(C):
     acc = _c(C, 'accent', '#E07A3F')
     back = 6.0
     holes = [(-6.2, -1.6, 1.8, 5.5)]
-    _room(C, '#e9d9c0', 'wood', back, holes=holes)
+    _room(C, '#e9d9c0', 'wood', back, holes=holes, side_holes=True)
     _outside(C, back, 'garden')
     K.window(-3.9, 3.65, back, 2.3, 1.85, panes=(2, 2), curtains='#b34d3f')
-    d = K.desk(-3.9, 3.9, 1.7, .72, top='#b98a5e', drawers=False)
+    d = K.desk(-3.9, 3.9, 1.7, .72, top='#b98a5e', drawers=False, user=-1)      # its chair is on the room side
     lap = K.laptop(0, .0, 1.53, d, rot=0)
     K.mug(.95, -.1, 1.53, d, hex_=acc)
     K.books(-1.1, .1, 1.53, d, seed=6)
@@ -211,7 +221,7 @@ def home_desk(C):
     K.mug(3.7, 1.6, .85, hex_='#3f8f8c')
     K.plant(-8.3, 4.5, 1.3, pot='#e9dcc3', seed=8)
     K.plant(.3, 5.2, .8, seed=9)
-    for i, (x, z) in enumerate(((1.0, 4.6), (2.3, 4.2), (1.2, 3.1))):
+    for i, (x, z) in enumerate(((1.0, 4.6), (2.3, 4.2), (1.15, 3.0))):
         K.frame(x, z, back - .06, .45 + .1 * (i % 2), .55, seed=i + C.get('seed', 1))
     K.clock(6.0, 5.6, back - .06, **_clock(C))
     router = K.group('router', (8.1, 5.3, 4.5))
@@ -220,7 +230,7 @@ def home_desk(C):
         K.glow('rled', (-.18 + i * .09, -.2, 0), (.012, .006, .012), (.3, 1, .45), 5, router)
     K.pendant(1.5, 1.5, 6.9, shade='#e9d9b6', e=90, drop=1.5)
     # sofa_side: standing by the sofa, close enough to talk to whoever sits on it
-    marks = dict(desk=mark(-3.9, 2.75, math.pi, .82, table=1.525), sofa=mark(3.4, 3.75, 0, .82), window=mark(-1.0, 4.3, -.4),
+    marks = dict(desk=mark(-3.9, 2.75, math.pi, .82, table=1.525), sofa=mark(3.4, 3.75, 0, .82, room=2), window=mark(-1.0, 4.3, -.4),
                  sofa_side=mark(1.85, 3.0))
     return stage(marks, [(-1.2, .7), (1.5, .7), (-2.9, 1.4), (3.2, 1.3)],
                  dict(laptop=lap, phone=(3.2, 3.7, 1.0), mug=(3.7, 1.6, .95), plant=(-8.3, 4.5, 2.2), router=router), None, windows=True, back=back)
@@ -328,7 +338,7 @@ def street(C):
     K.cyl('bsp', (0, 0, 2.6), .06, 5.2, K.paint('#1f2a2c', .5, .6), stop)
     K.boxy('bss', (0, -.05, 4.7), (.5, .04, .5), _c(C, 'primary', '#1E4E5F'), stop, bevel=.06, lumps=.004)
     K.label('bst', 'BUS', .32, '#f3ecdd', stop, (0, -.11, 4.7), ext=.01)
-    marks = dict(pavement_left=mark(-1.35, .9), pavement_right=mark(1.35, .9), bench=mark(4.2, 5.25, 0, .8), bus_stop=mark(-2.2, 4.6, .2),
+    marks = dict(pavement_left=mark(-1.35, .9), pavement_right=mark(1.35, .9), bench=mark(4.2, 5.25, 0, .8, room=2), bus_stop=mark(-2.2, 4.6, .2),
                  shop_door=mark(.6, 6.3, 0), far_left=mark(-13, 1.5), far_right=mark(13, 1.5))
     return stage(marks, [(-1.3, .9), (1.3, .9), (-3.0, 1.7), (3.2, 1.7)],
                  dict(phone=(0, .8, 2.2), car=(-9.5, -5.3, 1.2), bus_stop=stop), None, outdoor=True, back=back)
@@ -354,7 +364,7 @@ def classroom(C):
     K.chair(-4.6, 4.75, 0, hex_='#3f6f6a')
     for row, y in enumerate((-2.2, -5.2)):
         for col, x in enumerate((-4.8, -1.6, 1.6, 4.8)):
-            K.desk(x, y, 1.05, .55, 1.3, top='#c2946a', leg='#4a5a66', drawers=False)
+            K.desk(x, y, 1.05, .55, 1.3, top='#c2946a', leg='#4a5a66', drawers=False, user=-1)
             K.chair(x, y - 1.05, math.pi, .74, hex_=['#c1553f', '#dfa42f', '#3f8f8c', '#2f5d80'][(row + col) % 4], leg='#4a5a66')
             if (row + col) % 2 == 0:
                 K.books(x - .3, y, 1.38, n=2, seed=row * 4 + col)
@@ -386,4 +396,7 @@ SETS = dict(office=office, reception=reception, meeting_room=meeting_room, home_
 
 
 def build(name, C):
-    return SETS.get(name, office)(C)
+    st = SETS.get(name, office)(C)
+    st.setdefault('half', C.get('_half'))
+    st.setdefault('passage', C.get('_passage'))
+    return st

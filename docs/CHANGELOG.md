@@ -1,5 +1,121 @@
 # Changelog
 
+## 0.4.0 (2026-11-14)
+
+Bodies that do not pass through things, and people who move like themselves. The clay engine has a name:
+**Sultan**, after Ibrahim Sultan, who made Clayvoyant (`sastudio --version` says it).
+
+- **Sitting, worked out.** Every seat is measured from its own geometry where somebody sits on it: the height of its
+  surface, its front edge, what stands under it, its backrest, a table over the knees, a desk's panel in front of
+  them. How a body sits there is worked out from that body's own legs (`engine/clay/body.py`): thighs on the seat,
+  knees past its edge, feet on the floor in front of what is under it, toes down when short legs cannot reach, a
+  cushion pressed in under the weight. The `home_desk` sofa no longer swallows legs (#28).
+- **Getting to a seat.** People walk in standing, turn with small steps where there is room, step back and lower;
+  getting up is the same in reverse, and somebody seated who is sent somewhere stands up first. Somebody blocked on a
+  seat who walks in used to sit down for the whole walk.
+- **Feet.** A foot on the floor never moves or turns until it lifts. Every walk, turn and stop starts from where the
+  feet actually are, so a route with corners, or a change of mind halfway, carries the stride on instead of
+  re-planting the feet (a foot used to jump up to 20 cm along the floor where one leg of a route met the next). A
+  planted foot keeps its direction and turns in the air; a tilted shoe rolls on whatever part of its sole is lowest; a
+  turn on the spot goes in pairs of steps of at most 60 degrees (more put one foot where the other stood); every
+  footfall is planned clear of the other foot and a stepping foot goes round the standing one; a corner is a step turn
+  (the foot on the side turned to steps out first) and setting off behind turns on the spot first; sitting down, one
+  foot steps back and then the other, never both at once, the same foot first all the way down, and a foot turns to
+  the seat only while it is lifted. Seated feet draw back from a table's foot in front of them,
+  flat or on the toes, and under a chair where its legs leave room. Walks keep room for the legs and their stride. A room with no door has a way in at each side.
+- **Standing room.** A standing place too close to furniture or to someone else is moved the least distance that
+  clears it, never out of the room; the log says so. The `sofa_side` mark of `home_desk` stood inside the sofa's arm.
+- **Arms and hands.** Elbows, forearms and hands stay outside the body; seated, hands rest on the thighs; a hand on
+  the face rests on that head, its hair and its glasses, and a hand that is not on the face keeps out of them (a
+  gesture near the face as the head bows in a laugh went into it); a carried mug or phone sits against the fingers; hands come
+  off a laptop before it is closed; forearms clear the stomach of whoever they belong to; a carried thing never goes
+  into the body carrying it; clasped hands and palms
+  together touch instead of fusing, and a hand resting close to the other arm stays out of its sleeve; a ponytail stays off a chair's back. Two desks put their modesty panel where the
+  sitter's knees go.
+- **Checked before anything is drawn.** Every drawing of a shot is posed and measured before it is filmed
+  (`engine/clay/contacts.py`): against the set, the props, the other people and the body itself away from its
+  joints, and between one drawing and the next; what holds each body up (its feet within 5 mm of what is under them,
+  or its seat on the seat) and whether a standing foot slides (5 mm a frame), the measures motion research uses for
+  physical plausibility. A shot that fails is refused, with who, which part, in what and when;
+  `sastudio film --allow-intersections` films it anyway and still lists them.
+- **`sastudio check PROJECT`** poses every planned shot and measures it without drawing (`--filmed` for the last
+  filming); `tools/check_contacts.py` uses the same probe, checks every drawing by default and fails when Blender does
+  not finish.
+- **Habits.** `look.acting` takes a `manner` (calm, confident, nervous, lively, reserved, warm, stern), an `age`
+  (young, adult, older) and `gaze`, `blink`, `smile`, `gestures`, `reaction`, `stride`. Longer legs take longer steps.
+  What a speaker's hands do follows how the line is said; listeners nod as far as they agree; `laugh` is a gesture;
+  a phone being read is read.
+- **Eyes.** Blinking follows what a person is doing: about 17 a minute at rest, 26 talking and 4.5 reading or
+  typing, scaled by their habit; a listener blinks as a line ends; a speaker looks away as most lines begin and is
+  back on the listener before the end. Every shot of a scene blinks at the same moments.
+- **[docs/RESEARCH.md](RESEARCH.md)** credits the published measures and studies the engine follows, and where.
+- **The set itself.** Every loose thing a set puts down rests on what is under it and keeps out of everything else on
+  that surface (a cup on the cafe table stood partly inside the laptop beside it; books stood in the office printer; the office
+  cabinet stood where the second desk's chair is pushed back, so whoever sat there got up with a leg in the seat);
+  furniture rests on the floor; the set is measured against itself before filming.
+- **A sofa and a bench seat two**, side by side, each measured at their own place.
+- **Staging a body cannot do** is reported by `sastudio validate`: two people on one mark, a seat already taken,
+  typing away from a desk, a line spoken after its speaker walked out, an imported model sent to sit.
+- **The shot cache** is keyed by the engine's code as well as `ENGINE_VERSION` (now 11): a forgotten bump can no
+  longer leave stale shots behind.
+- **Hands keep to their owner.** A gesture made beside somebody (open palms next to a person on a sofa, an arm swinging
+  past someone on a bench) ends short of their body, their head and their arms; folded arms lie one on the other; a
+  body comes down onto a hard seat exactly, measured where it rests, never hovering over it.
+- **A new direction replaces the old plan.** Told to get up, or sent somewhere else, before arriving, somebody no
+  longer walks two plans at once or sits down after being sent away: the rest of the route, the turn, the sit and the
+  door it would have opened are dropped, and the log says so. Sent back the way they came mid-stride, a walker stops,
+  turns on the spot and walks back.
+- **Chairs fit the legs.** A chair is drawn in only as far as the legs let it, when a table's foot or edge would meet
+  the knees or the feet.
+- **Hair bends.** A ponytail against a wall lies on it instead of passing through it.
+- **Carried things and moving hands.** A mug or a phone is in the hand once the fingers have closed round it, and is
+  fitted to them only from the drawing it appears in (fitted while still hidden, it came into the closed fingers a
+  centimetre deep); a hand never goes through a table's edge between one drawing and the next.
+- **Room for people side by side.** Standing room counts the hands hanging at a body's sides, two seated side by side
+  sit a shoulder's width apart, and heels come up on a high seat only once it carries the weight.
+
+### Sound
+
+The film now sounds like what it shows ([docs/SOUND.md](SOUND.md)).
+
+- **What happens is heard.** Every footstep where a foot comes down, on what it comes down on; a body arriving on a
+  seat or leaving it; a chair drawn in; a door's latch, swing and shut; a laptop's lid; hands typing. Read from the
+  scene's own plan, once per scene, so a sound lands on the drawing that shows its cause and is never played twice
+  by two shots. Nothing is added because of a word in the dialogue.
+- **Cues** for what no motion makes (a phone ringing or buzzing, a message, a knock, your own file), at a moment of a
+  line: `direction.sound.cues`.
+- **Rooms and their air.** Effects ring in a room the size of the set (Sabine's formula from its real dimensions);
+  every place has its room tone, made the length of the scene, never looped, crossfaded at a change of place.
+- **Music** from one file or many, per scene or under the whole film, matched in loudness, faded and crossfaded,
+  dipping under speech by an envelope with look-ahead and hold that cannot pump. `render.music` still works.
+- **Mastered and measured as heard.** -16 LUFS and -1.5 dBTP by default (`sound.master`), with a look-ahead true-peak
+  limiter; the encoded film is measured again and mastered again if the codec pushed a peak over. The manifest
+  says what the film measures, and says so when a target is not met.
+- **Your own recordings** by kind (`sound.library`), and `sastudio sounds install kenney` for Kenney's CC0
+  footsteps and doors, checked against pinned checksums; nothing is ever downloaded while filming.
+  `sastudio sounds list` and `sastudio sounds preview` name and play every sound.
+- Changing only the sound films nothing again: the scene's events are read once and kept.
+- numpy is now a dependency of the base package (the sound engine is written with it).
+- **`examples/held-door`**, a new sample: two scenes whose sound is all made from what happens in them. Nineteen Thirty
+  is filmed again in English (`docs/media/nineteen-thirty.en-IN.mp4`).
+
+### Fixed
+
+- A shot on one person could be filmed through somebody else: at the Held Door reception, the shot on Sana stood
+  straight out from her face, with Nadia's head between it and the lens. The camera now walks round the subject to the
+  nearest place where the face is clear (`engine/clay/film.py`, `in_the_way`).
+- A walking foot could hover a few millimetres over a floorboard. A foot rests on the highest board under it, and the
+  boards stand up to 6 mm prouder than each other: as the heel rose on a high board, the ball turned over a lower one,
+  and for a drawing neither foot touched anything, so the check refused the shot. The foot nearest the floor now comes
+  down onto what is under it for that drawing, measured exactly as the check measures it (`Probe.hovering`).
+- A shot on somebody who had turned round more than half a circle since the scene began was filmed from behind them:
+  their turns kept counting past pi, and the camera, which stands on the side a face is turned to, took the wrong side.
+- On Python 3.11 a film with real voices (Kokoro, your own recordings, a paid voice) stopped while preparing its first
+  line, in every release since 0.1.0: the trimmed take is written as 24-bit audio, which FFmpeg stores with an
+  extensible header, and Python's own `wave` module reads those only from 3.12. The package now reads WAV headers
+  itself, integer, float and extensible alike, on every supported Python. Films made with the placeholder voices
+  were not affected, which is why it went unseen; the new sound tests found it on CI.
+
 ## 0.3.2 (2026-11-12)
 
 On PyPI: `pip install clayvoyant`. The README's pictures and links now work on the package page, and

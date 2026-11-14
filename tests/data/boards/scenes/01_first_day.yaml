@@ -1,0 +1,17 @@
+id: first_day
+title: First Day
+topic: introduction
+summary: Leo starts work. Mira explains why attackers go after people, and the one habit that matters most.
+headline: Attackers go after people first
+setting: { backdrop: office, time_of_day: morning }
+lines:
+  - { id: fd_01, who: leo, say: "Morning! First day. I've got my {org.badge}, a {org.laptop} and absolutely no idea where the coffee is." }
+  - { id: fd_02, who: mira, say: "Second floor, left of the printer. I'm {mira}. I look after security here." }
+  - { id: fd_03, who: leo, say: "Security. So, firewalls, passwords, hackers in hoodies?" }
+  - { id: fd_04, who: mira, say: "Hoodies are optional. Most attacks don't break in through the computers. They walk in through people." }
+  - { id: fd_05, who: leo, say: "People like me?" }
+  - { id: fd_06, who: mira, say: "People like all of us. A friendly email, a confident phone call, a stranger at the door holding a box of doughnuts." }
+  - { id: fd_07, who: leo, say: "Doughnuts are a security risk. Noted. Devastating, but noted." }
+  - { id: fd_08, who: mira, say: "The good news: you don't need to be an expert. If something feels off, stop, check, and tell {org.security_team}." }
+  - { id: fd_09, who: mira, say: "Nobody gets in trouble for asking. The expensive question is the one nobody asked." }
+takeaway: "If something feels off, stop and check. Then tell {org.security_team} at {org.security_email}."

@@ -137,9 +137,18 @@ def test_every_gesture_and_feeling_has_an_engine_counterpart():
     assert set(SM.HANDS.values()) <= gest, set(SM.HANDS.values()) - gest
     assert set(SM.HANDS.values()) <= gj | {"rest"}, set(SM.HANDS.values()) - gj
     assert set(SM.MOODS.values()) | set(SM.ENGINE_MOODS) <= moods
-    assert set(SM.HANDS) | {"nod", "shake_head", "tilt_head", "lean_in", "turn_to", "sit_down", "stand_up", "walk_in", "walk_out"} == set(D.GESTURES)
+    assert set(SM.HANDS) | {"nod", "shake_head", "tilt_head", "lean_in", "laugh", "turn_to", "sit_down", "stand_up", "walk_in",
+                            "walk_out"} == set(D.GESTURES)
     assert set(D.EMOTIONS) == set(SM.MOODS) | set(SM.ENGINE_MOODS)
     assert set(SM.OPENINGS) == set(D.TRANSITIONS)
+
+
+def test_every_gesture_becomes_acting_keys_and_a_laugh_comes_back_to_the_face_it_left():
+    for g in D.GESTURES:
+        keys, _hands = SM._gesture_keys("ana", g, 100, 160, "ben", {"door": True}, mood="worry")
+        assert all(k["who"] == "ana" and isinstance(k["frame"], int) for k in keys), g
+    keys, hands = SM._gesture_keys("ana", "laugh", 100, 160, "ben", {}, mood="worry")
+    assert not hands and (keys[0]["laugh"], keys[0]["f"]) == (1, "grin") and (keys[-1]["laugh"], keys[-1]["f"]) == (0, "worry")
 
 
 def test_sets_the_engine_builds_are_the_sets_direction_knows():
@@ -325,3 +334,111 @@ def test_a_name_tag_never_sits_on_the_listener_s_face(monkeypatch, tmp_path):
     r = SceneRenderer.__new__(SceneRenderer)
     r.vis = NS(clay_name_until={"l1": until})
     assert r.name_end(NS(line_id="l1")) == 20 and r.name_end(NS(line_id="other")) == 66
+
+
+def test_a_change_to_the_engine_s_code_films_again_and_a_comment_does_not(monkeypatch, tmp_path):
+    """The shot cache is keyed by the engine's code as Python reads it, so a forgotten ENGINE_VERSION bump cannot keep
+    stale shots; a comment or a docstring changes nothing a drawing shows, so it refilms nothing."""
+    import shutil as sh
+
+    eng = tmp_path / "engine"
+    sh.copytree(ENGINE, eng)
+    monkeypatch.setattr(clay, "ENGINE", eng)
+    job = {"frames": [0, 2], "set": {"name": "office"}}
+
+    def key():
+        SM._FINGERPRINT.clear()
+        return SM._digest(job, {})
+    base = key()
+    acting = eng / "clay" / "acting.py"
+    src = acting.read_text("utf-8")
+    acting.write_text(src.replace("# Mouth shapes", "# A comment that changes nothing. Mouth shapes", 1), "utf-8")
+    assert key() == base
+    acting.write_text(src.replace("SIT_FRAMES = 22", "SIT_FRAMES = 23", 1), "utf-8")
+    assert key() != base
+    acting.write_text(src, "utf-8")
+    assert key() == base
+    contacts = eng / "clay" / "contacts.py"
+    csrc = contacts.read_text("utf-8")
+    contacts.write_text(csrc.replace("FOOT = .01", "FOOT = .02", 1), "utf-8")   # settling measures with it: it can change a drawing
+    assert key() != base
+    contacts.write_text(csrc, "utf-8")
+    assert key() == base
+    assert SM._digest(dict(job, contacts="allow"), {}) == base
+    SM._FINGERPRINT.clear()
+
+
+def test_a_shot_filmed_with_intersections_allowed_is_not_quietly_reused_by_a_plain_film(tmp_path, monkeypatch):
+    import json as js
+
+    shot = tmp_path / "the_call_s01.abc"
+    shot.mkdir()
+    (shot / "contacts.json").write_text(js.dumps([dict(frame=4, actor="ana", what="left leg", other="cush", kind="set",
+                                                       pairs=12, depth=.02)]), "utf-8")
+    monkeypatch.delenv("SASTUDIO_ALLOW_INTERSECTIONS", raising=False)
+    with pytest.raises(SM.ContactError, match="allow-intersections"):
+        SM._reusable(shot, "the_call_s01")
+    monkeypatch.setenv("SASTUDIO_ALLOW_INTERSECTIONS", "1")
+    SM._reusable(shot, "the_call_s01")                    # allowed again: reused, as it was filmed
+    monkeypatch.delenv("SASTUDIO_ALLOW_INTERSECTIONS")
+    (shot / "contacts.json").write_text("[]", "utf-8")
+    SM._reusable(shot, "the_call_s01")                    # checked and clean
+    (shot / "contacts.json").unlink()
+    SM._reusable(shot, "the_call_s01")                    # filmed before shots kept their check
+
+
+def test_a_check_that_did_not_finish_is_never_a_pass():
+    from sastudio.stopmotion import check as C
+
+    ok = C.ShotResult("a_s01", drawings=10)
+    hit = C.ShotResult("a_s02", drawings=8, contacts=[dict(frame=4, actor="ana", what="left leg", other="cush", kind="set",
+                                                            pairs=12, depth=.02)])
+    crashed = C.ShotResult("a_s03", error="Blender stopped before the check was done")
+    assert C.Report([ok]).exit_code() == 0
+    assert C.Report([ok, hit]).exit_code() == 1
+    assert C.Report([ok, crashed]).exit_code() == 2 and C.Report([hit, crashed]).exit_code() == 2
+    words = C.said(dict(hit.contacts[0], shot="a_s02"))
+    assert "a_s02 frame 4: ana's left leg inside cush" in words and "1.0 cm deep" in words
+
+
+def test_a_refused_shot_says_what_passes_through_what_and_is_not_retried(monkeypatch, tmp_path):
+    """The engine refuses to film a shot with a contact; the film command says who, where, and how to fix it."""
+    calls = []
+
+    class FakeProc:
+        stdout = iter(["FILM frames 2 of 2 to do\n", "FILM contacts checked in 3.0s: 1\n",
+                       "FILM contact frame 4: ana's left leg inside cush (set, 12 crossing faces, 1.0 cm deep)\n",
+                       "FILM refused: 1 contact(s) in 2 drawings; every one is in /x/contacts.json\n"])
+
+        def poll(self):
+            return 3
+
+        def wait(self, timeout=None):
+            return 3
+
+    monkeypatch.setattr(SM, "find_blender", lambda: ("blender", False))
+    monkeypatch.setattr(SM.subprocess, "Popen", lambda *a, **k: calls.append(a) or FakeProc())
+    with pytest.raises(SM.ContactError) as e:
+        SM.run_blender({"rig": str(tmp_path), "out": str(tmp_path / "o"), "cast": []}, tmp_path / "w", log=lambda *_: None)
+    assert "ana's left leg inside cush" in str(e.value) and "--allow-intersections" in e.value.hint
+
+
+def test_the_shots_of_the_last_filming_are_found_from_a_folder_or_a_project(tmp_path):
+    """`check --filmed` reads the job written next to each filmed shot. Given a plain folder it used to look under the
+    folder's root ('/'), because a path has a `root` too, and found nothing."""
+    import json
+
+    from sastudio.stopmotion import check as C
+
+    shot = tmp_path / ".studio" / "work" / "clay" / "s_s01_draft"
+    shot.mkdir(parents=True)
+    (shot / "job.json").write_text(json.dumps({"frames": [0, 2]}), "utf-8")
+    (shot.parent / "lines").mkdir()
+    want = [("s_s01_draft", {"frames": [0, 2]})]
+    assert C.filmed_jobs(tmp_path) == want
+    assert C.filmed_jobs(str(tmp_path)) == want
+
+    class Project:
+        root = tmp_path
+
+    assert C.filmed_jobs(Project()) == want

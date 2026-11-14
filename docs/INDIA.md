@@ -38,15 +38,15 @@ Hindi:
 | The First Number | A "customer care" number from the top of a web search | Customer care is never a mobile number. Never install a screen-sharing app for a caller |
 
 The sample film [Nineteen Thirty](../examples/nineteen-thirty/) is the first scene on its own,
-filmed in clay in both languages.
+filmed in clay.
 
-![Twelve frames from Nineteen Thirty, in clay, in a warm living room at evening. Gopal, grey-haired with round glasses and a white moustache, sits alone on a green sofa with a phone at his ear ("A parcel in my name?"), then in close-up ("Right now, on this video call?"); his daughter Ira, in a green kurti, arrives beside him ("Papa? Who are you sending money to?"); he spreads his hands ("He says I must stay on camera and tell nobody"); Ira in close-up, pointing ("Police, CBI, customs, judges: nobody arrests anyone on a video call"); Gopal protesting that the man had a uniform and a badge; Gopal admitting he sat there two hours; Ira leaning in ("That is the trick. Fear, hurry, and keep it secret"); Gopal saying not one rupee went; and the key point card: Nobody is arrested on a video call. Report the caller on sancharsaathi.gov.in. If money has gone, call 1930 at once.](media/film/nineteen-thirty-sheet.jpg)
+![Twelve frames from Nineteen Thirty, in clay, in a warm living room at evening. Gopal, grey-haired with round glasses and a white moustache, sits alone on a green sofa holding up his phone ("A parcel in my name?"), then in close-up ("Right now, on this video call?"); his daughter Ira, in a green kurti, arrives beside him ("Papa? Who are you sending money to?"); he spreads his hands ("He says I must stay on camera and tell nobody"); Ira in close-up ("Police, CBI, customs, judges: nobody arrests anyone on a video call"), then listening as he protests that the man had a uniform and a badge; her hand on his shoulder as he admits he sat there two hours; Ira leaning in ("That is the trick. Fear, hurry, and keep it secret"); Gopal saying not one rupee went; Ira asking what if it had; her hand on his arm ("The sooner, the better the chance of stopping it"); and the key point card: Nobody is arrested on a video call. Report the caller on sancharsaathi.gov.in. If money has gone, call 1930 at once.](media/film/nineteen-thirty-sheet.jpg)
 
 **Watch Nineteen Thirty** (two minutes):
-[English](https://cdn.jsdelivr.net/gh/xIBBAx/clayvoyant@4f9cbbc/docs/media/nineteen-thirty.en-IN.mp4) ·
-[Hindi in Roman letters](https://cdn.jsdelivr.net/gh/xIBBAx/clayvoyant@4f9cbbc/docs/media/nineteen-thirty.hi-Latn.mp4) ·
-Hindi in Devanagari and the phone versions are on the
-[0.3.1 release](https://github.com/xIBBAx/clayvoyant/releases/tag/v0.3.1).
+[in English](https://cdn.jsdelivr.net/gh/xIBBAx/clayvoyant@36a468b/docs/media/nineteen-thirty.en-IN.mp4), or its
+phone version on the [0.4.0 release](https://github.com/xIBBAx/clayvoyant/releases/tag/v0.4.0). The Hindi films, in
+Devanagari and in Roman letters, are on the [0.3.1 release](https://github.com/xIBBAx/clayvoyant/releases/tag/v0.3.1):
+filmed before 0.4.0, so Gopal still sinks into the sofa ([#28](https://github.com/xIBBAx/clayvoyant/issues/28)).
 
 This is the template exactly as `init` makes it, rendered in Hindi with drawn characters on a
 laptop processor (5 minutes 53 seconds of film in under four minutes, no graphics card):

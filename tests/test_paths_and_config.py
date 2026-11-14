@@ -277,3 +277,33 @@ def test_a_mistake_inside_a_scene_is_named_exactly(tmp_path):
         load_project(root)
     assert "scenes[0].direction.reactions: 'maybe' is not of type 'boolean'" in e.value.message
     assert "any of the given schemas" not in e.value.message
+
+
+def test_a_mistake_in_a_scene_file_names_the_file_and_what_the_setting_can_be(tmp_path):
+    """A scene kept in a file of its own is named by that file, not by its place in studio.yaml. A setting that may be
+    one of a few kinds of value says which, and what it is for: a scene's music is switched on or off there, while the
+    tracks themselves are listed in studio.yaml (writing a track list in the scene was answered with "is not valid
+    under any of the given schemas", at "studio.yaml scenes[1]")."""
+    from sastudio.errors import ConfigError
+    from sastudio.project import load_project
+
+    from .conftest import write_project
+
+    root = write_project(tmp_path / "p")
+    p = root / "studio.yaml"
+    text = p.read_text(encoding="utf-8")
+    p.write_text(text.replace(text[text.index("  - id: two\n"):text.index("voices:")], "  - file: scenes/two.yaml\n"),
+                 encoding="utf-8")
+    (root / "scenes").mkdir()
+    (root / "scenes" / "two.yaml").write_text(
+        'id: two\ntitle: "Scene Two"\nrequires: [one]\n'
+        "direction: { sound: { music: [ { file: theme.mp3 } ] } }\n"
+        'lines:\n  - { id: l3, card: { text: "Lock your screen.", seconds: 1 } }\n'
+        '  - { id: l4, who: ana, say: "Thanks, {dev}." }\n', encoding="utf-8")
+    with pytest.raises(ConfigError) as e:
+        load_project(root)
+    msg = e.value.message
+    assert "scenes/two.yaml direction.sound.music: [{'file': 'theme.mp3'}]: this setting can only be true or false, " \
+           "or on or off." in msg
+    assert "listed in studio.yaml under sound.music" in msg
+    assert "studio.yaml scenes[1]" not in msg and "any of the given schemas" not in msg

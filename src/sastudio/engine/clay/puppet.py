@@ -263,6 +263,16 @@ class Puppet:
             s.handL = add(obj(name + '_hL', hs['L']['relax'], None))
             s.handR = add(obj(name + '_hR', hs['R']['relax'], None))
         s.armLen = m.get('armL', .5)
+        # the torso's width and depth at each height (torso space), so that elbows and upper arms stay outside it
+        b_ = s.base
+        zb_ = np.arange(b_[:, 2].min() + .02, b_[:, 2].max() - .02, .04)
+        pr_ = []
+        for z_ in zb_:
+            sl = b_[np.abs(b_[:, 2] - z_) < .025]
+            mid = sl[np.abs(sl[:, 1] - np.median(sl[:, 1])) < .1] if len(sl) else sl
+            pr_.append((float(np.abs(mid[:, 0]).max()) if len(mid) else 0.0, float(sl[:, 1].min()) if len(sl) else 0.0,
+                        float(sl[:, 1].max()) if len(sl) else 0.0))
+        s.tprof = (zb_, np.array(pr_))
         s.sx = m['sw'] - .07
         wr = (m['sw'] / .47) ** .75
         lr = (m['hw'] / .35) ** .8
@@ -271,6 +281,7 @@ class Puppet:
         sleevem = clay_rgb(s.sl, .7, .02, 0, fab, 'UV')
         pantm = clay_rgb(m['pant'], .72, .02, 0, pfab, 'UV')
         aprof = [(0, .085 * wr), (.04, .118 * wr), (.25, .112 * wr), (.48, .098 * wr), (.7, .092 * wr), (.92, .082 * wr), (1, .08 * wr)]
+        s.arm_r = .112 * wr * 1.04       # the sleeve's thickness above the elbow, its bunching included
         lprof = [(0, .13 * lr), (.05, .178 * lr), (.25, .155 * lr), (.5, .124 * lr), (.72, .118 * lr), (.92, .116 * lr), (1, .118 * lr)]
         s.armLt = Limb(name + '_aL', sleevem, aprof)
         s.armRt = Limb(name + '_aR', sleevem, aprof)
@@ -281,6 +292,11 @@ class Puppet:
         shoem = clayv('shoe_' + name, .45, 0, .3, .12, cgrain=.02)
         s.shoeL = add(obj(name + '_sL', load(D + 'shoe.npz', shoem), None))
         s.shoeR = add(obj(name + '_sR', load(D + 'shoe.npz', shoem), None))
+        sv_ = np.array([v.co[:] for v in s.shoeL.data.vertices])
+        s.sole_low = float(sv_[:, 2].min())
+        s.sole_yz = sv_[sv_[:, 2] <= s.sole_low + .08][:, 1:3]       # the underside, toe spring and heel curve included
+        sl_ = s.sole_yz[s.sole_yz[:, 1] <= s.sole_low + .03]
+        s.sole = (float(sl_[:, 0].min()), float(sl_[:, 0].max()))     # the sole runs from its toe (ahead) to its heel
         s.hipw = .178 if m['hw'] > .34 else .16
         s.legl = (s.hip - .13) / 2 * 1.015
         s.cape = None
@@ -289,6 +305,8 @@ class Puppet:
         s.vis = True
         s._mesh_dirty = True
         s.last_bend = None
+        s.ver = 0              # how many times it has been posed: measurements of its parts are kept until the next
+        s.face_now, s.face_more = {}, {}     # a hand on the face now, and how much further out each one was found to need
 
     def show(s, on):
         if s.vis == on:
@@ -298,8 +316,8 @@ class Puppet:
             o.hide_render = not on
             o.hide_viewport = not on
 
-    def _deform(s, af, as_, tw, q):
-        k = (round(af, 3), round(as_, 3), round(tw, 3), round(q, 3))
+    def _deform(s, af, as_, tw, q, sit=None):
+        k = (round(af, 3), round(as_, 3), round(tw, 3), round(q, 3), sit and (round(sit[0], 3), round(sit[1], 3)))
         if k == s.last_bend:
             return
         s.last_bend = k
@@ -308,6 +326,15 @@ class Puppet:
         Lb = zT - z0
         t = np.clip((b[:, 2] - z0) / Lb, 0, 1)
         x, y, z = b[:, 0].copy(), b[:, 1].copy(), b[:, 2].copy()
+        if sit is not None and sit[1] > 0:
+            # sitting: what hangs below the seat (the seat of the trousers, a tunic's hem) is pressed flat onto it, and
+            # spreads a little, the way cloth and a body do; above the seat nothing moves
+            pz, amt = sit
+            dz = np.maximum(0.0, pz - z)                 # how far below the seat
+            kept = .006 * np.tanh(dz / .006)             # pressed flat: never more than 6 mm of it stays below
+            z = np.where(dz > 0, z + (dz - kept) * amt, z)
+            spread = 1 + .1 * amt * np.clip(dz / .16, 0, 1)
+            x, y = x * spread, y * spread
         if tw:
             ca, sa = np.cos(tw * t), np.sin(tw * t)
             x, y = x * ca - y * sa, x * sa + y * ca
@@ -325,15 +352,16 @@ class Puppet:
     def pose(s, loc=(0, 0, 0), yaw=0, bend=(0, 0), twist=0, squash=0, head=(0, 0, 0), look=(0, 0), upper=-30, lower=50,
              blink=0, browL=0, browR=0, tiltL=0, tiltR=0, fc=None, handL=None, handR=None, poseL='relax', poseR='relax',
              backL=None, backR=None, footL=None, footR=None, roll=(0, 0), lift=(0, 0), capeSway=0, hairJ=(0, 0), dirL=None, dirR=None,
-             jL=None, jR=None, shapeL=None, shapeR=None, faceL=None, faceR=None, elL=None, elR=None):
+             jL=None, jR=None, shapeL=None, shapeR=None, faceL=None, faceR=None, elL=None, elR=None, sit=None, shoeYaw=(None, None)):
         """handX/footX are world positions. Feet stay planted because the pelvis moves, not the feet."""
+        s.ver += 1
         loc = V(loc)
         Ry = Matrix.Rotation(yaw, 4, 'Z')
         Mroot = Matrix.Translation(loc) @ Ry
         s.root.location = loc
         s.root.rotation_euler = (0, 0, yaw)
         af, as_ = bend
-        s._deform(af, as_, twist, squash)
+        s._deform(af, as_, twist, squash, sit)
         Lb = s.zT - s.z0
         q = (1 - squash)
         cp = V((Lb * as_ / 2, -Lb * af / 2, s.z0 + Lb * q - Lb * (af * af + as_ * as_) / 6))
@@ -389,7 +417,11 @@ class Puppet:
                 if fp is not None:
                     hsc = s.m.get('hscale', 1.0)
                     Mh = Mc @ Matrix.Translation(s.head.location) @ Euler(head).to_matrix().to_4x4() @ Matrix.Diagonal((hsc, hsc, hsc, 1))
-                    T = T.lerp(Mh @ V(fp[0]), fp[1])
+                    fk_ = (side, tuple(round(v, 3) for v in fp[0]))
+                    s.face_now[side] = fk_ if fp[1] > .6 else None
+                    T = T.lerp(Mh @ V(s.on_face(fp[0], (fp[2] if len(fp) > 2 else .06) + s.face_more.get(fk_, 0.0))), fp[1])
+                else:
+                    s.face_now[side] = None
                 Mi = Mroot.inverted()
                 Tl = handrig.round_shoulder(sg, np.array(Mi @ A), np.array(Mi @ T))
                 T = Mroot @ V(Tl.tolist())
@@ -397,6 +429,26 @@ class Puppet:
             else:
                 pole = (Mroot.to_3x3() @ V((sg * .55, .35, -1)))
             E, Cc = ik(A, T, s.armLen - .005, s.armLen - .005, pole)
+            # an elbow is never inside its own body: the arm swings out round the side of the torso until the upper arm
+            # clears it (the shoulder joint itself sits inside the torso, as a sleeve sits on a shoulder)
+            for _ in range(8):
+                d_ = max(s._in_torso(A.lerp(E, .72), Mtorso, af, as_, sg, s.arm_r), s._in_torso(E, Mtorso, af, as_, sg, s.arm_r * .9))
+                if d_ > 0:
+                    ax_ = (Cc - A).normalized()
+                    out_ = Mtorso.to_3x3() @ V((sg, 0, 0))
+                    out_ = (out_ - ax_ * out_.dot(ax_)).normalized()
+                    p_ = (pole - ax_ * pole.dot(ax_)).normalized()
+                    rad_ = max(.05, (E - (A + ax_ * (E - A).dot(ax_))).length)
+                    pole = (p_ + out_ * math.tan(min(.6, (d_ + .01) / rad_))).normalized()
+                    E, Cc = ik(A, T, s.armLen - .005, s.armLen - .005, pole)
+                    continue
+                # ...and a forearm never through the belly on its way to the hand: the hand comes forward until it clears
+                fa_ = max(((s._in_torso(E.lerp(Cc, t_), Mtorso, af, as_, 0, s.arm_r * .85), t_) for t_ in (.3, .55, .8)), key=lambda q_: q_[0])
+                if fa_[0] <= 0:
+                    break
+                fwd_ = Mtorso.to_3x3() @ V((0, -1, 0))
+                T = T + fwd_ * (fa_[0] + .015)
+                E, Cc = ik(A, T, s.armLen - .005, s.armLen - .005, pole)
             ob.set(A, E, Cc, pole)
             if s.rig:
                 j = (jL if side == 'L' else jR) or handrig.REST
@@ -421,15 +473,125 @@ class Puppet:
             hnd.matrix_world = Matrix.Translation(Cc) @ Matrix((d, Yv, Zv)).transposed().to_4x4()
             hnd.data = s.hmesh[side].get(ps, s.hmesh[side]['relax'])
         # legs: IK down to the ankle above a planted shoe
-        for side, ob, sh, ft, sg, rl, lf in (('L', s.legLt, s.shoeL, footL, -1, roll[0], lift[0]), ('R', s.legRt, s.shoeR, footR, 1, roll[1], lift[1])):
+        for side, ob, sh, ft, sg, rl, lf, sy in (('L', s.legLt, s.shoeL, footL, -1, roll[0], lift[0], shoeYaw[0]),
+                                                 ('R', s.legRt, s.shoeR, footR, 1, roll[1], lift[1], shoeYaw[1])):
             F = V(ft) if ft is not None else Mroot @ V((sg * .22, 0, 0))
             sh.location = F + V((0, 0, lf))
-            sh.rotation_euler = (rl, 0, yaw)
+            sh.rotation_euler = (rl, 0, yaw if sy is None else sy)
             A = Mtorso @ V((sg * s.hipw, 0, .09))
             Ank = F + V((0, 0, .27 + lf))
             pole = Mroot.to_3x3() @ V((sg * .10, -1, .1))
             K, Cc = ik(A, Ank, s.legl, s.legl, pole)
             ob.set(A, K, Cc, pole)
+
+    def foot_pivot(s, r):
+        """A shoe tilted by r (heel up when r > 0, toes up when r < 0) rolls on its sole: -> how far to move it along
+        itself and up so that whatever part of the sole is now lowest (the ball, then the toe, as the heel rises; the
+        heel as the toes come up) rests where the flat sole did, and stays where it touches."""
+        if abs(r) < 1e-6:
+            return 0.0, 0.0
+        y, z = s.sole_yz[:, 0], s.sole_yz[:, 1]
+        k = int(np.argmin(y * math.sin(r) + z * math.cos(r)))
+        yv, zv = float(y[k]), float(z[k])
+        return yv * (1 - math.cos(r)) + zv * math.sin(r), s.sole_low - (yv * math.sin(r) + zv * math.cos(r))
+
+    def _in_torso(s, P, Mtorso, af, as_, sg, r):
+        """How far a point of an arm, with the sleeve's thickness r around it, is inside the torso's side (<= 0: clear).
+        The torso is taken as it is bent this frame; only the arm's own side counts (a folded arm crosses in front)."""
+        x, y, z = Mtorso.inverted() @ P
+        Lb = s.zT - s.z0
+        t = min(1.0, max(0.0, (z - s.z0) / Lb))
+        x0, y0 = x - Lb * as_ * t * t / 2, y + Lb * af * t * t / 2
+        if sg and x0 * sg < 0:
+            return 0.0
+        zb, pr = s.tprof
+        i = int(min(len(zb) - 1, max(0, round((z - zb[0]) / .04))))
+        xw, yf, yb = pr[i]
+        if xw <= 0:
+            return 0.0
+        yc, yd = (yf + yb) / 2, (yb - yf) / 2 + r
+        k = 1 - ((y0 - yc) / yd) ** 2
+        if k <= 0:
+            return 0.0
+        return (xw + r + .012) * math.sqrt(k) - abs(x0)
+
+    def on_face(s, p, thick=.06):
+        """A hand's place against this face (head space), from a place drawn for an average head: moved straight out from
+        the middle of the head until it rests on the outside of this head, its hair and its glasses, thick clear of them."""
+        key = (tuple(round(v, 4) for v in p), round(thick, 3))
+        got = s.__dict__.setdefault('_face', {}).get(key)
+        if got is not None:
+            return got
+        if not hasattr(s, '_head_tree'):
+            from mathutils.bvhtree import BVHTree
+            vs, ps = [], []
+            for me in [s.head_mesh, s.hair.data] + [o.data for o in s.parts if o.name.endswith('_acc')]:
+                n0 = len(vs)
+                co = np.empty(len(me.vertices) * 3, np.float64)
+                me.vertices.foreach_get('co', co)
+                lv = np.empty(len(me.loops), np.int64)
+                me.loops.foreach_get('vertex_index', lv)
+                vs += co.reshape(-1, 3).tolist()
+                ps += (lv.reshape(-1, 3) + n0).tolist()
+            s._head_tree = BVHTree.FromPolygons(vs, ps)
+            h0 = s.head0
+            s._head_c = V(((h0[:, 0].min() + h0[:, 0].max()) / 2, (h0[:, 1].min() + h0[:, 1].max()) / 2, (h0[:, 2].min() + h0[:, 2].max()) / 2))
+        c = s._head_c
+        d = V(p) - c
+        L = d.length
+        if L < 1e-4:
+            return tuple(p)
+        u = d / L
+        out, o_, n_ = 0.0, c.copy(), 0
+        while n_ < 40:
+            h = s._head_tree.ray_cast(o_, u, L + .6 - (o_ - c).length)
+            if h[0] is None:
+                break
+            out = (h[0] - c).length
+            o_ = h[0] + u * 1e-4
+            n_ += 1
+        got = tuple(c + u * max(L, out + thick)) if out else tuple(p)
+        s._face[key] = got
+        return got
+
+    def hand_in_head(s, side):
+        """How deep this hand is inside its own head, hair or glasses (0 when it is not): its skin tested against them."""
+        if not hasattr(s, '_head_tree') or not s.rig:
+            return 0.0
+        me = s.hand[side].me
+        co = np.empty(len(me.vertices) * 3, np.float64)
+        me.vertices.foreach_get('co', co)
+        hnd = s.handL if side == 'L' else s.handR
+        M = np.array(s.head.matrix_world.inverted() @ hnd.matrix_world, np.float64)
+        pts = co.reshape(-1, 3)[::4] @ M[:3, :3].T + M[:3, 3]
+        deep = 0.0
+        for p_ in pts:
+            loc, nrm, _i, d = s._head_tree.find_nearest(V(p_))
+            if loc is not None and (V(p_) - loc).dot(nrm) < 0:
+                deep = max(deep, d)
+        return deep * s.m.get('hscale', 1.0)
+
+    def keep_out(s, q, af, as_, r):
+        """A hand's target (actor space, measured from the shoulder line) moved out of this torso to its surface plus r:
+        a hand on its way across the body goes round the chest, and a hand laid on the chest rests on it, whatever the
+        build. The torso is taken as bent this frame."""
+        x, y, z = q.x, q.y, q.z + s.L
+        Lb = s.zT - s.z0
+        t = min(1.0, max(0.0, (z - s.z0) / Lb))
+        dx, dy = Lb * as_ * t * t / 2, -Lb * af * t * t / 2
+        x0, y0 = x - dx, y - dy
+        zb, pr = s.tprof
+        if z < zb[0] - .05 or z > zb[-1] + .05:
+            return q
+        i = int(min(len(zb) - 1, max(0, round((z - zb[0]) / .04))))
+        xw, yf, yb = pr[i]
+        if xw <= 0:
+            return q
+        yc, A, Bd = (yf + yb) / 2, xw + r, (yb - yf) / 2 + r
+        k = math.sqrt((x0 / A) ** 2 + ((y0 - yc) / Bd) ** 2)
+        if k >= 1 or k < 1e-6:
+            return q
+        return V((x0 / k + dx, yc + (y0 - yc) / k + dy, q.z))
 
     def shoulder(s, sg, T):
         """Where the shoulder sits for a hand at T, in actor space, standing straight."""

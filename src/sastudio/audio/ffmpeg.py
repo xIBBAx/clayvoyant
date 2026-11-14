@@ -6,6 +6,7 @@ import io
 import os
 import re
 import shutil
+import struct
 import subprocess
 import wave
 from pathlib import Path
@@ -51,16 +52,67 @@ def decode_to_wav(data: bytes, rate: int = RATE) -> bytes:
     return res.stdout
 
 
+_WAVE_PCM, _WAVE_FLOAT, _WAVE_EXTENSIBLE = 1, 3, 0xFFFE
+
+
+def wav_header(path: Path) -> tuple[int, int, int, int, int]:
+    """(channels, bytes per sample, rate, where the samples start, how many bytes of them) of a WAV file.
+
+    Read from the file's own chunks, so it takes integer and float samples and the extensible header alike. FFmpeg
+    writes an extensible header for every sample wider than 16 bits, and Python's own wave module reads those only
+    from 3.12 on. A header whose data size was never filled in (a stream) counts the bytes that are there."""
+    name = Path(path).name
+    with open(path, "rb") as f:
+        size = os.fstat(f.fileno()).st_size
+        head = f.read(12)
+        if len(head) < 12 or head[:4] not in (b"RIFF", b"RF64") or head[8:12] != b"WAVE":
+            raise RenderError(f"{name} is not a WAV file.")
+        fmt = None
+        while True:
+            chunk = f.read(8)
+            if len(chunk) < 8:
+                raise RenderError(f"{name} has no audio in it.")
+            cid, n = chunk[:4], struct.unpack("<I", chunk[4:])[0]
+            if cid == b"fmt ":
+                body = f.read(n)
+                if len(body) < 16:
+                    raise RenderError(f"{name} has a broken format header.")
+                tag, channels, rate = struct.unpack("<HHI", body[:8])
+                bits = struct.unpack("<H", body[14:16])[0]
+                if tag == _WAVE_EXTENSIBLE and len(body) >= 26:
+                    tag = struct.unpack("<H", body[24:26])[0]       # the sub-format GUID starts with the real tag
+                if tag not in (_WAVE_PCM, _WAVE_FLOAT) or not channels or not rate or bits % 8 or not bits:
+                    raise RenderError(f"{name} is not plain PCM or float audio (format {tag}, {bits} bits).")
+                fmt = (channels, bits // 8, rate)
+                f.seek(n % 2, 1)                                     # chunks are padded to an even length
+            elif cid == b"data":
+                if fmt is None:
+                    raise RenderError(f"{name} has its audio before its format header.")
+                start = f.tell()
+                return (*fmt, start, min(n, size - start) if n not in (0, 0xFFFFFFFF) else size - start)
+            else:
+                f.seek(n + n % 2, 1)
+
+
 def wav_info(path: Path) -> tuple[int, int, int, float]:
-    with wave.open(str(path)) as w:
-        n, rate = w.getnframes(), w.getframerate()
-        return w.getnchannels(), w.getsampwidth(), rate, n / float(rate)
+    """(channels, bytes per sample, rate, seconds) of a WAV file of any sample format."""
+    channels, width, rate, _start, n = wav_header(path)
+    return channels, width, rate, n // (channels * width) / float(rate)
 
 
 def is_silent(path: Path) -> bool:
-    with wave.open(str(path)) as w:
-        data = w.readframes(w.getnframes())
-    return not any(data)
+    """True when every sample of a WAV file is zero: the digital silence of a placeholder voice."""
+    _c, _w, _r, start, n = wav_header(path)
+    with open(path, "rb") as f:
+        f.seek(start)
+        while n > 0:
+            block = f.read(min(n, 1 << 20))
+            if not block:
+                break
+            if any(block):
+                return False
+            n -= len(block)
+    return True
 
 
 _I_RE = re.compile(r"I:\s+(-?[\d.]+|-inf)\s+LUFS")
@@ -155,36 +207,3 @@ def write_wav(path: Path, pcm: bytes, rate: int = RATE) -> None:
     tmp = path.with_suffix(".part")
     tmp.write_bytes(buf.getvalue())
     os.replace(tmp, path)
-
-
-def master_audio(dialogue: Path, out: Path, *, music: Path | None = None, music_db: float = -24.0,
-                 target_lufs: float = -16.0, peak: float = -1.5) -> dict:
-    """Mix dialogue (and an optional music bed that ducks under speech) and normalise the film.
-
-    Two-pass loudnorm: the first pass measures, the second applies a linear gain so the
-    result is consistent and never clips.
-    """
-    if music:
-        graph = (f"[1:a]aresample={RATE},aformat=channel_layouts=stereo,volume={music_db}dB[m];"
-                 f"[0:a]aformat=channel_layouts=stereo,asplit=2[d][sc];"
-                 f"[m][sc]sidechaincompress=threshold=0.03:ratio=6:attack=40:release=400[md];"
-                 f"[d][md]amix=inputs=2:duration=first:normalize=0[mix]")
-        args = [ffmpeg_exe(), "-hide_banner", "-loglevel", "error", "-y", "-i", str(dialogue),
-                "-stream_loop", "-1", "-i", str(music), "-filter_complex", graph, "-map", "[mix]"]
-    else:
-        args = [ffmpeg_exe(), "-hide_banner", "-loglevel", "error", "-y", "-i", str(dialogue),
-                "-af", "aformat=channel_layouts=stereo"]
-    premix = out.with_name(out.stem + ".premix.wav")
-    run(args + ["-ar", str(RATE), "-c:a", "pcm_s24le", str(premix)], what="Mixing")
-    lufs, tp = loudness(premix)
-    if lufs is None:  # silent film (offline 'silence' voices): nothing to normalise
-        os.replace(premix, out)
-        return {"lufs": None, "true_peak": None, "gain_db": 0.0}
-    gain = target_lufs - lufs
-    if tp is not None:
-        gain = min(gain, peak - tp)
-    run([ffmpeg_exe(), "-hide_banner", "-loglevel", "error", "-y", "-i", str(premix),
-         "-af", f"volume={gain:.2f}dB", "-ar", str(RATE), "-c:a", "pcm_s24le", str(out)], what="Normalising")
-    premix.unlink(missing_ok=True)
-    lufs2, tp2 = loudness(out)
-    return {"lufs": lufs2, "true_peak": tp2, "gain_db": round(gain, 2)}

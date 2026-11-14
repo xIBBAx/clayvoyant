@@ -100,6 +100,7 @@ GESTURES: dict[str, dict] = {
     "sip": {"parts": {"right_arm"}, "seconds": 1.6, "kind": "once", "prop": "mug"},
     "check_phone": {"parts": {"right_arm", "head"}, "seconds": 0.0, "kind": "hold", "prop": "phone"},
     "lean_in": {"parts": {"torso"}, "seconds": 0.8, "kind": "once"},
+    "laugh": {"parts": {"head", "torso"}, "seconds": 1.4, "kind": "once"},
     "turn_to": {"parts": {"head", "torso"}, "seconds": 0.6, "kind": "once"},
     "sit_down": {"parts": {"torso", "legs"}, "seconds": 1.2, "kind": "once", "mark": "seat"},
     "stand_up": {"parts": {"torso", "legs"}, "seconds": 1.2, "kind": "once", "mark": "seat"},
@@ -141,6 +142,12 @@ DRESSING: dict[str, str] = {
 }
 
 WINDOWED = {"office", "reception", "home_desk", "cafe"}   # sets with a window in the back wall
+# seats long enough for two, side by side (a sofa, a bench); every other mark holds one body
+SEAT_ROOM = {"home_desk": {"sofa": 2}, "street": {"bench": 2}}
+# seats that have a table in front of them (typing needs one)
+TABLE_SEATS = {"office": {"desk", "desk_2"}, "meeting_room": {"head_of_table", "left_seat", "right_seat"}, "home_desk": {"desk"},
+               "cafe": {"table_left", "table_right", "table_left_2", "table_right_2"},
+               "classroom": {"teacher_desk", "front_desk_left", "front_desk_right"}}
 
 # Things on each set that can move on a track (`direction.props`): real objects, not just a place to look at.
 MOVABLE: dict[str, set[str]] = {
@@ -318,6 +325,8 @@ def validate(project) -> list[Problem]:
         if d.get("open_with") and d["open_with"] not in SHOTS:
             out.append(Problem("error", f"{where}.open_with", f"Unknown camera '{d['open_with']}'.",
                                _suggest(d["open_with"], SHOTS)))
+        out += _staging(s, d, set_info, set_name)
+        out += _guests(project, s, d, set_info, present)
         line_ids = [ln.id for ln in s.lines]
         covered: dict[str, int] = {}
         pieces: dict[str, list[tuple[float, float, str]]] = {}
@@ -398,6 +407,118 @@ def validate(project) -> list[Problem]:
                 if b.get("feeling") and b["feeling"] not in EMOTIONS:
                     out.append(Problem("warning", f"{wb}.feeling", f"'{b['feeling']}' is not an expression the clay renderer "
                                        "knows; it will look neutral.", _suggest(b["feeling"], EMOTIONS)))
+    return out
+
+
+def _guests(project, s, d: dict, set_info: dict, present) -> list[Problem]:
+    """An imported model (look.model) stands, walks, turns, looks, talks and gestures, but cannot sit: say so before
+    filming, where it is asked for, instead of a shot refused because a body stands inside a sofa."""
+    out: list[Problem] = []
+    seats = set(set_info.get("seats") or [])
+    guests = {c for c in present if c in project.characters and (project.characters[c].look or {}).get("model")}
+    for cid in sorted(guests):
+        mark = (d.get("blocking") or {}).get(cid)
+        if mark in seats:
+            out.append(Problem("error", f"{s.id}.direction.blocking.{cid}", f"'{cid}' is an imported model, and imported "
+                               f"models do not sit: {mark} is a seat.", "Give them a standing mark."))
+    for ln in s.lines:
+        if ln.who in guests and ("sit_down" in (ln.act or []) or (ln.go and ln.go in seats)):
+            out.append(Problem("error", f"{s.id}.{ln.id}", f"'{ln.who}' is an imported model, and imported models do not sit.",
+                               "Leave out sit_down, or send them to a standing mark."))
+    return out
+
+
+def _staging(s, d: dict, set_info: dict, set_name: str) -> list[Problem]:
+    """What a body cannot do: two people on one mark, a seat already taken, standing up without sitting, typing away from
+    a desk, speaking after walking out or before walking in. Followed line by line through the scene."""
+    out: list[Problem] = []
+    where = f"{s.id}.direction"
+    seats = set(set_info.get("seats") or [])
+    desks = {m for m in seats if m in TABLE_SEATS.get(set_name, set())}
+    blocking = d.get("blocking") or {}
+    room = SEAT_ROOM.get(set_name, {})
+    by_mark: dict[str, list] = {}
+    for cid, mark in blocking.items():
+        held = by_mark.setdefault(mark, [])
+        if len(held) >= room.get(mark, 1):
+            out.append(Problem("error", f"{where}.blocking.{cid}", f"'{cid}' and '{held[0]}' are both on the {mark} mark: "
+                               + ("it seats two at most." if room.get(mark, 1) > 1 else "two bodies cannot stand or sit in one place."),
+                               "Give one of them another mark."))
+        held.append(cid)
+    arrives = {ln.who for ln in s.lines if "walk_in" in (ln.act or [])}
+    seated = {cid for cid, mark in blocking.items() if mark in seats and cid not in arrives}
+    taken: dict[str, list] = {}
+    for cid, mark in blocking.items():
+        if mark in seats:
+            taken.setdefault(mark, []).append(cid)
+
+    def holder(mark, who):
+        return next((c for c in taken.get(mark, []) if c != who), None) if len(taken.get(mark, [])) >= room.get(mark, 1) else None
+
+    def leave(who):
+        for m_ in list(taken):
+            if who in taken[m_]:
+                taken[m_].remove(who)
+    gone: dict[str, str] = {}
+    spoke: set[str] = set()
+    for ln in s.lines:
+        w = f"{s.id}.{ln.id}"
+        acts = ln.act or []
+        if ln.who in gone:
+            out.append(Problem("error", w, f"'{ln.who}' walked out in line '{gone[ln.who]}' and cannot speak here.",
+                               "Move the walk_out to their last line, or give this line to someone still in the room."))
+        if "walk_in" in acts and ln.who in spoke:
+            out.append(Problem("error", f"{w}.act", f"'{ln.who}' speaks before this line, so cannot walk in here.",
+                               "Put walk_in on their first line."))
+        if ln.who:
+            spoke.add(ln.who)
+        for b in getattr(ln, "beats", None) or []:
+            if (b.get("who") or ln.who) in gone:
+                out.append(Problem("error", f"{w}.beats", f"'{b.get('who') or ln.who}' has walked out and cannot act here."))
+        if "stand_up" in acts and ln.who not in seated:
+            out.append(Problem("warning", f"{w}.act", f"'{ln.who}' is not sitting here, so stand_up does nothing.",
+                               "Block them to a seat, or give them sit_down first."))
+        if "sit_down" in acts:
+            free = [m for m in seats if len(taken.get(m, [])) < room.get(m, 1)]
+            if ln.who in seated:
+                out.append(Problem("warning", f"{w}.act", f"'{ln.who}' is already sitting, so sit_down does nothing."))
+            elif not free:
+                who_where = "; ".join(" and ".join(c) + " on " + m for m, c in taken.items() if c) or "it has none"
+                out.append(Problem("error", f"{w}.act", f"There is no free seat for '{ln.who}' on the {set_name} set: {who_where}.",
+                                   "Free a seat (stand_up, or another mark), or leave out sit_down."))
+            else:
+                taken.setdefault(free[0], []).append(ln.who)
+                seated.add(ln.who)
+        if "stand_up" in acts and ln.who in seated:
+            seated.discard(ln.who)
+            leave(ln.who)
+        if ln.go:
+            if ln.go in seats:
+                other = holder(ln.go, ln.who)
+                if other:
+                    out.append(Problem("error", f"{w}.go", f"{other} is sitting on {ln.go} and there is no room beside them: "
+                                       f"'{ln.who}' cannot be sent there.", "Send them to a free seat or a standing mark."))
+                else:
+                    leave(ln.who)
+                    taken.setdefault(ln.go, []).append(ln.who)
+                    seated.add(ln.who)
+            else:
+                seated.discard(ln.who)
+                leave(ln.who)
+        if "typing" in acts:
+            mark = next((m for m, c in taken.items() if ln.who in c), None)
+            if mark is None or mark not in desks:
+                out.append(Problem("warning", f"{w}.act", f"'{ln.who}' is not sitting at a desk, so their hands have no table "
+                                   "to type on: they mime it in the air.", "Block them to a seat at a table: "
+                                   + (", ".join(sorted(desks)) or f"the {set_name} set has none") + "."))
+        if "walk_out" in acts:
+            gone[ln.who] = ln.id
+            seated.discard(ln.who)
+            leave(ln.who)
+    for cid, g in (d.get("business") or {}).items():
+        if g == "typing" and blocking.get(cid) not in desks:
+            out.append(Problem("warning", f"{where}.business.{cid}", f"'{cid}' types as the scene opens but is not at a desk.",
+                               "Block them to a seat at a table: " + (", ".join(sorted(desks)) or "this set has none") + "."))
     return out
 
 

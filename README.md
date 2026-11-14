@@ -30,9 +30,11 @@ I built Clayvoyant after making a 29-minute clay film to teach information secur
 workplace ([where it began](https://xibbax.github.io/clayvoyant/#where-clayvoyant-began)). It is
 that work, opened up so anyone can make their own films: every figure is sculpted from
 signed-distance clay and rigged with real hands and a face that acts; every room is built by code;
-every shot is planned like a film and can be changed in a line of YAML. Twelve short
-security-awareness stories come with it, ready to make in your organisation's name, words and
-language.
+every shot is planned like a film and can be changed in a line of YAML. The engine that films it
+carries my name, **Sultan**, and it holds every drawing to the measures motion researchers use to
+judge movement (no body inside anything, nobody floating, no foot sliding) before a single frame is
+drawn. Twelve short security-awareness stories come with it, ready to make in your organisation's
+name, words and language.
 
 ## Make a film
 
@@ -94,7 +96,8 @@ headscarf, a bindi. No two characters share a face, even when described alike.
 
 **Performances.** They walk on planted feet, sit down, turn to whoever is speaking, point, shrug,
 fold their arms, type with their hands on the desk, carry a mug, read a phone. Mouths follow the
-sounds of the words; eyes lead and the head follows; listeners react. What nobody wrote is acted
+sounds of the words; eyes lead and the head follows; listeners react. Every footstep, seat, door and
+keyboard is heard where it happens, in a room the size of the set. What nobody wrote is acted
 anyway, and what you write wins:
 
 ```yaml
@@ -186,8 +189,10 @@ flowchart LR
 ```
 
 Acting is a pure function of the frame, so any shot can be filmed alone, shots of one scene always
-agree, and a shot that stopped half way resumes at its first missing drawing. Sculpts, voices and
-shots are cached by content. [ARCHITECTURE.md](https://github.com/xIBBAx/clayvoyant/blob/main/docs/ARCHITECTURE.md) and
+agree, and a shot that stopped half way resumes at its first missing drawing. Every drawing is held
+to the measures motion research uses for physical plausibility before it is drawn: nothing inside
+anything, nobody floating, no foot sliding ([RESEARCH.md](https://github.com/xIBBAx/clayvoyant/blob/main/docs/RESEARCH.md)).
+Sculpts, voices and shots are cached by content. [ARCHITECTURE.md](https://github.com/xIBBAx/clayvoyant/blob/main/docs/ARCHITECTURE.md) and
 [CLAY_MOTION.md](https://github.com/xIBBAx/clayvoyant/blob/main/docs/CLAY_MOTION.md) have the detail.
 
 ## What it costs to run
@@ -209,15 +214,17 @@ Measured on one laptop on 2026-11-11 (Intel Core i7-10750H, 12 threads, GeForce 
 - Imported models stand, walk, turn, look, talk and gesture; they do not sit or use hands.
 - Lip sync follows the voice's phoneme timings when the provider reports them (Kokoro does), and
   otherwise the spelling and the loudness of the voice.
-- There is no sound-effect or music library yet: a film has its dialogue and, if you add one, a
-  music track. Rendering on a remote GPU is not built.
+- Sound effects are made by code, or come from recordings you bring or a CC0 pack you install; they
+  place a scene, they are not studio Foley. Laughter and breathing are not made. Rendering on a
+  remote GPU is not built.
 - Another language is another film: you write each line's translation in the scene file and
   render once per language. Nothing translates for you.
 - The `final` preset (1920x1080) has not yet been run for a whole film; the sample was built with
   `preview`. CI has no Blender, so the clay smoke test runs only where Blender is installed.
 - The starter scenes are general guidance, not policy. Replace each procedure with your own.
-- On the sofa of the home set, a seated character still sinks into the cushion; Nineteen Thirty
-  shows it ([#28](https://github.com/xIBBAx/clayvoyant/issues/28)).
+- A body is checked against everything solid before a shot is filmed, and a shot that would show
+  one inside something is not filmed. Imported models are measured against the set and the cast,
+  not against themselves.
 - The `india` template's Hindi has not yet been reviewed by fluent speakers from its audience
   ([#20](https://github.com/xIBBAx/clayvoyant/issues/20)). Read every line aloud with someone who
   will watch it before you show it.
@@ -231,13 +238,15 @@ Measured on one laptop on 2026-11-11 (Intel Core i7-10750H, 12 threads, GeForce 
 | [Films for India](https://github.com/xIBBAx/clayvoyant/blob/main/docs/INDIA.md) | the `india` template, its sources, Indian languages |
 | [Writing with an assistant](https://github.com/xIBBAx/clayvoyant/blob/main/docs/WRITING_WITH_AN_ASSISTANT.md) | `sastudio brief`: a script from any chat assistant |
 | [Installation](https://github.com/xIBBAx/clayvoyant/blob/main/docs/INSTALLATION.md) and [requirements](https://github.com/xIBBAx/clayvoyant/blob/main/docs/REQUIREMENTS.md) | Ubuntu, WSL2, Windows, Blender, GPUs |
-| [Clay films](https://github.com/xIBBAx/clayvoyant/blob/main/docs/CLAY_MOTION.md) | the engine: sculpting, acting, sets, light, caching |
+| [Clay films](https://github.com/xIBBAx/clayvoyant/blob/main/docs/CLAY_MOTION.md) | Sultan, the clay engine: sculpting, acting, sets, light, caching |
 | [Characters](https://github.com/xIBBAx/clayvoyant/blob/main/docs/CHARACTERS.md) | describing people; every choice and slider |
 | [Direction](https://github.com/xIBBAx/clayvoyant/blob/main/docs/DIRECTION.md) | sets, marks, cameras, light, gestures, openings |
 | [Scenes](https://github.com/xIBBAx/clayvoyant/blob/main/docs/SCENES.md) and [configuration](https://github.com/xIBBAx/clayvoyant/blob/main/docs/CONFIGURATION.md) | writing scenes, tokens, translations |
 | [Voice providers](https://github.com/xIBBAx/clayvoyant/blob/main/docs/VOICE_PROVIDERS.md) and [API keys](https://github.com/xIBBAx/clayvoyant/blob/main/docs/API_SETUP.md) | Kokoro, recordings, Sarvam, ElevenLabs |
 | [Rendering](https://github.com/xIBBAx/clayvoyant/blob/main/docs/RENDERING.md) | presets, outputs, subtitles, incremental builds |
+| [Sound](https://github.com/xIBBAx/clayvoyant/blob/main/docs/SOUND.md) | footsteps, doors, rooms, music and mastering, all from what happens on screen |
 | [Architecture](https://github.com/xIBBAx/clayvoyant/blob/main/docs/ARCHITECTURE.md) and [glossary](https://github.com/xIBBAx/clayvoyant/blob/main/docs/GLOSSARY.md) | how it fits together |
+| [Research](https://github.com/xIBBAx/clayvoyant/blob/main/docs/RESEARCH.md) | the published measures and studies the engine follows, and where |
 | [Troubleshooting](https://github.com/xIBBAx/clayvoyant/blob/main/docs/TROUBLESHOOTING.md) | common errors and their fixes |
 | [Roadmap](https://github.com/xIBBAx/clayvoyant/blob/main/docs/ROADMAP.md) and [testing](https://github.com/xIBBAx/clayvoyant/blob/main/docs/TESTING.md) | what comes next; how it is checked |
 

@@ -13,6 +13,38 @@ from mathutils import Vector as V
 
 _m = {}
 FONT = None      # path of a .ttf for lettering on signs and screens; set by film.py
+# Every loose thing a set puts somewhere (a mug, a laptop, papers, a plant): the film rests each on the surface under it
+# and keeps them out of each other (film.settle_dressing), whatever coordinates a set gave them.
+PROPS = []
+
+
+def _prop(g, kind):
+    PROPS.append(dict(group=g, kind=kind))
+    return g
+
+
+def SETS_PROPS():
+    """The loose things built so far that still exist (a held prop made later is not dressing)."""
+    out = []
+    for d in PROPS:
+        try:
+            d['group'].name
+        except ReferenceError:
+            continue
+        out.append(d)
+    return out
+
+
+# Every place to sit a set builds. The film measures each one from its own geometry (film.measure_seats): how high the
+# sitting surface really is, where its front edge, its base and its backrest are. A builder only says what it is.
+SEATS = []
+
+
+def _seat(g, kind, half_width, soft=0.0, cushions=()):
+    """Declare the group g a seat: a sitter faces its local -y from its origin; half_width is how far to each side
+    someone may sit; soft is how far its cushions give under a sitter (0 for wood); cushions can be pressed in."""
+    SEATS.append(dict(group=g, kind=kind, half_width=half_width, soft=soft, cushions=list(cushions)))
+    return g
 
 
 def srgb(h):
@@ -194,6 +226,36 @@ def boxy(name, loc, scale, hex_, parent=None, rot=(0, 0, 0), bevel=.08, lumps=.0
         b.segments = 3
         b.limit_method = 'NONE'
     return _finish(o, mat or clay(hex_, rough, False, print_), parent, lumps, sub=0)
+
+
+def pillow(name, loc, scale, hex_, parent=None, r=.1, lumps=.02, res=.06):
+    """A cushion: a rounded slab of clay with enough surface to be pressed in where someone sits (film.press_cushions).
+    scale is the half size; r the roundness of its edges."""
+    bm = bmesh.new()
+    bmesh.ops.create_cube(bm, size=2)
+    cuts = max(4, int(round(2 * max(scale[:2]) / res)))
+    bmesh.ops.subdivide_edges(bm, edges=bm.edges[:], cuts=cuts, use_grid_fill=True)
+    hx, hy, hz = scale
+    r = min(r, hz * .95, hx * .5, hy * .5)
+    inner = (hx - r, hy - r, hz - r)
+    from mathutils import noise
+    for v in bm.verts:
+        p = (v.co.x * hx, v.co.y * hy, v.co.z * hz)
+        c = [max(-i, min(i, q)) for q, i in zip(p, inner)]
+        d = [q - k for q, k in zip(p, c)]
+        n = math.sqrt(sum(x * x for x in d)) or 1.0
+        # the lumps of handled clay are part of the shape itself, so a pressed cushion is pressed exactly where it is drawn
+        bump = lumps * .5 * noise.noise(V((p[0] * 1.8 + loc[0], p[1] * 1.8 + loc[1], p[2] * 1.8)))
+        v.co = [k + x / n * (r + bump) for k, x in zip(c, d)]
+    me = bpy.data.meshes.new(name)
+    bm.to_mesh(me)
+    bm.free()
+    o = bpy.data.objects.new(name, me)
+    bpy.context.scene.collection.objects.link(o)
+    o.location = loc
+    o['rest'] = [c for v in me.vertices for c in v.co]      # its shape before anyone sits on it
+    o['half'] = list(scale)
+    return _finish(o, clay(hex_, .6, False, .5), parent, 0, sub=0)
 
 
 def slab(name, loc, scale, mat, parent=None, rot=(0, 0, 0), bevel=.012):
@@ -454,8 +516,16 @@ def ceiling(x0, x1, y0, y1, z, hex_='#f4f0e8'):
     return o
 
 
-def side_wall(name, x, y0, y1, z1, hex_, thick=.12):
-    return boxy(name, (x, (y0 + y1) / 2, z1 / 2), (thick, (y1 - y0) / 2, z1 / 2), hex_, bevel=.01, lumps=.012, print_=.8)
+def side_wall(name, x, y0, y1, z1, hex_, thick=.12, holes=()):
+    """A wall along y at x, with openings holes=[(ya, yb, za, zb), ...]: a way in from the side of a room."""
+    ys = sorted({y0, y1, *[h[0] for h in holes], *[h[1] for h in holes]})
+    for a, b in zip(ys, ys[1:]):
+        zs = [(0.0, z1)]
+        for (ha, hb, za, zb) in holes:
+            if ha <= a and b <= hb:
+                zs = [(lo, hi) for lo, hi in ((0.0, za), (zb, z1)) if hi - lo > .01]
+        for lo, hi in zs:
+            boxy(name, (x, (a + b) / 2, (lo + hi) / 2), (thick, (b - a) / 2, (hi - lo) / 2), hex_, bevel=.01, lumps=.012, print_=.8)
 
 
 def skirting(x0, x1, y, hex_='#efe6d6', h=.16):
@@ -496,18 +566,19 @@ def door(x, y, w=1.05, h=4.3, hex_='#7c5236', frame='#efe6d6', hinge=-1, parent=
     return g, leaf
 
 
-def desk(x, y, w=1.9, d=.82, h=1.45, top='#a56c45', leg='#6e452d', rz=0, drawers=True):
-    """A work desk at sitting height: drawers on the right, a modesty panel on the camera side. Its user sits behind it (+y)."""
+def desk(x, y, w=1.9, d=.82, h=1.45, top='#a56c45', leg='#6e452d', rz=0, drawers=True, user=1):
+    """A work desk at sitting height: drawers on the right and a modesty panel on the far side from its user, who sits
+    on its +y side (user=1, facing the camera) or its -y side (user=-1, back to the camera): the knees go under it."""
     g = group('desk', (x, y, 0), rot=(0, 0, rz))
     boxy('top', (0, 0, h), (w, d, .075), top, g, bevel=.03, lumps=.01, print_=1)
     for X, Y in ((-w + .16, -d + .14), (w - .16, -d + .14), (-w + .16, d - .14), (w - .16, d - .14)):
         boxy('leg', (X, Y, (h - .07) / 2), (.085, .085, (h - .07) / 2), leg, g, bevel=.03, lumps=.005)
-    boxy('modesty', (0, -d + .1, h * .62), (w - .3, .03, h * .25), mix(top, '#000000', .18), g, bevel=.015, lumps=.004)
+    boxy('modesty', (0, -user * (d - .1), h * .62), (w - .3, .03, h * .25), mix(top, '#000000', .18), g, bevel=.015, lumps=.004)
     if drawers:
         boxy('ped', (w - .62, .05, h - .5), (.42, d - .16, .4), mix(top, '#000000', .1), g, bevel=.025, lumps=.006)
         for k in range(2):
-            blob('pull', (w - .62, d - .08, h - .32 - k * .36), (.1, .035, .035), '#000000', g, lumps=0, mat=BRASS())
-    return g
+            blob('pull', (w - .62, user * (d - .08), h - .32 - k * .36), (.1, .035, .035), '#000000', g, lumps=0, mat=BRASS())
+    return _prop(g, 'furniture')
 
 
 def table_round(x, y, r=1.0, h=1.45, top='#e9dcc3', leg='#2b2d31'):
@@ -515,7 +586,7 @@ def table_round(x, y, r=1.0, h=1.45, top='#e9dcc3', leg='#2b2d31'):
     lathe('ttop', [(h - .07, r * .96), (h - .03, r), (h + .03, r), (h + .06, r * .97)], top, g, lumps=.006)
     cyl('tpost', (0, 0, h / 2), .075, h - .1, paint(leg, .4, .7), g)
     lathe('tfoot', [(0, r * .62), (.06, r * .6), (.1, .12)], leg, g, lumps=0, mat=paint(leg, .4, .7))
-    return g
+    return _prop(g, 'furniture')
 
 
 def chair(x, y, rz=0, seat=.82, hex_='#d9583f', leg='#3a2a22', back=True):
@@ -530,7 +601,7 @@ def chair(x, y, rz=0, seat=.82, hex_='#d9583f', leg='#3a2a22', back=True):
         for X in (-.42, .42):
             boxy('cb', (X, .44, seat + .55), (.05, .05, .62), leg, g, bevel=.02, lumps=.004)
         boxy('cbk', (0, .46, seat + .8), (.5, .06, .3), hex_, g, bevel=.05, lumps=.01)
-    return g
+    return _prop(_seat(g, 'chair', .3), 'furniture')
 
 
 def task_chair(x, y, rz=0, seat=.82, hex_='#2f6f73'):
@@ -544,7 +615,7 @@ def task_chair(x, y, rz=0, seat=.82, hex_='#2f6f73'):
         a = i * 2 * math.pi / 5 + .3
         slab('spoke', (math.sin(a) * .3, math.cos(a) * .3, .12), (.04, .32, .03), STEEL(), g, rot=(0, 0, -a))
         cyl('castor', (math.sin(a) * .6, math.cos(a) * .6, .06), .06, .08, paint('#222428', .5), g, rot=(math.pi / 2, 0, 0))
-    return g
+    return _prop(_seat(g, 'chair', .32), 'furniture')
 
 
 def stool(x, y, seat=.82, hex_='#c9a256'):
@@ -553,20 +624,28 @@ def stool(x, y, seat=.82, hex_='#c9a256'):
     for i in range(3):
         a = i * 2 * math.pi / 3
         tube('sl', [(math.sin(a) * .22, math.cos(a) * .22, seat - .1), (math.sin(a) * .36, math.cos(a) * .36, 0)], .04, '#3a2a22', g)
-    return g
+    return _prop(_seat(g, 'stool', .2), 'furniture')
 
 
 def sofa(x, y, w=2.2, rz=0, hex_='#4f7c8a', seat=.82):
+    """A sofa. `seat` is the top of its seat cushions, where a sitter's weight rests, as it is for every other seat;
+    the cushions give a little under a sitter."""
     g = group('sofa', (x, y, 0), rot=(0, 0, rz))
-    boxy('base', (0, 0, seat * .45), (w, .78, seat * .45), mix(hex_, '#000000', .15), g, bevel=.1, lumps=.02)
+    ch = .14                       # half the thickness of a seat cushion
+    base = seat - 2 * ch           # the cushions rest on the base
+    boxy('base', (0, 0, base / 2), (w, .78, base / 2), mix(hex_, '#000000', .15), g, bevel=.1, lumps=.02)
     n = max(1, round(w / 1.05))
+    cush = []
+    top = 1.96                     # the top of the backrest, as before
     for i in range(n):
         cx = -w + (2 * w) * (i + .5) / n
-        boxy('cush', (cx, -.08, seat - .02), (w / n - .04, .66, .14), hex_, g, bevel=.11, lumps=.03)
-        boxy('backc', (cx, .62, seat + .62), (w / n - .05, .2, .52), hex_, g, bevel=.14, lumps=.03, rot=(-.12, 0, 0))
+        cush.append(pillow('cush', (cx, -.08, seat - ch), (w / n - .04, .66, ch), hex_, g, r=.11, lumps=.022))
+        hb = (top - (seat - .03)) / 2
+        boxy('backc', (cx, .62, seat - .03 + hb), (w / n - .05, .2, hb), hex_, g, bevel=.14, lumps=.03, rot=(-.12, 0, 0))
+    arm = 1.28                     # armrests at the height they always had
     for sg in (-1, 1):
-        boxy('arm', (sg * (w + .16), -.02, seat * .78), (.2, .8, seat * .78), mix(hex_, '#000000', .08), g, bevel=.14, lumps=.025)
-    return g
+        boxy('arm', (sg * (w + .16), -.02, arm / 2), (.2, .8, arm / 2), mix(hex_, '#000000', .08), g, bevel=.14, lumps=.025)
+    return _prop(_seat(g, 'sofa', w - .25, soft=.055, cushions=cush), 'furniture')
 
 
 def shelf(x, z, y, w=1.6, seed=2, board='#8a5a3a', parent=None):
@@ -597,7 +676,7 @@ def bookcase(x, y, w=1.3, h=3.6, rows=4, hex_='#7c5236', seed=4, rz=0):
             shelf(0, z, 0, w - .06, seed + k, hex_, g)
         else:
             boxy('bct', (0, 0, z), (w + .04, .28, .045), hex_, g, bevel=.015, lumps=.004)
-    return g
+    return _prop(g, 'furniture')
 
 
 def plant(x, y, sc=1.0, pot='#b5553a', leaf='#3d6b45', seed=1):
@@ -612,7 +691,7 @@ def plant(x, y, sc=1.0, pot='#b5553a', leaf='#3d6b45', seed=1):
         rd = .25 + r.random() * .55
         tube('leaf', [(0, 0, .62), (math.sin(a_) * rd * .4, math.cos(a_) * rd * .4, .62 + h * .55), (math.sin(a_) * rd, math.cos(a_) * rd, .62 + h)],
              .1, mix(leaf, '#9fc76a', r.random() * .35), g, taper=[.6, 1.25, .12])
-    return g
+    return _prop(g, 'plant')
 
 
 def tree(x, y, h=6.0, sc=1.0, trunk='#6b4a35', leaf='#4f8a4c', seed=1):
@@ -668,7 +747,7 @@ def laptop(x, y, z, parent=None, rot=0, sc=.36, screen='#bcd3d6', open_=1.0):
     scr = group('lid', (0, .84, .05), lap, rot=(-.16 - (1 - open_) * 1.4, 0, 0))
     boxy('lidb', (0, 0, .92), (1.38, .035, .92), '#48474e', scr, bevel=.025, lumps=.003)
     slab('display', (0, -.04, .92), (1.28, .004, .85), glowmat(srgb(screen)[:3], .9), scr, bevel=0)
-    return lap
+    return _prop(lap, 'laptop')
 
 
 def monitor(x, y, z, parent=None, rot=0, w=.62, h=.38, screen='#bcd3d6'):
@@ -677,14 +756,14 @@ def monitor(x, y, z, parent=None, rot=0, w=.62, h=.38, screen='#bcd3d6'):
     scr = slab('display', (0, -.032, h + .22), (w - .04, .004, h - .04), glowmat(srgb(screen)[:3], .9), g, bevel=0)
     cyl('ms', (0, .03, .12), .035, .24, STEEL(), g)
     lathe('mf', [(0, .24), (.025, .22), (.04, .05)], '#000000', g, lumps=0, mat=STEEL())
-    return g, scr
+    return _prop(g, 'monitor'), scr
 
 
 def phone(x, y, z, parent=None, rot=0, hex_='#1f2329', screen='#8fd0c8'):
     g = group('phone', (x, y, z), parent, rot=(0, 0, rot))
     boxy('pb', (0, 0, .015), (.075, .15, .015), hex_, g, bevel=.012, lumps=0)
     slab('display', (0, 0, .032), (.064, .135, .002), glowmat(srgb(screen)[:3], .7), g, bevel=0)
-    return g
+    return _prop(g, 'phone') if parent is None or not parent.name.endswith(('_palmL', '_palmR')) else g
 
 
 def mug(x, y, z, parent=None, hex_='#c1553f', steam=False):
@@ -692,21 +771,27 @@ def mug(x, y, z, parent=None, hex_='#c1553f', steam=False):
     lathe('mb', [(0, .085), (.012, .1), (.2, .105), (.21, .095), (.2, .085), (.03, .08)], hex_, g, lumps=.003)
     tube('mh', [(.1, 0, .16), (.17, 0, .15), (.18, 0, .08), (.1, 0, .05)], .018, hex_, g)
     blob('coffee', (0, 0, .175), (.085, .085, .01), '#3b2416', g, lumps=0, gloss=True)
-    return g
+    return _prop(g, 'mug') if parent is None or not parent.name.endswith(('_palmL', '_palmR')) else g
 
 
 def papers(x, y, z, parent=None, n=5, seed=5):
+    """A loose stack of papers: one thing, each sheet resting on the one below."""
     r = random.Random(seed)
+    g = group('papers', (x, y, z), parent)
     for i in range(n):
-        boxy('paper', (x + r.uniform(-.12, .12), y + r.uniform(-.08, .08), z + i * .008), (.2, .28, .004),
-             r.choice(['#f7f2e4', '#efe6cf', '#f4e7c8']), parent, rot=(0, 0, r.uniform(-.5, .5)), bevel=.003, lumps=.002)
+        boxy('paper', (r.uniform(-.12, .12), r.uniform(-.08, .08), .004 + i * .0085), (.2, .28, .004),
+             r.choice(['#f7f2e4', '#efe6cf', '#f4e7c8']), g, rot=(0, 0, r.uniform(-.5, .5)), bevel=.003, lumps=.002)
+    return _prop(g, 'papers')
 
 
 def books(x, y, z, parent=None, n=3, seed=3):
+    """A pile of books lying flat: one thing, each book resting on the one below."""
     r = random.Random(seed)
+    g = group('books', (x, y, z), parent)
     for i in range(n):
-        boxy('bookflat', (x + r.uniform(-.03, .03), y, z + .04 + i * .085), (.26 - i * .02, .19, .04),
-             r.choice(['#3f8f8c', '#c1553f', '#dfa42f', '#2f5d80', '#7b3045']), parent, rot=(0, 0, r.uniform(-.25, .25)), bevel=.012, lumps=.003)
+        boxy('bookflat', (r.uniform(-.03, .03), 0, .04 + i * .085), (.26 - i * .02, .19, .04),
+             r.choice(['#3f8f8c', '#c1553f', '#dfa42f', '#2f5d80', '#7b3045']), g, rot=(0, 0, r.uniform(-.25, .25)), bevel=.012, lumps=.003)
+    return _prop(g, 'books')
 
 
 def pencil_pot(x, y, z, parent=None):
@@ -714,7 +799,7 @@ def pencil_pot(x, y, z, parent=None):
     lathe('pot', [(0, .08), (.2, .09), (.21, .08)], '#3f8f8c', g, lumps=.004)
     for a, c in ((.2, '#eab531'), (-.25, '#c73a46'), (.05, '#2f5d80')):
         tube('pencil', [(0, 0, .05), (math.sin(a) * .07, 0, .25), (math.sin(a) * .12, 0, .42)], .012, c, g)
-    return g
+    return _prop(g, 'pencils')
 
 
 def frame(x, z, y, w=.6, h=.8, art=('#e9b44c', '#3f8f8c', '#c1553f'), border='#3a2a22', seed=1, parent=None):
@@ -778,7 +863,7 @@ def cabinet(x, y, w=.9, h=1.5, d=.42, hex_='#e3d9c6', rz=0, drawers=3):
         z = h * (k + .5) / drawers
         boxy('cd', (0, -d - .005, z), (w - .07, .02, h / drawers / 2 - .04), mix(hex_, '#ffffff', .25), g, bevel=.015, lumps=.003)
         blob('ck', (0, -d - .04, z), (.12, .03, .03), '#000000', g, lumps=0, mat=BRASS())
-    return g
+    return _prop(g, 'furniture')
 
 
 def printer(x, y, z, parent=None):
@@ -788,7 +873,7 @@ def printer(x, y, z, parent=None):
     boxy('tray', (0, -.5, .1), (.36, .16, .012), '#c9c4b8', g, bevel=.008, lumps=0)
     boxy('sheet', (0, -.5, .12), (.3, .14, .006), '#f7f2e4', g, bevel=.003, lumps=0)
     glow('led', (.36, -.425, .3), (.02, .01, .02), (.3, 1, .4), 4, g)
-    return g
+    return _prop(g, 'printer')
 
 
 def counter(x, y, w=2.4, h=1.85, d=.5, hex_='#7c5236', top='#e9dcc3'):
@@ -797,7 +882,7 @@ def counter(x, y, w=2.4, h=1.85, d=.5, hex_='#7c5236', top='#e9dcc3'):
     boxy('ctop', (0, -.04, h + .04), (w + .08, d + .1, .05), top, g, bevel=.03, lumps=.006)
     for i in range(max(2, round(w / .5))):
         boxy('cpanel', (-w + .3 + i * (2 * w - .6) / max(1, round(w / .5) - 1), -d - .005, h * .5), (.2, .012, h * .38), mix(hex_, '#000000', .12), g, bevel=.02, lumps=.004)
-    return g
+    return _prop(g, 'furniture')
 
 
 def whiteboard(x, z, y, w=1.9, h=1.05, parent=None, board='#f6f4ee', marks=True, seed=1):
@@ -858,7 +943,7 @@ def bench(x, y, rz=0, hex_='#7c5236'):
     for sg in (-1, 1):
         slab('bleg', (sg * 1.3, 0, .39), (.05, .4, .39), paint('#1f2a2c', .5, .6), g)
         slab('bback', (sg * 1.3, .43, 1.1), (.05, .05, .5), paint('#1f2a2c', .5, .6), g, rot=(-.12, 0, 0))
-    return g
+    return _prop(_seat(g, 'bench', 1.25), 'furniture')
 
 
 def building(x, y, w=4.0, h=9.0, d=3.0, hex_='#d9b38c', floors=3, door_x=None, awning=None, seed=1, lit=.0, name=None):

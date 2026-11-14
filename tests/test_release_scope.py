@@ -78,7 +78,7 @@ def test_clay_device_rejects_unknown_values(monkeypatch):
 def test_doctor_hides_blender_checks_without_the_engine(no_engine):
     names = [c.name for c in doctor.run_checks()]
     assert "Clay renderer" in names
-    assert "Rhubarb Lip Sync" not in names and "Blender (clay renderer)" not in names
+    assert "Rhubarb Lip Sync" not in names and not any(n.startswith("Blender") for n in names)
     assert all(c.status != "fail" for c in doctor.run_checks() if c.name == "Clay renderer")
 
 

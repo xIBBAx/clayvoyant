@@ -122,12 +122,17 @@ output folder yourself if you want it gone.
 
 - Each spoken line is converted to mono 48 kHz, trimmed, and levelled to about -18 LUFS with
   peaks at or below -2 dBFS, so voices from different providers sit at the same level.
-- The finished mix is normalised to -16 LUFS integrated with a -1.5 dBTP true-peak ceiling, in
-  two passes. The manifest records the measured result.
-- Films made with silent placeholder voices are silent; the manifest says so instead of
-  reporting a loudness.
-- Optional background music: `render.music: assets/music.mp3` and `render.music_volume_db`
-  (default -24). The project ships no music; use only music you are licensed to use.
+- The mix (dialogue, the sounds of what happens, the air of each place, music) is mastered to
+  -16 LUFS integrated with a -1.5 dBTP true-peak ceiling: one gain to the loudness, then a
+  look-ahead true-peak limiter. The encoded film is measured again by FFmpeg's EBU R 128 meter,
+  and mastered again if the codec pushed a peak over the ceiling; the manifest records what the
+  film itself measures, and the build warns when a target is not met.
+- Films made with silent placeholder voices have no dialogue to measure against: their sound is
+  levelled to a nominal dialogue level, and a film with no sound at all is reported as silent.
+- Optional background music: `render.music: assets/music.mp3` (matched in loudness to the voices;
+  `render.music_volume_db` moves it from there, -24 being the default), or several tracks per
+  scene with `sound.music`. The project ships no music; use only music you are licensed to use.
+- Everything about sound, from footsteps to mastering: [SOUND.md](SOUND.md).
 
 ## Subtitles
 

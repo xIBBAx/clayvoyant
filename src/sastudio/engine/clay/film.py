@@ -1,4 +1,6 @@
-"""Film one shot of a clay scene from a JSON job. Runs inside Blender:
+"""Sultan, the clay engine of Clayvoyant, named after Ibrahim Sultan, who made it.
+
+Film one shot of a clay scene from a JSON job. Runs inside Blender:
 
     blender -b --factory-startup -P engine/clay/film.py -- job.json
 
@@ -27,6 +29,7 @@ import bpy
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
+import contacts as CT  # noqa: E402  (what passes through what: settling and the check before filming both measure)
 JOB = json.load(open(sys.argv[sys.argv.index('--') + 1], encoding='utf-8'))
 os.environ['SASTUDIO_RIG'] = JOB['rig']
 
@@ -157,67 +160,8 @@ def light_stage(L):
 
 
 light_stage(JOB.get('lighting') or {})
-
-# ------------------------------------------------------------------ the cast
 PERF = A.Performance(FPS)
 MARKS = STG['marks']
-spots = list(STG['spots'])
-
-
-def where(c):
-    """-> (x, y), facing, seat height or None"""
-    m = MARKS.get(c.get('mark') or '')
-    if m:
-        # a seat faces its table; on a standing mark nobody is pinned to the lens: they turn to whoever matters (acting.res_face)
-        seat = m.get('seat') if c.get('seat', True) else None
-        return m['pos'], c.get('face', m.get('face')), seat
-    if c.get('pos'):
-        return tuple(c['pos']), c.get('face', 0.0), (A.SEAT_H if c.get('seat') is True else None)
-    return (spots.pop(0) if spots else (0, 0)), c.get('face', None), None
-
-
-def offscreen(pos):
-    """Out of sight, on the nearer side: where someone walks in from, or out to, when the set has no door."""
-    return ((-13.5 if pos[0] < 0 else 13.5), pos[1] + .6)
-
-
-TAKEN = {c.get('mark') for c in JOB.get('cast') or []}
-DOORS = [list(d) for d in JOB.get('door') or []]     # [open, close] frames
-
-
-def free_seat(a, f):
-    """The nearest seat nobody is using."""
-    here = a.locate(f)[0]
-    seats = [(n, m) for n, m in MARKS.items() if m.get('seat') and n not in TAKEN]
-    if not seats:
-        return None
-    n, m = min(seats, key=lambda q: (q[1]['pos'][0] - here[0]) ** 2 + (q[1]['pos'][1] - here[1]) ** 2)
-    TAKEN.add(n)
-    return m
-
-
-for c in JOB.get('cast') or []:
-    pos, face, seat = where(c)
-    init = dict(f=c.get('feeling', 'neutral'), face=face)
-    if seat:
-        init['seat'] = seat
-    start = c.get('enter_from')
-    p0 = MARKS[start]['pos'] if start in MARKS else (offscreen(pos) if start else pos)
-    if c.get('model'):
-        import guest
-        body = guest.Guest(c['id'], c['model'], JOB.get('aliases') or {}, c.get('model_yaw') or 0.0)
-        init.pop('seat', None)          # a guest stands: sitting needs the sculpted legs
-    else:
-        body = Puppet(c.get('rig') or c['id'])
-    a = PERF.add(A.Actor(c['id'], body, p0, c.get('style'), **init))
-    a.home = pos
-    a.mark = MARKS.get(c.get('mark') or '')
-    if 'on' in c:
-        a.init['on'] = bool(c['on'])
-for ln in JOB.get('lines') or []:
-    PERF.say(ln['who'], ln['start'], ln['end'], ln.get('cues') or [], ln.get('to'), ln.get('manual') or ())
-for nm, t in STG['things'].items():
-    PERF.things[nm] = t
 
 # ------------------------------------------------------------------ solid contact: nothing passes through anything
 # Everything built so far is the set: floors, rugs, furniture, props. Its surfaces are ray-cast to put feet on the floor
@@ -227,25 +171,40 @@ from mathutils.bvhtree import BVHTree as _BVH  # noqa: E402
 
 
 def _mesh_world(o):
-    """One object of the set as contact needs it: vertices in the world, faces, and each face's box and centre."""
-    me = o.data
-    if not len(me.polygons):
-        return None
-    co = _np.empty(len(me.vertices) * 3, _np.float32)
-    me.vertices.foreach_get('co', co)
+    """One object of the set as contact needs it, exactly as it is drawn (bevels, lumps and every other modifier
+    applied): vertices in the world, faces, and each face's box and centre. The bare mesh under the modifiers is not
+    the surface anyone sees: a body measured against it can be inside the real one."""
+    ev = o.evaluated_get(bpy.context.evaluated_depsgraph_get())
+    me = ev.to_mesh()
+    try:
+        if not len(me.polygons):
+            return None
+        co = _np.empty(len(me.vertices) * 3, _np.float32)
+        me.vertices.foreach_get('co', co)
+        lv = _np.empty(len(me.loops), _np.int32)
+        me.loops.foreach_get('vertex_index', lv)
+        ls = _np.empty(len(me.polygons), _np.int32)
+        me.polygons.foreach_get('loop_start', ls)
+        lt = _np.empty(len(me.polygons), _np.int32)
+        me.polygons.foreach_get('loop_total', lt)
+    finally:
+        ev.to_mesh_clear()
     M = _np.array(o.matrix_world, dtype=_np.float32)
     co = co.reshape(-1, 3) @ M[:3, :3].T + M[:3, 3]
-    polys = [tuple(p.vertices) for p in me.polygons]
-    lv = _np.empty(len(me.loops), _np.int32)
-    me.loops.foreach_get('vertex_index', lv)
-    ls = _np.empty(len(polys), _np.int32)
-    me.polygons.foreach_get('loop_start', ls)
-    lt = _np.empty(len(polys), _np.int32)
-    me.polygons.foreach_get('loop_total', lt)
+    polys = lv.reshape(-1, int(lt[0])).tolist() if (lt == lt[0]).all() else [lv[a:a + b].tolist() for a, b in zip(ls, lt)]
     pc = co[lv]
     box = _np.concatenate([_np.minimum.reduceat(pc, ls, axis=0), _np.maximum.reduceat(pc, ls, axis=0)], axis=1)
     cen = _np.add.reduceat(pc, ls, axis=0) / lt[:, None]
     return co, polys, box, cen
+
+
+def _in_room(o):
+    """Inside the room or on its walls: what a body could ever touch. The city through the window, the clouds and the
+    lawn outside are left out of contact."""
+    bb = [o.matrix_world @ V(c) for c in o.bound_box]
+    lo = [min(p[i] for p in bb) for i in range(3)]
+    hi = [max(p[i] for p in bb) for i in range(3)]
+    return lo[2] < 8 and hi[0] > -15 and lo[0] < 15 and hi[1] > -17 and lo[1] < STG['back'] + .8
 
 
 CHAIRS = []       # chairs somebody stands up from or walks to: they move (see chairs_at), so they are measured apart
@@ -259,8 +218,8 @@ def _gather(objs):
         if got is None:
             continue
         co, ps, box, cen = got
-        verts.extend(map(tuple, co))
-        polys.extend(tuple(v + n0 for v in p) for p in ps) if n0 else polys.extend(ps)
+        verts.extend(co.tolist())
+        polys.extend([[v + n0 for v in p] for p in ps] if n0 else ps)
         owner_.extend([o.name] * len(ps))
         boxes.append(box)
         cens.append(cen)
@@ -284,7 +243,7 @@ def _solid_tree():
             skip |= {o.name for o in ch['meshes']}
         # only what the camera can see is solid: not the cards that shape the window light
         _STATIC = _gather(o for o in bpy.data.objects if o.type == 'MESH' and o.name not in skip and not o.hide_render
-                          and o.visible_camera and not o.name.startswith('gob'))
+                          and o.visible_camera and not o.name.startswith('gob') and _in_room(o))
     verts, polys, owner_, boxes, cens = _STATIC
     if CHAIRS:
         n0 = len(verts)
@@ -297,6 +256,240 @@ def _solid_tree():
     return _BVH.FromPolygons(verts, polys) if polys else None
 
 
+# ------------------------------------------------------------------ set dressing: everything rests on something, nothing in anything
+# A set gives each loose thing (a mug, a laptop, papers, a plant) a place by numbers. Here each is put down on the surface
+# under it (its lowest point on the highest point beneath it), and things that share a surface are moved the least
+# distance that keeps them out of each other and still on it (the smallest push that separates two footprints, found
+# on the axes of their edges; failing that, the nearest free place on the surface). What still overlaps is reported.
+DRESS_CLEAR = .015      # the least gap between two things standing side by side on a surface
+
+
+def _footprint(g):
+    """A loose thing's outline on the floor plan, as a box turned the way it is turned: centre, axes, half sizes;
+    and its lowest point and every vertex (world)."""
+    bits = [c for c in [g] + list(g.children_recursive) if c.type == 'MESH']
+    pts = [_mesh_world(c) for c in bits]
+    V_ = _np.concatenate([q[0] for q in pts if q is not None]) if any(q is not None for q in pts) else None
+    if V_ is None:
+        return None
+    yaw = g.matrix_world.to_euler('XYZ').z
+    u = _np.array((math.cos(yaw), math.sin(yaw)))
+    v = _np.array((-math.sin(yaw), math.cos(yaw)))
+    pu, pv = V_[:, :2] @ u, V_[:, :2] @ v
+    c = u * (pu.min() + pu.max()) / 2 + v * (pv.min() + pv.max()) / 2
+    return dict(c=c, ax=(u, v), h=_np.array(((pu.max() - pu.min()) / 2, (pv.max() - pv.min()) / 2)), low=float(V_[:, 2].min()),
+                high=float(V_[:, 2].max()), V=V_)
+
+
+def _corners(fp, pad=0.0):
+    u, v = fp['ax']
+    hu, hv = fp['h'] + pad
+    return _np.array([fp['c'] + su * hu * u + sv * hv * v for su, sv in ((-1, -1), (1, -1), (1, 1), (-1, 1))])
+
+
+def _mtv(a, b, pad):
+    """The smallest push that takes footprint a out of footprint b (the separating axis test on the edges' axes), or
+    None when they are already apart by pad."""
+    A, B = _corners(a, pad / 2), _corners(b, pad / 2)
+    best = None
+    for ax in (a['ax'][0], a['ax'][1], b['ax'][0], b['ax'][1]):
+        pa, pb = A @ ax, B @ ax
+        o = min(pa.max(), pb.max()) - max(pa.min(), pb.min())
+        if o <= 0:
+            return None
+        if best is None or o < best[0]:
+            sgn = 1.0 if (a['c'] - b['c']) @ ax >= 0 else -1.0
+            best = (o, ax * sgn)
+    return best[1] * (best[0] + 1e-4)
+
+
+def _hull(P):
+    """The convex outline of points on the plan (monotone chain)."""
+    P = sorted(map(tuple, _np.round(P, 4)))
+    if len(P) < 3:
+        return _np.array(P)
+    cross = lambda o, a, b: (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])  # noqa: E731
+    lo, hi = [], []
+    for p_ in P:
+        while len(lo) >= 2 and cross(lo[-2], lo[-1], p_) <= 0:
+            lo.pop()
+        lo.append(p_)
+    for p_ in reversed(P):
+        while len(hi) >= 2 and cross(hi[-2], hi[-1], p_) <= 0:
+            hi.pop()
+        hi.append(p_)
+    return _np.array(lo[:-1] + hi[:-1])
+
+
+def _inside_hull(H, pts, margin):
+    """True when every point lies inside the convex outline H, at least margin in from its edges."""
+    if len(H) < 3:
+        return False
+    for i in range(len(H)):
+        a, b = H[i], H[(i + 1) % len(H)]
+        e = b - a
+        n = _np.array((-e[1], e[0])) / (float(_np.hypot(*e)) or 1.0)       # inward for a counter-clockwise outline
+        if ((pts - a) @ n < margin).any():
+            return False
+    return True
+
+
+def _dress_tree(objs):
+    v_, p_, own_, box_, _c = _gather(objs)
+    if not p_:
+        return None, None, None
+    sizes = {len(q) for q in p_}
+    tree = _BVH.FromPolygons(_np.array(v_, _np.float32), _np.array(p_, _np.int32) if len(sizes) == 1 else p_)
+    return tree, _np.array(own_, dtype=object), _np.concatenate(box_)
+
+
+def _rest(d, tree, own_, mine):
+    """Put a thing down on the highest point under its outline (its own faces do not hold it up): -> what holds it."""
+    fp = _footprint(d['group'])
+    if fp is None:
+        return None
+    hits = []
+    for q in list(_corners(fp, -.01)) + [fp['c']]:
+        o_ = V((q[0], q[1], fp['high'] + .05))
+        for _ in range(64):
+            h = tree.ray_cast(o_, V((0, 0, -1)), 10.0)
+            if h[0] is None:
+                break
+            if own_[h[2]] in mine or h[0].z > fp['low'] + .3:
+                o_ = h[0] - V((0, 0, 1e-4))          # through its own body, or something above it: look further down
+                continue
+            hits.append((h[0].z, own_[h[2]]))
+            break
+    if not hits:
+        return None
+    z, under = max(hits)
+    dz = z + .001 - fp['low']
+    if abs(dz) > 1e-4:
+        M = d['group'].matrix_world.copy()
+        M.translation.z += dz
+        d['group'].matrix_world = M
+    d['fp'] = dict(fp, low=fp['low'] + dz, high=fp['high'] + dz)
+    return under
+
+
+def settle_dressing():
+    """Put every loose thing down on what is under it, and out of everything else on that surface."""
+    props = [d for d in K.SETS_PROPS() if d['group'].parent is None or d['group'].parent.type == 'EMPTY']
+    for d in props:
+        d['own'] = {c.name for c in [d['group']] + list(d['group'].children_recursive)}
+    every = [o for o in bpy.data.objects if o.type == 'MESH' and not o.hide_render and o.visible_camera
+             and not o.name.startswith(('gob', 'steam', 'wing')) and _in_room(o)]
+    # furniture first, on the floor; then the loose things on whatever holds them now
+    tree, own_, boxes = _dress_tree(every)
+    if tree is None:
+        return
+    for d in props:
+        if d['kind'] == 'furniture':
+            d['under'] = _rest(d, tree, own_, d['own'])
+    bpy.context.view_layer.update()
+    tree, own_, boxes = _dress_tree(every)
+    loose = [d for d in props if d['kind'] != 'furniture']
+    loose_all = set().union(*[d['own'] for d in loose]) if loose else set()
+    for d in loose:
+        # a loose thing is held up by furniture or the floor, never by another loose thing it overlaps
+        d['under'] = _rest(d, tree, own_, loose_all)
+    bpy.context.view_layer.update()
+    tree, own_, boxes = _dress_tree(every)
+    v_all = None
+    tops = {}
+    for d in loose:
+        under = d.get('under')
+        if under is None or under in tops:
+            continue
+        sel = own_ == under
+        if boxes[sel][:, 5].max() < .15:
+            tops[under] = None             # the floor (many boards or tiles): anywhere in the room will do
+            continue
+        if v_all is None:
+            v_all = {o.name: _mesh_world(o) for o in every}
+        got = v_all.get(under)
+        Vt = got[0] if got else _np.zeros((0, 3))
+        tops[under] = _hull(Vt[Vt[:, 2] > Vt[:, 2].max() - .03][:, :2]) if len(Vt) else None
+    # what a loose thing must keep out of: everything at its height that is not itself, what holds it, or another
+    # loose thing (those are placed against each other below)
+    loose_names = set().union(*[d['own'] for d in loose]) if loose else set()
+    for d in loose:
+        if 'fp' not in d:
+            continue
+        fp = d['fp']
+        lo_, hi_ = fp['c'] - fp['h'].max() - .4, fp['c'] + fp['h'].max() + .4
+        keep = ((boxes[:, 0] < hi_[0]) & (boxes[:, 3] > lo_[0]) & (boxes[:, 1] < hi_[1]) & (boxes[:, 4] > lo_[1])
+                & (boxes[:, 5] > fp['low'] + .02) & (boxes[:, 2] < fp['high']))
+        keep &= _np.array([o != d.get('under') and o not in loose_names for o in own_])
+        d['walls'] = [dict(c=_np.array(((b[0] + b[3]) / 2, (b[1] + b[4]) / 2)), ax=(_np.array((1.0, 0)), _np.array((0, 1.0))),
+                           h=_np.array(((b[3] - b[0]) / 2, (b[4] - b[1]) / 2))) for b in boxes[keep]]
+    half = STG.get('half') or 13.0
+
+    def room_ok(fp_):
+        cs = _corners(fp_)
+        return (_np.abs(cs[:, 0]) < half - .15).all() and (cs[:, 1] < STG['back'] - .05).all()
+    order = sorted([d for d in loose if 'fp' in d], key=lambda d: -float(d['fp']['h'].prod()))      # the big ones stay put
+    for i, d in enumerate(order):
+        same = [e for e in order[:i] if e.get('under') == d.get('under')]
+        fp, start = d['fp'], d['fp']['c'].copy()
+        H = tops.get(d.get('under'))
+        # standing on the surface: its middle (where its weight is) well inside the surface's edge; a printer's paper
+        # tray may overhang, the way it does on a real cabinet
+        fits = (lambda t_: room_ok(t_)) if H is None else (lambda t_: _inside_hull(H, t_['c'][None, :], .04 + .3 * float(t_['h'].min())))
+
+        def clear(t_):
+            return all(_mtv(t_, e['fp'], DRESS_CLEAR) is None for e in same) and all(_mtv(t_, w, DRESS_CLEAR) is None for w in d['walls'])
+        for _ in range(40):
+            push = next((m for m in (_mtv(fp, e['fp'], DRESS_CLEAR) for e in same) if m is not None), None)
+            push = push if push is not None else next((m for m in (_mtv(fp, w, DRESS_CLEAR) for w in d['walls']) if m is not None), None)
+            if push is None:
+                break
+            fp = dict(fp, c=fp['c'] + push)
+        ok = clear(fp) and fits(fp)
+        if not ok:
+            # the nearest free place on the same surface, searched outward from where the set put it
+            g_ = _np.arange(-.6, .61, .02)
+            cand = _np.stack(_np.meshgrid(g_, g_), -1).reshape(-1, 2)
+            for off in cand[_np.argsort((cand ** 2).sum(1), kind='stable')]:
+                t_ = dict(fp, c=start + off)
+                if fits(t_) and clear(t_):
+                    fp, ok = t_, True
+                    break
+        if not ok:
+            # no room on its own: the bigger thing in the way makes room, if it can without leaving its surface
+            for e in same:
+                m = _mtv(d['fp'], e['fp'], DRESS_CLEAR)
+                if m is None:
+                    continue
+                t_ = dict(e['fp'], c=e['fp']['c'] - m)
+                others_e = [x for x in order[:i] if x is not e and x.get('under') == e.get('under')]
+                if fits(t_) and all(_mtv(t_, x['fp'], DRESS_CLEAR) is None for x in others_e) \
+                        and all(_mtv(t_, w, DRESS_CLEAR) is None for w in e.get('walls', [])):
+                    M = e['group'].matrix_world.copy()
+                    M.translation.x -= float(m[0])
+                    M.translation.y -= float(m[1])
+                    e['group'].matrix_world = M
+                    e['fp'] = t_
+                    print(f"FILM set dressing: the {e['kind']} on {e.get('under')} moved {_np.hypot(*m):.2f} to make room for the "
+                          f"{d['kind']}", flush=True)
+                    fp, ok = d['fp'], clear(d['fp']) and fits(d['fp'])
+                    break
+        if not ok:
+            print(f"FILM set dressing: no free place for the {d['kind']} on {d.get('under')}: left where it was", flush=True)
+            continue
+        shift = fp['c'] - start
+        if _np.hypot(*shift) > 1e-4:
+            M = d['group'].matrix_world.copy()
+            M.translation.x += float(shift[0])
+            M.translation.y += float(shift[1])
+            d['group'].matrix_world = M
+            print(f"FILM set dressing: the {d['kind']} on {d.get('under')} moved {_np.hypot(*shift):.2f} out of what was there",
+                  flush=True)
+        d['fp'] = fp
+    bpy.context.view_layer.update()
+
+
+settle_dressing()
 SOLID_C = SOLID_OBJ = SOLID_BOX = None
 bpy.context.view_layer.update()
 SOLID = _solid_tree()
@@ -322,7 +515,7 @@ PERF.ground = _ground
 
 # ------------------------------------------------------------------ walking around things, not through them
 # the route map's grain; how far a walking body's centre likes to keep from anything solid; the least it can pass with
-CELL, BODY_R, BODY_MIN = .15, .55, .3
+CELL, BODY_R, BODY_MIN = .15, .6, .42
 _ROUTE = {}
 
 
@@ -348,14 +541,50 @@ def _blocked():
     nx, ny = int((x1 - x0) / CELL) + 1, int((y1 - y0) / CELL) + 1
     grid = _np.zeros((nx, ny), bool)
     if SOLID_BOX is not None:
-        band = (SOLID_BOX[:, 5] > .2) & (SOLID_BOX[:, 2] < 2.6)
-        for bx0, by0, _, bx1, by1, _ in SOLID_BOX[band]:
-            i0, i1 = int((bx0 - x0) / CELL), int((bx1 - x0) / CELL) + 1
-            j0, j1 = int((by0 - y0) / CELL), int((by1 - y0) / CELL) + 1
+        band = SOLID_BOX[(SOLID_BOX[:, 5] > .2) & (SOLID_BOX[:, 2] < 2.6)]
+        rng = _np.stack([(band[:, 0] - x0) / CELL, (band[:, 3] - x0) / CELL + 1, (band[:, 1] - y0) / CELL,
+                         (band[:, 4] - y0) / CELL + 1], 1).astype(int)
+        for i0, i1, j0, j1 in _np.unique(rng, axis=0):
             grid[max(0, i0):max(0, min(nx, i1)), max(0, j0):max(0, min(ny, j1))] = True
     _ROUTE['hard'] = grid
     _ROUTE['grid'] = (_near_map(grid), x0, y0, nx, ny)
     return _ROUTE['grid']
+
+
+def _low():
+    """Where something stands on the floor below the shins (a sofa's base, a table's foot, chair legs): a turning shoe
+    must not sweep into it. Cell centres, (n, 2)."""
+    if 'low' not in _ROUTE:
+        _, x0, y0, nx, ny = _blocked()
+        grid = _np.zeros((nx, ny), bool)
+        if SOLID_BOX is not None:
+            band = SOLID_BOX[(SOLID_BOX[:, 2] < .25) & (SOLID_BOX[:, 5] > .045)]
+            rng = _np.stack([(band[:, 0] - x0) / CELL, (band[:, 3] - x0) / CELL + 1, (band[:, 1] - y0) / CELL,
+                             (band[:, 4] - y0) / CELL + 1], 1).astype(int)
+            for i0, i1, j0, j1 in _np.unique(rng, axis=0):
+                grid[max(0, i0):max(0, min(nx, i1)), max(0, j0):max(0, min(ny, j1))] = True
+        _ROUTE['low'] = _np.argwhere(grid) * CELL + _np.array((x0, y0))
+    return _ROUTE['low']
+
+
+def turn_spot(a, p, S, f=0):
+    """Where to stand to turn round and sit on S, near p (the place right in front of it): clear of the furniture by a
+    body's width, of anything at floor level by a turning shoe's sweep, and of everyone else. p when it already is;
+    the nearest such place within a step's reach otherwise (they back onto the seat from there)."""
+    r = a.body.footprint() if getattr(a, 'body', None) else .42
+    rp = a.body.space() if getattr(a, 'body', None) else .42      # from other people: the hands hang wider than the hips
+    fw, rg = _np.array(S['fwd']), _np.array(S['right'])
+    g = _np.arange(-.75, .76, .05)
+    off = _np.stack(_np.meshgrid(_np.arange(0, 1.01, .05), g), -1).reshape(-1, 2)
+    q = _np.array(p) + off[:, :1] * fw + off[:, 1:] * rg
+    cost = off[:, 0] + 1.6 * _np.abs(off[:, 1])          # a straight step back beats a sideways one
+    q = q[_np.argsort(cost, kind='stable')]
+    ok = (_clear('high').at(q) >= r) & (_clear('low').at(q) >= BODY.TURN_ROOM) & (_people_gap(a, f, q, 0.0) >= rp)
+    i = _np.nonzero(ok)[0]
+    if not len(i):
+        print(f"FILM {a.name}: no room to turn round in front of {S['name']}: turning where they stand", flush=True)
+        return tuple(p)
+    return (float(q[i[0], 0]), float(q[i[0], 1]))
 
 
 def _block(bx0, by0, bx1, by1):
@@ -365,6 +594,7 @@ def _block(bx0, by0, bx1, by1):
     g[max(0, int((bx0 - x0) / CELL)):max(0, min(nx, int((bx1 - x0) / CELL) + 1)),
       max(0, int((by0 - y0) / CELL)):max(0, min(ny, int((by1 - y0) / CELL) + 1))] = True
     _ROUTE['grid'] = (_near_map(g), x0, y0, nx, ny)
+    _ROUTE.pop('cells', None)
 
 
 def route(p0, p1):
@@ -372,6 +602,15 @@ def route(p0, p1):
     (a body's width of room wherever there is that much, never less than the body itself), pulled straight wherever
     that costs no clearance. Just [p1] when the straight line is already clear or no route exists (the log says so)."""
     import heapq
+    half = STG.get('half')
+    if half and (abs(p0[0]) > half - .35 or abs(p1[0]) > half - .35):
+        # coming in from off the set, or going off it: straight to (or from) just inside the side wall, round the
+        # furniture in the room
+        lim = half - .8
+        e0 = (math.copysign(lim, p0[0]), p0[1]) if abs(p0[0]) > half - .35 else tuple(p0[:2])
+        e1 = (math.copysign(lim, p1[0]), p1[1]) if abs(p1[0]) > half - .35 else tuple(p1[:2])
+        inner = route(e0, e1) if math.hypot(e1[0] - e0[0], e1[1] - e0[1]) > .05 else []
+        return ([e0] if e0 != tuple(p0[:2]) else []) + inner + ([tuple(p1)] if e1 != tuple(p1[:2]) else [])
     near, x0, y0, nx, ny = _blocked()
     R = int(near.max())
     cell = lambda p: (min(nx - 1, max(0, int(round((p[0] - x0) / CELL)))), min(ny - 1, max(0, int(round((p[1] - y0) / CELL)))))
@@ -431,6 +670,415 @@ def route(p0, p1):
     return pts
 
 
+def occupied(a, f):
+    """The floor other people take up at frame f, as discs (x, y, r): a standing body's footprint; a seated body's
+    pelvis, knees and feet."""
+    out = []
+    for b in PERF.actors.values():
+        if b is a or not b.P.vis and not b.init.get('on', True):
+            continue
+        b.finish()
+        S = b.seat_info(f) if getattr(b, 'body', None) and b.seat_amt(f) > .5 else None
+        if S is not None:
+            sol = b.sit_solution(S)
+            (ox, oy), fw, rg = S['origin'], S['fwd'], S['right']
+            hw = b.body['hipw'] + .035
+            for u, l_, r in ((sol['u'], 0, .36), (sol['knee'][0], -hw, .2), (sol['knee'][0], hw, .2),
+                             (sol['ankle'][0] + .1, -hw, .24), (sol['ankle'][0] + .1, hw, .24)):
+                ll = S['lat'] + l_
+                out.append((ox + fw[0] * u + rg[0] * ll, oy + fw[1] * u + rg[1] * ll, r))
+            if not S.get('movable'):
+                # ...and the place they will stand up into, where they sat down from (seat_ground): nobody waits in it
+                si = getattr(b, 'stand_into', {}).get(S.get('id'))
+                if si is None:
+                    us = BODY.stand_point(b.body, S, sol)
+                    si = (ox + fw[0] * us + rg[0] * S['lat'], oy + fw[1] * us + rg[1] * S['lat'])
+                out.append((si[0], si[1], b.body.space()))
+        else:
+            p = b.locate(f)[0] if b.walks else b.pos0
+            out.append((p[0], p[1], b.body.space() if getattr(b, 'body', None) else .42))
+    return out
+
+
+class _Clear:
+    """How far every point of the floor is from the nearest solid thing in a height band, on a 5 cm grid: built once
+    from the faces of the set (as drawn), then read in constant time. 'high' is what a standing body's legs, hips and
+    arms meet (knee to head); 'low' is what a turning shoe sweeps into (below the shins)."""
+    G = .05
+    REACH = 1.6
+
+    def __init__(s, lo_z, hi_z, min_top=0.0):
+        s.x0, s.y0 = -14.0, -16.0
+        s.nx, s.ny = int(28 / s.G) + 1, int((STG['back'] + 3 - s.y0) / s.G) + 1
+        hard = _np.zeros((s.nx, s.ny), bool)
+        if SOLID_BOX is not None:
+            B = SOLID_BOX[(SOLID_BOX[:, 2] < hi_z) & (SOLID_BOX[:, 5] > lo_z) & (SOLID_BOX[:, 5] > min_top)]
+            rng = _np.stack([(B[:, 0] - s.x0) / s.G, (B[:, 3] - s.x0) / s.G + 1, (B[:, 1] - s.y0) / s.G,
+                             (B[:, 4] - s.y0) / s.G + 1], 1).astype(int)
+            for i0, i1, j0, j1 in _np.unique(rng, axis=0):
+                hard[max(0, i0):max(0, min(s.nx, i1)), max(0, j0):max(0, min(s.ny, j1))] = True
+        s.hard = hard
+        steps = int(s.REACH / s.G)
+        dist = _np.full(hard.shape, s.REACH, _np.float32)
+        dist[hard] = 0.0
+        grow = hard.copy()
+        for k in range(1, steps + 1):
+            # one more ring, as a disc: a cell is k steps away when it touches a cell k-1 steps away
+            nxt = grow.copy()
+            nxt[1:, :] |= grow[:-1, :]
+            nxt[:-1, :] |= grow[1:, :]
+            nxt[:, 1:] |= grow[:, :-1]
+            nxt[:, :-1] |= grow[:, 1:]
+            if k % 3 == 0:          # the diagonals now and then: the rings stay round, not square
+                nxt[1:, 1:] |= grow[:-1, :-1]
+                nxt[:-1, :-1] |= grow[1:, 1:]
+                nxt[1:, :-1] |= grow[:-1, 1:]
+                nxt[:-1, 1:] |= grow[1:, :-1]
+            new = nxt & ~grow
+            dist[new] = k * s.G
+            grow = nxt
+        s.dist = dist
+
+    def at(s, q):
+        """Clearance at each point of q (n, 2), less half a cell for the grid."""
+        i = _np.clip(((q[:, 0] - s.x0) / s.G).round().astype(int), 0, s.nx - 1)
+        j = _np.clip(((q[:, 1] - s.y0) / s.G).round().astype(int), 0, s.ny - 1)
+        return s.dist[i, j] - s.G * .71
+
+    def crosses(s, p, q):
+        """True for each point of q whose straight way from p runs through something solid (a counter, a wall)."""
+        t = _np.linspace(0, 1, 32)[None, :, None]
+        pts = (_np.array(p)[None, None, :] + (q[:, None, :] - _np.array(p)[None, None, :]) * t).reshape(-1, 2)
+        i = _np.clip(((pts[:, 0] - s.x0) / s.G).round().astype(int), 0, s.nx - 1)
+        j = _np.clip(((pts[:, 1] - s.y0) / s.G).round().astype(int), 0, s.ny - 1)
+        return s.hard[i, j].reshape(len(q), -1)[:, 1:].any(1)
+
+
+_CLEAR = {}
+
+
+def _clear(kind):
+    if kind not in _CLEAR:
+        _CLEAR[kind] = _Clear(.2, 2.6) if kind == 'high' else _Clear(-1.0, .25, .045)
+    return _CLEAR[kind]
+
+
+def _people_gap(a, f, q, r):
+    """How far each point of q is from everyone else's floor space, less r."""
+    people = _np.array([(x, y, rr + .06) for x, y, rr in occupied(a, f)]).reshape(-1, 3)
+    if not len(people):
+        return _np.full(len(q), 9.0)
+    return (_np.sqrt(((q[:, None, :] - people[None, :, :2]) ** 2).sum(-1)) - people[None, :, 2]).min(1)
+
+
+def clear_spot(a, p, f=0, what='a mark'):
+    """The nearest place to p where this body stands clear of the furniture (everything between knee and head height,
+    as drawn) and of everyone else: p itself when it already is. Never through a wall or a counter, never out of the
+    room. Logged when it moves."""
+    p = (float(p[0]), float(p[1]))
+    r = a.body.footprint() if getattr(a, 'body', None) else .42
+    rp = a.body.space() if getattr(a, 'body', None) else .42      # from other people: the hands hang wider than the hips
+    C_ = _clear('high')
+
+    def fits(q):
+        return (C_.at(q) >= r) & (_people_gap(a, f, q, 0.0) >= rp)
+    if fits(_np.array([p]))[0]:
+        return p
+    g = _np.arange(-2.4, 2.41, .05)
+    off = _np.stack(_np.meshgrid(g, g), -1).reshape(-1, 2)
+    off = off[_np.argsort((off ** 2).sum(1), kind='stable')]
+    q = off + _np.array(p)
+    ok = fits(q)
+    half = STG.get('half')
+    if half:
+        ok &= (_np.abs(q[:, 0]) < half - .3) & (q[:, 1] < STG['back'] - .3)
+    idx = _np.nonzero(ok)[0][:400]
+    if len(idx):
+        idx = idx[~C_.crosses(p, q[idx])]
+    if not len(idx):
+        print(f'FILM {a.name}: no clear place to stand near {what} {tuple(round(v, 2) for v in p)}: left there', flush=True)
+        return p
+    best = (float(q[idx[0], 0]), float(q[idx[0], 1]))
+    print(f'FILM {a.name} stands clear of the furniture and the others: {what} moved {math.hypot(best[0] - p[0], best[1] - p[1]):.2f} '
+          f'to {tuple(round(v, 2) for v in best)}', flush=True)
+    return best
+
+
+# ------------------------------------------------------------------ seats: measured, not assumed
+# A seat is whatever the set built to sit on (setkit.SEATS): a chair, a sofa, a bench, a stool. Where a body rests on
+# it is measured from its own geometry as drawn: the real height of the cushion where this person sits, its front
+# edge, what stands under it, the backrest, the floor in front of it, a table above the knees. body.seated then works
+# out how this body, with its own legs, sits there.
+import body as BODY  # noqa: E402
+
+
+def _seat_frame(g):
+    """(origin x, y), forward, right and yaw of the seat group g: a sitter faces its local -y."""
+    rz = g.matrix_world.to_euler('XYZ').z
+    o = g.matrix_world.translation
+    return (o.x, o.y), (math.sin(rz), -math.cos(rz)), (math.cos(rz), math.sin(rz)), rz
+
+
+def seat_at(pos):
+    """The seat of the set whose sitting area holds pos -> (seat, u, lateral) or None."""
+    best = None
+    for sd in K.SEATS:
+        (ox, oy), fw, rg, _ = _seat_frame(sd['group'])
+        dx, dy = pos[0] - ox, pos[1] - oy
+        u, lat = dx * fw[0] + dy * fw[1], dx * rg[0] + dy * rg[1]
+        if -1.0 < u < 1.0 and abs(lat) < sd['half_width'] + .3:
+            d = abs(u) + max(0.0, abs(lat) - sd['half_width'])
+            if best is None or d < best[0]:
+                best = (d, sd, u, lat)
+    return best[1:] if best else None
+
+
+def _ray_past(o, d, dist, skip):
+    """The first solid thing along a ray that is not one of `skip` (names): a seat's own legs and frame are never in
+    the way of its own sitter. -> (hit, normal, index, distance) as BVHTree.ray_cast"""
+    if SOLID is None:
+        return (None, None, None, None)
+    o, d, gone = V(o), V(d).normalized(), 0.0
+    for _ in range(8):
+        h = SOLID.ray_cast(o, d, dist - gone)
+        if h[0] is None or SOLID_OBJ[h[2]] not in skip:
+            return h if h[0] is None else (h[0], h[1], h[2], gone + h[3])
+        gone += h[3] + .002
+        o = h[0] + d * .002
+    return (None, None, None, None)
+
+
+def measure_seat(sd, u0=0.0, lat=0.0, name='seat'):
+    """One place to sit, as body.seated needs it (see body.py for what each number is)."""
+    g = sd['group']
+    own = {c.name for c in g.children_recursive} | {g.name}
+    if 'tree' not in sd:
+        v_, p_, _o, _b, _c = _gather([c for c in g.children_recursive if c.type == 'MESH'])
+        sd['tree'] = _BVH.FromPolygons(v_, p_) if p_ else None
+    T = sd['tree']
+    (ox, oy), fw, rg, yaw = _seat_frame(g)
+    lat = max(-sd['half_width'], min(sd['half_width'], lat))
+
+    def at(u, l_):
+        return ox + fw[0] * u + rg[0] * l_, oy + fw[1] * u + rg[1] * l_
+
+    def down(u, l_):
+        x, y = at(u, l_)
+        h = T.ray_cast(V((x, y, 5.0)), V((0, 0, -1)), 6.0) if T else (None,)
+        return None if h[0] is None else h[0].z
+
+    def along(z, l_, u_from, d):
+        x, y = at(u_from, l_)
+        h = T.ray_cast(V((x, y, z)), V((fw[0] * d, fw[1] * d, 0)), 8.0) if T else (None,)
+        return None if h[0] is None else u_from + d * h[3]
+    tops = [t for t in (down(u0 + du, lat + dl) for du in (-.14, -.07, 0, .07, .14) for dl in (-.14, 0, .14)) if t is not None]
+    if not tops:
+        print(f'FILM {name}: nothing to sit on under the mark: sat at its height', flush=True)
+        return None
+    mid = sorted(tops)[len(tops) // 2]
+    top = max(t for t in tops if abs(t - mid) < .08)       # the bumps of a cushion count; an armrest does not
+    fronts = [h for h in (along(top - dz, lat + dl, u0 + 4, -1) for dz in (.015, .05, .09) for dl in (-.14, 0, .14)) if h is not None]
+    front = max(fronts) if fronts else u0 + .3
+    # what stands under the seat where heels and calves go (a sofa's base, a stool's foot), lane by lane across where
+    # feet can be, at the height of a heel and a calf: a chair's seat box is above them and its legs stand out at the
+    # sides, so a chair leaves room to draw the feet in under it
+    lanes = []
+    for dl in (-.32, -.24, -.16, -.08, 0.0, .08, .16, .24, .32):
+        hs = [h for h in (along(z, lat + dl, u0 + 4, -1) for z in (.04, .1, .18, .26, .34)) if h is not None]
+        if hs:
+            lanes.append((round(dl, 2), max(hs)))
+    base_front = max(u_ for _d, u_ in lanes) if lanes else front - .1
+    backs = [h for h in (along(top + dz, lat + dl, u0 + .02, -1) for dz in (.22, .4, .58, .76) for dl in (-.12, 0, .12)) if h is not None]
+    back = max(backs) if backs else None
+    fx, fy = at(front + .45, lat)
+    floor = surface_under(fx, fy, .35, .6)
+    kx, ky = at(front + .12, lat)
+    up = SOLID.ray_cast(V((kx, ky, top + .08)), V((0, 0, 1)), 1.4) if SOLID else (None,)
+    # the first solid thing ahead of the seat at the height of the thighs (a desk's panel, a table's edge): the knees
+    # stop short of it
+    ahead = []
+    for dz in (.06, .18, .3):
+        for dl in (-.14, 0, .14):
+            sx, sy = at(front + .01, lat + dl)
+            h = _ray_past((sx, sy, top + dz), (fw[0], fw[1], 0), 3.0, own)
+            if h[0] is not None:
+                ahead.append(front + .01 + h[3])
+    # and at the height of the feet (a table's foot, a rail between a desk's legs), across where feet can go: the toes
+    # stop short of it. [(sideways from the sitter's middle, u where it starts)]
+    feet = []
+    fz0 = floor if floor is not None else 0.0
+    for dl in _np.arange(-.4, .41, .08):
+        hit = []
+        for dz in (.03, .1, .18):
+            sx, sy = at(front + .01, lat + dl)
+            h = _ray_past((sx, sy, fz0 + dz), (fw[0], fw[1], 0), 3.0, own)
+            if h[0] is not None:
+                hit.append(front + .01 + h[3])
+        if hit:
+            feet.append((round(float(dl), 2), min(hit)))
+    S = dict(id=f'{name}@{g.name}:{lat:.2f}', name=name, kind=sd['kind'], group=g, origin=(ox, oy), fwd=fw, right=rg, yaw=yaw,
+             lat=lat, prefer=u0, top=top, soft=sd['soft'], front=front, base_front=base_front, back=back,
+             floor=fz0, under=None if up[0] is None else up[0].z, ahead=min(ahead) if ahead else None, feet_ahead=feet,
+             base_front_at=lanes,
+             movable=g.name.split('.')[0] in ('chair', 'taskchair'), cushions=sd['cushions'])
+    bk_ = '-' if back is None else '%.2f' % back
+    tb_ = '-' if S['under'] is None else '%.2f' % S['under']
+    fa_ = '-' if not feet else '%.2f' % min(u_ for _d, u_ in feet)
+    print(f"FILM seat {name}: {sd['kind']} top {top:.3f} front {front:.2f} under-front {base_front:.2f} back {bk_} table {tb_}"
+          f" feet-room {fa_}", flush=True)
+    return S
+
+
+for _n, _m in MARKS.items():
+    if _m.get('seat'):
+        _f = seat_at(_m['pos'])
+        if _f is None:
+            print(f'FILM the {_n} mark is a seat with nothing to sit on: sat at its height, with nothing measured', flush=True)
+            continue
+        _m['seat_aff'] = measure_seat(_f[0], _f[1], _f[2], _n)
+
+
+def seat_ground(S, body, actor=None, f=0):
+    """Where someone stands to sit down on S, or stands after getting up: at a chair, where the chair was (it is pulled
+    back out of the way); in front of anything that stays put, far enough out to turn round without a foot sweeping
+    into it. Sitting down from there is a small step back and down (acting: the seated block)."""
+    (ox, oy), fw, rg = S['origin'], S['fwd'], S['right']
+    if S.get('movable'):
+        u = S['prefer']
+        return (ox + fw[0] * u + rg[0] * S['lat'], oy + fw[1] * u + rg[1] * S['lat'])
+    u = BODY.stand_point(body, S, BODY.seated(body, S, prefer=S['prefer']))
+    p = (ox + fw[0] * u + rg[0] * S['lat'], oy + fw[1] * u + rg[1] * S['lat'])
+    return turn_spot(actor, p, S, f) if actor is not None else p
+
+
+SEATED = {}     # seat mark -> the actors sitting on it now (a bench or a sofa has room for two)
+
+
+def seat_for(a, name, m):
+    """The measured seat for actor a at the seat mark `name`: the mark's own place, or beside whoever already sits there
+    when the seat is long enough for two (a bench, a sofa), measured again at that place."""
+    S = (m or {}).get('seat_aff')
+    if not isinstance(S, dict):
+        return (m or {}).get('seat')
+    for k_ in list(SEATED):
+        if a in SEATED[k_] and k_ != name:
+            SEATED[k_].remove(a)
+    here = SEATED.setdefault(name, [])
+    there = [b for b in here if b is not a]
+    if a not in here:
+        here.append(a)
+    if not there:
+        return S
+    if len(there) >= m.get('room', 1):
+        print(f"FILM {a.name}: the {name} seat is taken by {there[0].name} and has no room beside them", flush=True)
+        return S
+    sd = next((x for x in K.SEATS if x['group'] is S['group']), None)
+    if sd is None:
+        return S
+    used = [getattr(b, 'seat_lat', S['lat']) for b in there]
+    # a shoulder's width apart and a little more, not a hip's: either can stand up, or sit down, beside the other
+    # without an elbow in the way (body.shoulders)
+    step = (a.body.shoulders() + max(b.body.shoulders() for b in there if getattr(b, 'body', None))) * 1.15 if getattr(a, 'body', None) else 1.0
+    for lat in sorted((u_ + sg * step for u_ in used for sg in (1, -1)), key=abs):
+        if abs(lat) <= sd['half_width'] and all(abs(lat - u_) >= step - 1e-6 for u_ in used):
+            a.seat_lat = lat
+            print(f"FILM {a.name} sits beside {there[0].name} on the {name}", flush=True)
+            return measure_seat(sd, S['prefer'], lat, f'{name}:{a.name}')
+    print(f"FILM {a.name}: no room beside {there[0].name} on the {name}", flush=True)
+    return S
+
+
+def body_of(P):
+    """A sculpted puppet's measurements for body.py; None for a model somebody brought (it does not sit)."""
+    if getattr(P, 'guest', False):
+        return None
+    b = P.base
+    hipzone = b[_np.abs(b[:, 2]) < .12]
+    return BODY.Body.from_meta(P.m, torso_back=float(hipzone[:, 1].max()) if len(hipzone) else .24)
+
+
+# ------------------------------------------------------------------ the cast
+spots = list(STG['spots'])
+
+
+def where(c):
+    """-> (x, y), facing, seat (a measured seat, a height, or None)"""
+    m = MARKS.get(c.get('mark') or '')
+    if m:
+        # a seat faces its table; on a standing mark nobody is pinned to the lens: they turn to whoever matters (acting.res_face)
+        seat = (m.get('seat_aff') or m.get('seat')) if c.get('seat', True) and m.get('seat') else None
+        return m['pos'], c.get('face', m.get('face')), seat
+    if c.get('pos'):
+        seat = None
+        if c.get('seat') is True:
+            f_ = seat_at(c['pos'])
+            seat = (measure_seat(f_[0], f_[1], f_[2], c['id']) if f_ else None) or A.SEAT_H
+        return tuple(c['pos']), c.get('face', 0.0), seat
+    return (spots.pop(0) if spots else (0, 0)), c.get('face', None), None
+
+
+def offscreen(pos):
+    """Out of sight, on the nearer side: where someone walks in from, or out to, when the set has no door (through the
+    opening in that side wall, when the room has one)."""
+    ps = STG.get('passage')
+    return ((-13.5 if pos[0] < 0 else 13.5), (ps[0] + ps[1]) / 2 if ps else pos[1] + .6)
+
+
+TAKEN = {c.get('mark') for c in JOB.get('cast') or []}
+DOORS = [list(d) for d in JOB.get('door') or []]     # [open, close] frames
+
+
+def free_seat(a, f):
+    """The nearest seat nobody is using."""
+    here = a.locate(f)[0]
+    seats = [(n, m) for n, m in MARKS.items() if m.get('seat') and (n not in TAKEN or len(SEATED.get(n, [])) < m.get('room', 1))]
+    if not seats:
+        return None
+    n, m = min(seats, key=lambda q: (q[1]['pos'][0] - here[0]) ** 2 + (q[1]['pos'][1] - here[1]) ** 2)
+    TAKEN.add(n)
+    return m
+
+
+for c in JOB.get('cast') or []:
+    pos, face, seat = where(c)
+    init = dict(f=c.get('feeling', 'neutral'), face=face)
+    start = c.get('enter_from')
+    if c.get('model'):
+        import guest
+        body = guest.Guest(c['id'], c['model'], JOB.get('aliases') or {}, c.get('model_yaw') or 0.0)
+        seat = None                     # a guest stands: sitting needs the sculpted legs
+    else:
+        body = Puppet(c.get('rig') or c['id'])
+    bd = body_of(body)
+    a = PERF.add(A.Actor(c['id'], body, pos, c.get('style'), **init))
+    a.body = bd
+    if isinstance(seat, dict) and not start:
+        seat = seat_for(a, c.get('mark'), MARKS.get(c.get('mark') or ''))
+    if seat and not start:
+        # somebody who walks in sits down when they get there (see the keys below), not before
+        a.init['seat'] = seat
+        a.keys = [(-999, dict(a.init))]
+    if bd is not None:
+        # a body's own proportions show in how it walks: longer legs take longer steps, a heavier build moves more
+        a.st['step'] = round(a.st['step'] * max(.85, min(1.18, bd['thigh'] / .72)), 4)
+        a.st['bob'] = round(a.st['bob'] * max(.85, min(1.2, (bd['hw'] / .33) ** .7)), 4)
+    home = seat_ground(seat, bd, a) if isinstance(seat, dict) and bd is not None else pos
+    if isinstance(seat, dict) and bd is not None:
+        a.stand_into = {seat.get('id'): tuple(home[:2])}
+    p0 = MARKS[start]['pos'] if start in MARKS else (offscreen(home) if start else home)
+    a.pos0 = tuple(p0) + ((0,) if len(p0) == 2 else ())
+    a.home = home
+    a.mark = MARKS.get(c.get('mark') or '')
+    a.entering = bool(start)
+    if 'on' in c:
+        a.init['on'] = bool(c['on'])
+_OWNER = {o.name: a.P for a in PERF.actors.values() for o in getattr(a.P, 'parts', [])}
+for ln in JOB.get('lines') or []:
+    PERF.say(ln['who'], ln['start'], ln['end'], ln.get('cues') or [], ln.get('to'), ln.get('manual') or (), ln.get('feeling'))
+for nm, t in STG['things'].items():
+    PERF.things[nm] = t
+
+
 # ------------------------------------------------------------------ chairs: pushed back to stand, drawn in to sit
 # how far a chair is pushed back from where it is sat in; how far behind where they sat someone who has stood up stands;
 # how far to its side people step in
@@ -468,6 +1116,45 @@ def _chair_room(ch):
     return 0.0
 
 
+def fit_chair(a, S):
+    """A chair is drawn in under somebody only as far as their legs let it: when their knees or feet would meet what
+    stands in front of the seat where it stands on the set (a table's edge, a table's foot), the seat is taken that much
+    further out, up to as far as the chair can be pushed back. -> S, or S moved out (S['sit_back'] says how far)."""
+    if not (isinstance(S, dict) and S.get('movable')) or getattr(a, 'body', None) is None:
+        return S
+
+    def cramped(S_):
+        return [n for n in BODY.seated(a.body, S_, prefer=S_['prefer'])['notes'] if n.startswith('no room for the')]
+    why = cramped(S)
+    if not why:
+        return S
+    ch = _chair_at(S['origin'])
+    room = _chair_room(ch) if ch is not None else PULL
+    fw = S['fwd']
+    for d in _np.arange(.02, room + 1e-6, .02):
+        d = float(round(d, 2))
+        S2 = dict(S, origin=(S['origin'][0] - fw[0] * d, S['origin'][1] - fw[1] * d), sit_back=d, id=f"{S['id']}+{d:.2f}",
+                  feet_ahead=[(dl, u + d) for dl, u in S.get('feet_ahead') or ()],
+                  ahead=None if S.get('ahead') is None else S['ahead'] + d)
+        if not cramped(S2):
+            print(f"FILM {a.name}: the chair at {S['name']} is drawn in {d:.2f} less, for the legs ({why[0]})", flush=True)
+            return S2
+    print(f"FILM {a.name}: the chair at {S['name']} cannot go back far enough for the legs ({why[0]})", flush=True)
+    return S
+
+
+for a in PERF.actors.values():
+    S_ = a.init.get('seat')
+    if isinstance(S_, dict) and S_.get('movable') and not getattr(a, 'entering', False):
+        S2_ = fit_chair(a, S_)
+        if S2_ is not S_:
+            a.init['seat'] = S2_
+            a.keys = [(-999, dict(a.init))]
+            a.home = seat_ground(S2_, a.body, a)
+            a.stand_into = {S2_.get('id'): tuple(a.home[:2])}
+            a.pos0 = tuple(a.home[:2]) + tuple(a.pos0[2:])
+
+
 def _seat_side(m, other):
     """Where to step in beside the chair at seat mark m (or step out to), on the side nearer `other`: people get into
     a chair from its side, not through its back or over the table."""
@@ -495,6 +1182,8 @@ def route_to(a, f, dest, m=None):
     if math.hypot(dest[0] - start[0], dest[1] - start[1]) < .3:
         return [tuple(dest)]        # already there (someone who stands up where they sat): no way round to find
     m0 = getattr(a, 'mark', None)
+    if (m or {}).get('seat_aff') is not None and not m['seat_aff'].get('movable'):
+        return pts + route(start, dest)       # a sofa or a bench: its standing place has room to turn round in
     if m0 and m0.get('seat') and math.hypot(m0['pos'][0] - start[0], m0['pos'][1] - start[1]) < .3:
         out = _seat_side(m0, dest)
         if out is not None:
@@ -531,19 +1220,36 @@ def route_length(a, f, dest, m=None):
     return sum(math.hypot(q[0] - p[0], q[1] - p[1]) for p, q in zip(pts, pts[1:]))
 
 
+def chair_off(ch, f):
+    """How far chair ch is out from where it stands on the set at frame f: pushed back while somebody stands at it (and
+    left there when they go, and waiting there before they come), drawn in under them as they sit, as far as their legs
+    let it (fit_chair: S['sit_back'])."""
+    s_, home_ = 0.0, 0.0
+    for a in ch['users']:
+        amt_ = a.seat_amt(f)
+        if amt_ <= s_:
+            continue
+        ST_ = a.seat_info(f)
+        if isinstance(ST_, dict) and ST_.get('group') is not None:
+            here_ = ST_['group'] is ch['g']         # sitting on (or getting into, or out of) this very chair
+        else:
+            p = a.locate(f)[0]
+            here_ = math.hypot(p[0] - ch['pos'][0], p[1] - ch['pos'][1]) < .7
+        if here_:
+            s_ = amt_
+            home_ = float(ST_.get('sit_back', 0.0)) if isinstance(ST_, dict) else 0.0
+    # it stays out until they have turned to it, stepped their feet where they will sit (acting: one foot and then
+    # the other, done by .54 of the way) and begun to lower, and is in before they are all the way down
+    return (home_ + (ch['pull'] - home_) * A.clamp(1 - (s_ - .55) / .35)
+            + ch['stand'] * max((a.stood_up(f) for a in ch['users']), default=0.0))
+
+
 def chairs_at(f):
-    """A chair somebody uses is where their body needs it: pushed back while they stand at it (and left there when they
-    go, and waiting there before they come), drawn in under them as they sit."""
+    """Every chair somebody uses where chair_off puts it at frame f."""
     global SOLID
     moved = False
     for ch in CHAIRS:
-        s_ = 0.0
-        for a in ch['users']:
-            p = a.locate(f)[0]
-            if math.hypot(p[0] - ch['pos'][0], p[1] - ch['pos'][1]) < .7:
-                s_ = max(s_, a.seat_amt(f))
-        # it stays out until they have turned to it and begun to lower, and is home before they are all the way down
-        off = ch['pull'] * A.clamp(1 - (s_ - .3) / .5) + ch['stand'] * max((a.stood_up(f) for a in ch['users']), default=0.0)
+        off = chair_off(ch, f)
         if abs(off - ch['off']) > 1e-4:
             ch['off'] = off
             ch['g'].location = (ch['pos'][0] + ch['back'][0] * off, ch['pos'][1] + ch['back'][1] * off, ch['z'])
@@ -572,18 +1278,40 @@ def _lowest(o):
     return V(co[int(_np.argmin(co[:, 2]))])
 
 
+_PT = {}       # part name -> (its puppet's pose count, tree, vertices): a part is measured once per pose, not per question
+
+
+def _faces_of(me, key):
+    import contacts as _ct
+    return _ct.faces_of(me, key)
+
+
 def _part_tree(o):
-    ev = o.evaluated_get(bpy.context.evaluated_depsgraph_get())
-    me = ev.to_mesh()
+    """A part of a puppet as it is posed now: a tree of its faces, and its vertices (world). Puppet parts carry no
+    modifiers (they are posed by moving their vertices), so their own mesh is what is drawn."""
+    P = _OWNER.get(o.name)
+    ver = getattr(P, 'ver', None)
+    got = _PT.get(o.name)
+    if got is not None and ver is not None and got[0] == ver:
+        return got[1], got[2]
+    ev = None
+    me = o.data
+    if o.modifiers:
+        ev = o.evaluated_get(bpy.context.evaluated_depsgraph_get())
+        me = ev.to_mesh()
     try:
-        co = _np.empty(len(me.vertices) * 3, _np.float32)
+        co = _np.empty(len(me.vertices) * 3, _np.float64)
         me.vertices.foreach_get('co', co)
-        polys = [tuple(p.vertices) for p in me.polygons]
+        polys = _faces_of(me, o.name) if len(me.polygons) else []
     finally:
-        ev.to_mesh_clear()
-    M = _np.array(o.matrix_world, dtype=_np.float32)
+        if ev is not None:
+            ev.to_mesh_clear()
+    M = _np.array(o.matrix_world, dtype=_np.float64)
     co = co.reshape(-1, 3) @ M[:3, :3].T + M[:3, 3]
-    return (_BVH.FromPolygons(list(map(tuple, co)), polys) if polys else None), co
+    t = _BVH.FromPolygons(co.tolist(), polys) if polys else None
+    if ver is not None:
+        _PT[o.name] = (ver, t, co)
+    return t, co
 
 
 def _inside(o, zmin=-9.0, zmax=99.0, only=None):
@@ -629,6 +1357,51 @@ def _gap(o, up):
     return None if surf is None else low.z - surf - CLEAR
 
 
+def _closest(p0, p1, q0, q1):
+    """The closest points of segments p0-p1 and q0-q1: (point on p, point on q, how far along p, how far along q)."""
+    d1, d2, r = p1 - p0, q1 - q0, p0 - q0
+    a, e, f_ = float(d1 @ d1), float(d2 @ d2), float(d2 @ r)
+    c, b = float(d1 @ r), float(d1 @ d2)
+    den = a * e - b * b
+    s_ = min(1.0, max(0.0, (b * f_ - c * e) / den)) if den > 1e-12 else 0.0
+    t_ = (b * s_ + f_) / e if e > 1e-12 else 0.0
+    if t_ < 0 or t_ > 1:
+        t_ = min(1.0, max(0.0, t_))
+        s_ = min(1.0, max(0.0, (b * t_ - c) / a)) if a > 1e-12 else 0.0
+    return p0 + d1 * s_, q0 + d2 * t_, s_, t_
+
+
+def _seat_contact_gap(a):
+    """How far the lowest of what a seated body rests on (the bottom of its torso, the undersides of its thighs: PROX's
+    contact regions, as contacts._seat_gap measures them) is above the seat straight under it, less CLEAR; negative when
+    it is in the seat, None when nothing is under it."""
+    def lowest(co, k=48):
+        # the k lowest points of a part: wherever it rests, it rests on one of them
+        return co[_np.argpartition(co[:, 2], k)[:k]] if len(co) > k else co
+
+    pts = []
+    to_ = _part(a, '_torso')
+    if to_ is not None:
+        co_ = _part_tree(to_)[1]
+        if co_ is not None and len(co_):
+            pts.append(lowest(co_))
+    for sd in ('L', 'R'):
+        lo_, lb_ = _part(a, '_l' + sd), getattr(a.P, 'legLt' if sd == 'L' else 'legRt', None)
+        if lo_ is None or lb_ is None:
+            continue
+        co_ = _part_tree(lo_)[1]
+        th_ = co_[:lb_.seg * lb_.n1] if co_ is not None else None
+        if th_ is not None and len(th_):
+            pts.append(lowest(th_))
+    best = None
+    for p_ in (_np.concatenate(pts) if pts else ()):
+        top_ = surface_under(float(p_[0]), float(p_[1]), float(p_[2]) + .3, .6)
+        if top_ is not None:
+            g_ = float(p_[2]) - top_ - CLEAR
+            best = g_ if best is None else min(best, g_)
+    return best
+
+
 def _seated_for(a, f):
     on, since = False, None
     for k in a.keys:
@@ -656,7 +1429,8 @@ def settle(f, depth=0):
         # half way into a chair or out of it nothing is learnt for later: what is measured then is true of that
         # drawing only, and would be carried into the sitting or the standing that follows
         mid = .02 < a.seat_amt(f) < .98
-        if cur.get('seat') and not mid:
+        if cur.get('seat') and not mid and not isinstance(cur.get('seat'), dict):
+            # (a seat measured from the set is solved, body.seated: this learning is for a seat given by height only)
             # the thighs rest on the seat too: while either is in it, the body comes up a centimetre at a time
             rx, ry = a.P.root.matrix_world.translation.xy
             top, seat_o = surface_under(rx, ry, 1.2, 1.2, which=True)     # from under a table top, down to the seat
@@ -685,6 +1459,31 @@ def settle(f, depth=0):
             elif g_ is not None and (g_ < -.002 or (g_ > .003 and not thighs_in and _seated_for(a, f) > 24)):
                 a.seat_lift = getattr(a, 'seat_lift', 0.0) - g_
                 moved = True
+        if isinstance(cur.get('seat'), dict) and a.seat_amt(f) > .98 and not cur['seat'].get('soft'):
+            # a measured hard seat: the body rests on it exactly, not above it and not in it. The seat is solved from the
+            # body's average shape (body.seated); the trousers' real thickness, a tunic's pressed hem and the clay's own
+            # lumps are measured here, where the body rests, and it comes down onto the seat (or up out of it) by what is
+            # found, for as long as it sits on that seat. (A cushion is pressed to meet the body instead: press_cushions.)
+            g_ = _seat_contact_gap(a)
+            sid_ = cur['seat'].get('id')
+            rise_ = getattr(a, 'seat_rise', {})
+            if g_ is not None and abs(g_) > .002 and abs(rise_.get(sid_, 0.0) - g_) < .25:
+                rise_[sid_] = rise_.get(sid_, 0.0) - g_
+                a.seat_rise = rise_
+                moved = True
+        if isinstance(cur.get('seat'), dict) and a.seat_amt(f) > .98:
+            # the head and the hair stay off the backrest: found in it (a ponytail against a chair's back), the body sits
+            # a little further forward, for as long as it sits there
+            sid_ = cur['seat'].get('id')
+            for p_ in ('_hair', '_h'):
+                o_ = _part(a, p_)
+                if o_ is not None and len(_inside(o_)[0]):
+                    sf_ = getattr(a, 'sit_fwd', {})
+                    if sf_.get(sid_, 0.0) < .15:
+                        sf_[sid_] = sf_.get(sid_, 0.0) + .015
+                        a.sit_fwd = sf_
+                        moved = True
+                    break
         if cur.get('hL') is not None or cur.get('hR') is not None:
             lifts = getattr(a, 'hand_lift', {})
             for side in ('L', 'R'):
@@ -717,7 +1516,11 @@ def settle(f, depth=0):
             if not len(pts):
                 pts, co = _inside(_part(a, '_a' + side), .9, 9.0)      # the forearm behind it counts too
             if len(pts) and co is not None:
-                d = co.mean(axis=0) - pts.mean(axis=0)
+                # out of it the shortest way: along the face of whatever is nearest the hand (a wall, a machine's side),
+                # not away from the middle of a big face that may be a room away
+                c_ = co.mean(axis=0)
+                near_ = SOLID.find_nearest(V((float(c_[0]), float(c_[1]), float(c_[2]))))
+                d = _np.array(near_[1]) if near_[1] is not None else c_ - pts.mean(axis=0)
                 n = float(_np.linalg.norm(d))
                 d, n = (d, n) if n > 1e-4 else (_np.array([0.0, 0.0, 1.0]), 1.0)
                 kf = a.state(f)[1][0]
@@ -741,8 +1544,237 @@ def settle(f, depth=0):
                     if math.sqrt(nx * nx + ny * ny + nz * nz) < .6:
                         nudges[key] = (nx + .04 * d[0] / n, ny + .04 * d[1] / n, nz + .04 * d[2] / n)
                         moved = True
+        # ...and a hand never goes through anything on its way from the last drawing to this one (up out of a lap past
+        # a table's edge): the contact check's own test (contacts.Probe, 'between'). While the way is not clear, this
+        # drawing's hand comes back towards the body, the side of any edge that is always clear, a little at a time;
+        # the next drawing carries on from there, as above
+        was_ = getattr(a, 'hand_was', {})
+        for side in ('L', 'R'):
+            w_ = was_.get(side)
+            if cur.get('h' + side) is not None or not w_ or not 0 < f - w_[0] <= 4:
+                continue
+            o_ = _part(a, '_h' + side)
+            co_ = _part_tree(o_)[1] if o_ is not None else None
+            if co_ is None or not len(co_) or not _through(w_[1], co_.mean(axis=0)):
+                continue
+            c_ = co_.mean(axis=0)
+            r_ = a.P.root.matrix_world.translation
+            d = _np.array([r_.x - c_[0], r_.y - c_[1], 0.0])
+            n = float(_np.linalg.norm(d))
+            d, n = (d, n) if n > 1e-4 else (_np.array([0.0, 0.0, 1.0]), 1.0)
+            nx, ny, nz = now[side]
+            if math.sqrt(nx * nx + ny * ny + nz * nz) < .6:
+                now[side] = (nx + .04 * d[0] / n, ny + .04 * d[1] / n, nz + .04 * d[2] / n)
+                moved = True
         a.hand_nudge = nudges
         a.hand_now = now
+        # seated, a hand resting on a thigh rests on it: found inside it, it comes up a little; and two hands that rest
+        # side by side do not grow into each other: each moves away from the other, for that pose only
+        if a.seat_amt(f) > .98 and getattr(a, 'body', None) is not None:
+            ll = getattr(a, 'lap_lift', {})
+            for side in ('L', 'R'):
+                hnd = _part(a, '_h' + side)
+                if hnd is None or cur.get('h' + side) is not None:
+                    continue
+                th_, _ = _part_tree(hnd)
+                for leg in ('_lL', '_lR'):
+                    tl_, _ = _part_tree(_part(a, leg))
+                    if th_ is not None and tl_ is not None and th_.overlap(tl_) and ll.get(side, 0.0) < .12:
+                        ll[side] = ll.get(side, 0.0) + .008
+                        moved = True
+                        break
+            a.lap_lift = ll
+        tL_, cL_ = _part_tree(_part(a, '_hL')) if _part(a, '_hL') is not None else (None, None)
+        tR_, cR_ = _part_tree(_part(a, '_hR')) if _part(a, '_hR') is not None else (None, None)
+        # (hands that meet by design, palms together or clasped, meet: they end touching, never one inside the other)
+        if tL_ is not None and tR_ is not None and tL_.overlap(tR_):
+            kf_ = a.state(f)[1][0]
+            d_ = cR_.mean(axis=0) - cL_.mean(axis=0)
+            d_ = d_ / (float(_np.linalg.norm(d_)) or 1.0)
+            for side, sg_ in (('L', -1), ('R', 1)):
+                if f - kf_ < 30:
+                    # on their way from one gesture to the next it is the last gesture's hands that are still together:
+                    # apart for this drawing (and a little less into the next), not for the whole of the new gesture
+                    nx, ny, nz = now[side]
+                    if math.sqrt(nx * nx + ny * ny + nz * nz) < .45:
+                        now[side] = (nx + .015 * sg_ * d_[0], ny + .015 * sg_ * d_[1], nz)
+                        moved = True
+                    continue
+                nx, ny, nz = nudges.get((side, kf_), (0.0, 0.0, 0.0))
+                if math.sqrt(nx * nx + ny * ny + nz * nz) < .3:
+                    nudges[(side, kf_)] = (nx + .015 * sg_ * d_[0], ny + .015 * sg_ * d_[1], nz)
+                    moved = True
+        # ...and a hand never sinks into the other arm (hands resting close together in a lap, a hand laid on a forearm):
+        # it goes out of that sleeve the shortest way, from the nearest point of its surface
+        for side, other in (('L', 'R'), ('R', 'L')):
+            th_, hco_ = (tL_, cL_) if side == 'L' else (tR_, cR_)
+            ao_ = _part(a, '_a' + other)
+            if th_ is None or ao_ is None or cur.get('h' + side) is not None:
+                continue
+            ta_ = _part_tree(ao_)[0]
+            if ta_ is None or not th_.overlap(ta_):
+                continue
+            c_ = hco_.mean(axis=0)
+            near_ = ta_.find_nearest(V((float(c_[0]), float(c_[1]), float(c_[2]))))
+            if near_[0] is None:
+                continue
+            d_ = c_ - _np.array(near_[0])
+            if float(_np.dot(d_, _np.array(near_[1]))) <= 0 or float(_np.linalg.norm(d_)) < 1e-4:
+                d_ = _np.array(near_[1])          # the middle of the hand is inside the sleeve: out along its face
+            d_ = d_ / (float(_np.linalg.norm(d_)) or 1.0)
+            kf_ = a.state(f)[1][0]
+            if f - kf_ < 30:
+                nx, ny, nz = now[side]
+                if math.sqrt(nx * nx + ny * ny + nz * nz) < .45:
+                    now[side] = (nx + .012 * d_[0], ny + .012 * d_[1], nz + .012 * d_[2])
+                    moved = True
+                continue
+            nx, ny, nz = nudges.get((side, kf_), (0.0, 0.0, 0.0))
+            if math.sqrt(nx * nx + ny * ny + nz * nz) < .3:
+                nudges[(side, kf_)] = (nx + .012 * d_[0], ny + .012 * d_[1], nz + .012 * d_[2])
+                moved = True
+        # ...and two forearms that cross (arms folded, a hand on the other arm) lie one on the other, never through it: the
+        # arm in front, where the two come closest, moves off the other along the line between them, a little at a time
+        aoL_, aoR_ = _part(a, '_aL'), _part(a, '_aR')
+        pl_ = getattr(a.P, 'palm', None)
+        if aoL_ is not None and aoR_ is not None and pl_ and hasattr(a.P, 'armlog') and cur.get('hL') is None and cur.get('hR') is None:
+            tLa_, tRa_ = _part_tree(aoL_)[0], _part_tree(aoR_)[0]
+            if tLa_ is not None and tRa_ is not None and tLa_.overlap(tRa_) and all(sd in a.P.armlog for sd in 'LR'):
+                seg_ = {sd: (_np.array(a.P.armlog[sd][0]), _np.array(pl_[sd].matrix_world.translation)) for sd in 'LR'}
+                c1_, c2_, s1_, s2_ = _closest(*seg_['L'], *seg_['R'])
+                yw_ = a.last_yaw or 0.0
+                fwd_ = _np.array((math.sin(yw_), -math.cos(yw_), 0.0))
+                front_ = 'L' if float((c1_ - c2_) @ fwd_) >= 0 else 'R'
+                d_ = (c1_ - c2_) if front_ == 'L' else (c2_ - c1_)
+                if float(_np.linalg.norm(d_)) < 1e-4:
+                    d_ = fwd_ + _np.array((0.0, 0.0, .5))
+                d_ = d_ / float(_np.linalg.norm(d_))
+                along_ = max(.35, s1_ if front_ == 'L' else s2_)       # moving the hand moves the crossing this much less
+                kf_ = a.state(f)[1][0]
+                step_ = .012 / along_
+                if f - kf_ < 30:
+                    nx, ny, nz = now[front_]
+                    if math.sqrt(nx * nx + ny * ny + nz * nz) < .45:
+                        now[front_] = (nx + step_ * d_[0], ny + step_ * d_[1], nz + step_ * d_[2])
+                        moved = True
+                else:
+                    nx, ny, nz = nudges.get((front_, kf_), (0.0, 0.0, 0.0))
+                    if math.sqrt(nx * nx + ny * ny + nz * nz) < .3:
+                        nudges[(front_, kf_)] = (nx + step_ * d_[0], ny + step_ * d_[1], nz + step_ * d_[2])
+                        moved = True
+        a.hand_nudge = nudges
+        # a hand is never inside its own body: found in the chest, the belly or a hip (fingers that point at the body
+        # while the wrist is clear, an arm swinging past the hip), it goes out from the middle of the body, for this
+        # drawing, and a little less into the next
+        tt_, _tco = _part_tree(_part(a, '_torso')) if _part(a, '_torso') is not None else (None, None)
+        if tt_ is not None:
+            rt_ = a.P.root.matrix_world.translation
+            for side in ('L', 'R'):
+                if cur.get('h' + side) is not None or _part(a, '_h' + side) is None:
+                    continue
+                th_, hco_ = _part_tree(_part(a, '_h' + side))
+                if th_ is not None and th_.overlap(tt_):
+                    c_ = hco_.mean(axis=0)
+                    d_ = _np.array((c_[0] - rt_.x, c_[1] - rt_.y))
+                    d_ = d_ / (float(_np.linalg.norm(d_)) or 1.0)
+                    nx, ny, nz = now[side]
+                    if math.sqrt(nx * nx + ny * ny + nz * nz) < .45:
+                        now[side] = (nx + .025 * d_[0], ny + .025 * d_[1], nz)
+                        moved = True
+                # ...nor in its own legs: sitting down, a hand on its way to the lap comes down onto a thigh, not into
+                # it; standing, a hand passing a thigh goes out round it
+                for leg_ in ('_lL', '_lR'):
+                    lo_ = _part(a, leg_)
+                    tl_ = _part_tree(lo_)[0] if lo_ is not None else None
+                    if th_ is None or tl_ is None or not th_.overlap(tl_):
+                        continue
+                    nx, ny, nz = now[side]
+                    if math.sqrt(nx * nx + ny * ny + nz * nz) < .45:
+                        if a.seat_amt(f) > .5:
+                            now[side] = (nx, ny, nz + .015)
+                        else:
+                            c_ = hco_.mean(axis=0)
+                            d_ = _np.array((c_[0] - rt_.x, c_[1] - rt_.y))
+                            d_ = d_ / (float(_np.linalg.norm(d_)) or 1.0)
+                            now[side] = (nx + .02 * d_[0], ny + .02 * d_[1], nz)
+                        moved = True
+                    break
+        # ...and no forearm or elbow in its own body past the shoulder (a forearm across a stomach, resting hands on the
+        # thighs of a broad body): the hand goes out from the middle of the body, for that pose (for the drawing only
+        # on the way from one gesture to the next)
+        if tt_ is not None:
+            kfa_ = a.state(f)[1][0]
+            for side in ('L', 'R'):
+                ao_ = _part(a, '_a' + side)
+                if ao_ is None or cur.get('h' + side) is not None:
+                    continue
+                ta_ = _part_tree(ao_)[0]
+                lb_ = CT._limb(a, 'a' + side)
+                pr_ = ta_.overlap(tt_) if ta_ is not None else []
+                if not pr_ or lb_ is None or not CT._past_join(pr_, *lb_):
+                    continue
+                hco_ = _part_tree(_part(a, '_h' + side))[1] if _part(a, '_h' + side) is not None else None
+                if hco_ is None:
+                    continue
+                c_ = hco_.mean(axis=0)
+                d_ = _np.array((c_[0] - rt_.x, c_[1] - rt_.y))
+                d_ = d_ / (float(_np.linalg.norm(d_)) or 1.0)
+                if f - kfa_ < 30:
+                    nx, ny, nz = now[side]
+                    if math.sqrt(nx * nx + ny * ny + nz * nz) < .45:
+                        now[side] = (nx + .02 * d_[0], ny + .02 * d_[1], nz)
+                        moved = True
+                else:
+                    nx, ny, nz = nudges.get((side, kfa_), (0.0, 0.0, 0.0))
+                    if math.sqrt(nx * nx + ny * ny + nz * nz) < .3:
+                        nudges[(side, kfa_)] = (nx + .02 * d_[0], ny + .02 * d_[1], nz)
+                        moved = True
+        # a thing carried in a hand never goes into the body that carries it (a mug lowered past a thigh): that hand
+        # comes up, for this drawing, and a little less into the next
+        own_ = [t_ for t_ in (_part_tree(_part(a, s_))[0] for s_ in ('_lL', '_lR', '_torso') if _part(a, s_) is not None)
+                if t_ is not None]
+        for o_, f0_, f1_, who_ in HELD:
+            if who_ != a.name or not f0_ <= f < f1_ or not own_:
+                continue
+            for b_ in [o_] + list(o_.children_recursive):
+                tb_ = _part_tree(b_)[0] if b_.type == 'MESH' else None
+                if tb_ is not None and any(tb_.overlap(t_) for t_ in own_):
+                    nx, ny, nz = now['R']
+                    if nz < .3:
+                        now['R'] = (nx, ny, nz + .015)
+                        moved = True
+                    break
+        # a hand laid on the face rests on it, never in it: found inside the head, its hair or its glasses, that hand
+        # goes further out, for as long as it is on that part of this face (puppet.on_face)
+        for side in ('L', 'R'):
+            fk_ = getattr(a.P, 'face_now', {}).get(side)
+            if fk_ is None:
+                continue
+            d_ = a.P.hand_in_head(side)
+            if d_ > 0 and a.P.face_more.get(fk_, 0.0) < .25:
+                a.P.face_more[fk_] = a.P.face_more.get(fk_, 0.0) + d_ + .006
+                moved = True
+        # ...and a hand that is not laid on the face never goes into this head or its hair either (a gesture near the
+        # face while the head bows in a laugh, a hand that passes a ponytail): found crossing either one, the contact
+        # check's own test for a hand and its own head (contacts.SELF), the hand goes out the shortest way, away from
+        # the middle of the head, for this drawing (carried on, a little less, into the next, as above)
+        hw_ = getattr(a.P, 'head_world', None)
+        heads_ = [] if hw_ is None else [t_ for t_ in (_part_tree(o_)[0] for o_ in (_part(a, '_h'), _part(a, '_hair'))
+                                                       if o_ is not None) if t_ is not None]     # (the head is <name>_h)
+        for side in ('L', 'R'):
+            if not heads_ or getattr(a.P, 'face_now', {}).get(side) is not None or cur.get('h' + side) is not None:
+                continue
+            o_ = _part(a, '_h' + side)
+            th_, co_ = _part_tree(o_) if o_ is not None else (None, None)
+            if th_ is None or co_ is None or not len(co_) or not any(th_.overlap(t_) for t_ in heads_):
+                continue
+            v_ = co_.mean(axis=0) - _np.array(tuple(hw_))
+            n = float(_np.linalg.norm(v_))
+            v_, n = (v_, n) if n > 1e-4 else (_np.array([0.0, -1.0, 0.0]), 1.0)
+            nx, ny, nz = now[side]
+            if math.sqrt(nx * nx + ny * ny + nz * nz) < .6:
+                now[side] = (nx + .02 * v_[0] / n, ny + .02 * v_[1] / n, nz + .02 * v_[2] / n)
+                moved = True
         # feet are pushed sideways out of whatever they stand in (a chair's base, a table's foot), remembered for the
         # spot the person stands or sits at, and never mid-stride
         if not a.walking(f) and not mid:
@@ -791,6 +1823,14 @@ def settle(f, depth=0):
                 if pen > 0 and wl[side] < .15:
                     wl[side] += pen + .002
                     moved = True
+            # ...and lowered onto what is under it when nothing holds the body up. A foot rests on the highest of the
+            # boards under it, and a board can stand up to 6 mm prouder than the next: with the heel up, the ball turns
+            # where the flat sole rested, over the lower board, and for a drawing neither foot touches anything. The foot
+            # nearest the floor comes down by exactly that, this drawing only, measured as the contact check measures it.
+            hv = PROBE.hovering(f, a.name) if not moved and globals().get('PROBE') is not None else None
+            if hv and hv[0] < .03 and wl[hv[1][1]] > -.03:
+                wl[hv[1][1]] -= hv[0] - .002
+                moved = True
             a.walk_lift = wl
         if moved:
             again.append(a)
@@ -802,7 +1842,177 @@ def settle(f, depth=0):
             settle(f, depth + 1)     # measure again: one correction can need a few small steps (a shot's first drawing most)
 
 
-PERF.settle = settle
+def press_cushions(f):
+    """A cushion gives under whoever sits on it: its top is pressed down to just under their body, and eases back
+    around them, so a seated body rests in the cushion, never through it. The pressed shape is what is drawn and what
+    the contact checks measure."""
+    for sd in K.SEATS:
+        if not sd['cushions']:
+            continue
+        on = [a for a in PERF.actors.values() if a.P.vis and not getattr(a, 'cull', False) and getattr(a, 'body', None)
+              and a.seat_amt(f) > .01 and (a.seat_info(f) or {}).get('group') is sd['group']]
+        for o in sd['cushions']:
+            _press(o, on, sd['soft'])
+
+
+def _press(o, sitters, soft):
+    rest = _PRESS_REST.get(o.name)
+    if rest is None:
+        rest = _PRESS_REST[o.name] = _np.array(o['rest'], _np.float64).reshape(-1, 3)
+    if not sitters:
+        if o.get('pressed'):
+            o.data.vertices.foreach_set('co', rest.astype(_np.float32).ravel())
+            o.data.update()
+            o['pressed'] = 0
+        return
+    hz = o['half'][2]
+    M = _np.array(o.matrix_world)
+    world = rest @ M[:3, :3].T + M[:3, 3]
+    upper = _np.nonzero(rest[:, 2] > -hz * .3)[0]
+    trees = []
+    for a in sitters:
+        for sfx in ('_torso', '_lL', '_lR'):
+            t, co = _part_tree(_part(a, sfx))
+            if t is not None:
+                trees.append((t, co.min(axis=0), co.max(axis=0)))
+    dent = _np.zeros(len(rest))
+    for t, lo, hi in trees:
+        under = upper[(world[upper, 0] >= lo[0] - .05) & (world[upper, 0] <= hi[0] + .05) & (world[upper, 1] >= lo[1] - .05)
+                      & (world[upper, 1] <= hi[1] + .05) & (world[upper, 2] + .2 >= lo[2])]
+        for i in under:
+            x, y, z = world[i]
+            h = t.ray_cast(V((x, y, z - .9)), V((0, 0, 1)), 1.4)
+            if h[0] is not None and h[0].z < z + CLEAR + .006:
+                dent[i] = max(dent[i], z + CLEAR + .006 - h[0].z)
+    hit = _np.nonzero(dent > 0)[0]
+    if len(hit):
+        # between two vertices the body can dip lower than at either, and its sides curve down past its footprint:
+        # every vertex takes the deepest press found within a diagonal of the vertex spacing, before easing back up
+        near_ = ((world[upper, None, :2] - world[None, hit, :2]) ** 2).sum(-1) < .088 ** 2
+        dent[upper] = _np.maximum(dent[upper], _np.where(near_, dent[hit][None, :], 0).max(1))
+        hit = _np.nonzero(dent > 0)[0]
+    if not len(hit):
+        if o.get('pressed'):
+            o.data.vertices.foreach_set('co', rest.astype(_np.float32).ravel())
+            o.data.update()
+            o['pressed'] = 0
+        return
+    # the cushion eases back up around the body (a soft falloff), never deeper than it can give
+    d2 = ((world[upper, None, :2] - world[None, hit, :2]) ** 2).sum(-1)
+    spread = (dent[hit][None, :] * _np.exp(-d2 / (.11 ** 2))).max(1)
+    full = _np.zeros(len(rest))
+    full[upper] = _np.maximum(spread, dent[upper])
+    full = _np.minimum(full, soft * 2.2 + .02)
+    w = _np.clip((rest[:, 2] + hz * .3) / (hz * 1.0), 0, 1)
+    w = w * w * (3 - 2 * w)
+    co = rest.copy()
+    co[:, 2] -= full * w
+    o.data.vertices.foreach_set('co', co.astype(_np.float32).ravel())
+    o.data.update()
+    o['pressed'] = f + 1
+
+
+_PRESS_REST = {}
+
+
+HAIR_CLEAR = .006    # how far off a surface pressed hair lies
+HAIR_GIVE = .06      # how deep into the hair, from what it meets, the pressing is shared out
+
+
+def press_hair(f):
+    """Hair is soft: where a ponytail, a bun or long hair meets something solid on the set (the wall behind somebody
+    standing close to it), the ends that would be inside it are laid against its surface and the hair just behind them
+    gives a little too, so it bends instead of passing through. Along the face of what it meets, near where it meets
+    it, as a cushion gives under a body (press_cushions). What is pressed is what is drawn and what the checks measure;
+    every drawing starts again from the hair as posed."""
+    if SOLID is None:
+        return
+    for a in PERF.actors.values():
+        P = a.P
+        o = getattr(P, 'hair', None)
+        if o is None or getattr(P, 'guest', False) or getattr(a, 'cull', False) or not P.vis or o.hide_render:
+            continue
+        for _ in range(4):
+            t, co = _part_tree(o)
+            pairs = t.overlap(SOLID) if t is not None and co is not None else []
+            if not pairs:
+                break
+            polys = _faces_of(o.data, o.name)
+            vi = _np.unique(_np.concatenate([_np.asarray(polys[i]) for i, _j in pairs]))
+            best = None
+            for i in vi:
+                p = V(tuple(co[i]))
+                loc, nrm, _j, _d = SOLID.find_nearest(p)
+                if loc is None:
+                    continue
+                d_ = (p - loc).dot(nrm)
+                if d_ < 0 and (best is None or d_ < best[0]):
+                    best = (d_, _np.array(loc), _np.array(nrm), _np.array(p))
+            if best is None:
+                break
+            deep, at, n, p0 = best
+            n = n / (float(_np.linalg.norm(n)) or 1.0)
+            s = (co - at) @ n                       # how far each point of the hair is in front of that face
+            side = co - p0
+            side -= _np.outer(side @ n, n)
+            w = _np.clip((.4 - _np.linalg.norm(side, axis=1)) / .2, 0.0, 1.0)
+            w = w * w * (3 - 2 * w)                 # all of it near where it meets, none of it a hand's width away
+            give = _np.where(s < HAIR_GIVE, HAIR_CLEAR + (s - deep) * (HAIR_GIVE - HAIR_CLEAR) / (HAIR_GIVE - deep), s)
+            new = co + _np.outer((give - s) * w, n)
+            Mi = _np.array(o.matrix_world.inverted())
+            o.data.vertices.foreach_set('co', (new @ Mi[:3, :3].T + Mi[:3, 3]).astype(_np.float32).ravel())
+            o.data.update()
+            _PT.pop(o.name, None)
+            # the puppet rewrites its head and hair only when they change: make the next pose start from the hair as
+            # made, so a pressed drawing never leaks into the next one, or from the check into the film
+            P.last_fc, P.last_hr = None, None
+            bpy.context.view_layer.update()
+
+
+def _through(p0, p1):
+    """Whether the straight way from p0 to p1 enters something solid on the set and leaves it again, more than 3 cm of
+    it: the contact check's test for a hand between two drawings (contacts.Probe, 'between')."""
+    if SOLID is None:
+        return False
+    d = V(tuple(p1)) - V(tuple(p0))
+    L = d.length
+    if L < .02:
+        return False
+    d = d / L
+    h1 = SOLID.ray_cast(V(tuple(p0)), d, L)
+    h2 = SOLID.ray_cast(V(tuple(p1)), -d, L)
+    return h1[0] is not None and h2[0] is not None and (h1[0] - h2[0]).length > .03
+
+
+def _remember_hands(f):
+    """Where each hand is, as drawn at f: the next drawing's hands must get there from here without passing through
+    anything (settle)."""
+    for a in PERF.actors.values():
+        if getattr(a.P, 'guest', False) or getattr(a, 'cull', False) or not a.P.vis:
+            continue
+        was = {}
+        for side in ('L', 'R'):
+            o_ = _part(a, '_h' + side)
+            co_ = _part_tree(o_)[1] if o_ is not None else None
+            if co_ is not None and len(co_):
+                was[side] = (f, co_.mean(axis=0).copy())
+        a.hand_was = was
+
+
+def settle_frame(f):
+    # what is carried is put where it will be drawn first, so that settling sees it (a mug against a thigh lifts the
+    # hand that holds it), and again after, where the hands ended up
+    held_at(f)
+    fit_grips(f)
+    settle(f)
+    press_cushions(f)
+    held_at(f)
+    fit_grips(f)
+    press_hair(f)
+    _remember_hands(f)
+
+
+PERF.settle = settle_frame
 
 # ------------------------------------------------------------------ dressing that moves (direction.dressing)
 ANIMATORS = []
@@ -880,6 +2090,56 @@ def desk_hands(a):
     return [(x + fwd[0] * .64 + sg * rgt[0] * .27, y + fwd[1] * .64 + sg * rgt[1] * .27, z) for sg in (-1, 1)]
 
 
+# where everyone stands: clear of the furniture and of each other. A mark a little too close to a sofa's arm, or two
+# people given the same spot, is moved the least distance that clears it, and the log says so.
+for a in sorted(PERF.actors.values(), key=lambda a: 0 if a.init.get('seat') else 1):
+    if a.init.get('seat'):
+        continue
+    spot = clear_spot(a, a.home, 0, 'their mark')
+    if spot != tuple(a.home[:2]):
+        if not getattr(a, 'entering', False):
+            a.pos0 = (spot[0], spot[1]) + tuple(a.pos0[2:])
+        a.home = spot
+
+
+DOOR_OF = {}    # id of a DOORS entry -> the actor whose walk out through the door opens it
+
+
+def supersede(a, f, what, moves=True):
+    """Somebody is given a new order at frame f before the last one is done (told to stand up on the way to a seat, sent
+    home before reaching it): what the last order planned from f on is dropped (acting.Actor.supersede), and with it the
+    seat it was taking and the door it was to open. Said in the log, because it usually means the lines leave too
+    little time for the walk."""
+    gone_w, gone_k = a.supersede(f, moves)
+    if not gone_w and not gone_k:
+        return
+    sat = any(k_[1].get('seat') for k_ in gone_k)
+    if sat:
+        for k_ in list(SEATED):
+            if a in SEATED[k_]:
+                SEATED[k_].remove(a)        # the seat they were going to is free again
+    for d_ in [d_ for d_ in DOORS if DOOR_OF.get(id(d_)) == a.name and d_[0] >= f]:
+        DOORS.remove(d_)
+    print(f"FILM {a.name}: told to {what} at frame {f}, before the last direction was done: "
+          f"{len(gone_w)} planned move(s){' and the sit' if sat else ''} dropped", flush=True)
+
+
+def stand_first(a, f):
+    """Someone seated who is told to walk stands up first: -> the frame the walk can start."""
+    a.finish()
+    if a.state(f)[1][1].get('seat'):
+        a.key(f, dict(seat=False))
+        a.finish()
+    for k_ in list(SEATED):
+        if a in SEATED[k_]:
+            SEATED[k_].remove(a)        # up: the seat is free for somebody else
+    n = 0
+    while a.seat_amt(f) > .02 and n < 400:
+        f += 1
+        n += 1
+    return f
+
+
 PERF.direct()
 for k in JOB.get('keys') or []:
     a = PERF.actors.get(k.get('who'))
@@ -890,15 +2150,43 @@ for k in JOB.get('keys') or []:
     to_mark = None
     if 'walk' in k:
         to = k.pop('walk')
+        # a new order replaces whatever the last one still had planned (a route not yet walked, the sit at its end)
+        supersede(a, f, f'walk to {to}' if isinstance(to, str) else 'walk somewhere else')
         leave = k.pop('leave', False)
+        sit = k.pop('sit', True)
+        guest_ = getattr(a.P, 'guest', False)
         m = free_seat(a, f) if to == 'seat' else (MARKS.get(to) if isinstance(to, str) else None)
         if to == 'seat' and m is None:
             continue
-        dest = m['pos'] if m else (a.home if to == 'home' else offscreen(a.home) if isinstance(to, str) else tuple(to))
+        mname = next((n_ for n_, v_ in MARKS.items() if v_ is m), None)
+        if to == 'home' and sit and getattr(a, 'entering', False) and a.mark is not None and a.mark.get('seat'):
+            m = a.mark          # walking in to where they sit: they sit down when they get there
+            mname = next((n_ for n_, v_ in MARKS.items() if v_ is m), None)
+        a.entering = False
+        if not guest_:
+            f = stand_first(a, f)
+        S = (seat_for(a, mname, m) if m and m.get('seat') and sit and not guest_ else m.get('seat_aff')) if m else None
+        if not isinstance(S, dict):
+            S = None
+        elif sit and not guest_:
+            S = fit_chair(a, S)
+        if S is not None and getattr(a, 'body', None) is not None:
+            dest = seat_ground(S, a.body, a, f)    # in front of the seat with room to turn, or where a chair was
+            a.stand_into = {**getattr(a, 'stand_into', {}), S.get('id'): tuple(dest[:2])}
+        elif m:
+            dest = clear_spot(a, m['pos'], f, to)
+        elif to == 'home':
+            dest = a.home
+        else:
+            dest = offscreen(a.home) if isinstance(to, str) else clear_spot(a, tuple(to), f, 'where they were sent')
         speed = k.pop('speed', None)
         if k.pop('enter', False):
-            # f is when they should have arrived: leave early enough, and stay unseen until then
+            # f is when they should have arrived: leave early enough, and stay unseen until then. Somebody who comes
+            # in is already walking: the feet start out pointing the way they go
             here = a.locate(f)[0]
+            wp0 = route_to(a, f, dest, m)[0]
+            if math.hypot(wp0[0] - here[0], wp0[1] - here[1]) > .05:
+                a.psi0 = math.atan2(wp0[0] - here[0], -(wp0[1] - here[1]))
             f = f - int(route_length(a, f, dest, m) / (speed or a.st['speed'])) - 8
             a.key(-900, dict(on=False))
             a.key(f, dict(on=True))
@@ -907,28 +2195,65 @@ for k in JOB.get('keys') or []:
         end = walk_route(a, f, dest, speed=speed, m=m)
         if to == 'door':
             DOORS.append([end - 34, end + 12])
+            DOOR_OF[id(DOORS[-1])] = a.name
         to_mark = m if m else dict(pos=dest)
         if leave:
-            a.key(end + 6, dict(on=False))
-        if m and m.get('seat') and k.pop('sit', True) and not getattr(a.P, 'guest', False):
-            a.key(end - 8, dict(seat=m['seat'], face=m.get('face', 0)))
+            a.plan(end + 6, dict(on=False))
+        if m and m.get('seat') and sit and not guest_:
+            # turn round first, stepping, then sit: the hips go back and down over feet that are already in place
+            yaw_s = S['yaw'] if S else (m.get('face') or 0.0)
+            face_ = m.get('face', yaw_s)
+            done = a.turn(end + 2, yaw_s)
+            a.plan(end - 10, dict(face=face_))
+            # once the feet are still: after the turn, or after the closing step when there was nothing to turn
+            a.plan(max(end + 9, done), dict(seat=S or m['seat'], face=face_))
         elif m:
-            a.key(end - 10, dict(face=m.get('face')))     # arrived on a standing mark: free to turn to whoever matters
+            fc_ = m.get('face')
+            if not leave and not guest_:
+                a.turn(end + 2, fc_ if isinstance(fc_, (int, float)) else 0.0)
+            a.plan(end - 10, dict(face=fc_))    # arrived on a standing mark: free to turn to whoever matters
+        elif not leave and not guest_ and to == 'home':
+            fc_ = (a.mark or {}).get('face')
+            a.turn(end + 2, fc_ if isinstance(fc_, (int, float)) else 0.0)
     if to_mark is not None:
         a.mark = to_mark
+    if k.get('seat') is False:
+        # told to get up: a sit still to come from an earlier order (on the way to a seat) is not going to happen
+        supersede(a, f, 'stand up', moves=False)
     if k.get('g') in ('typing', 'desk'):
         h = desk_hands(a)
         if h:
             k.update(hL=h[0], hR=h[1])
             a.at_desk = True
-    elif 'g' in k and getattr(a, 'at_desk', False):
+    elif ('g' in k or k.get('seat') is False) and getattr(a, 'at_desk', False):
+        # a new gesture, or getting up: the hands leave the keys (nobody types standing, bent over a desk)
         k.update(hL=None, hR=None)
+        k.setdefault('g', 'rest')
         a.at_desk = False
     if isinstance(k.get('seat'), str):
         k['seat'] = (MARKS.get(k['seat']) or {}).get('seat') or A.SEAT_H
     if isinstance(k.get('look'), list):
         k['look'] = tuple(k['look'])
     a.key(f, k)
+# a laptop that is closed, moved or taken away while somebody types on it: their hands come off it first, and go back
+# to the keys once it is open again (direction.props); a lid never comes down through fingers
+for name_, (o_, lid_, loc_, _r, _l, moves_) in TRACKS.items():
+    if not name_.startswith('laptop'):
+        continue
+    w_ = o_.matrix_world.translation
+    for mv in moves_:
+        if mv['do'] not in ('close', 'slide', 'turn', 'hide'):
+            continue
+        for a in PERF.actors.values():
+            a.finish()
+            st_ = a.state(mv['frame'])[1][1]
+            hs_ = [st_.get('hL'), st_.get('hR')]
+            if st_.get('g') in ('typing', 'desk') and any(h is not None and math.hypot(h[0] - w_.x, h[1] - w_.y) < 1.0 for h in hs_):
+                a.key(mv['frame'] - 12, dict(g='rest', hL=None, hR=None))
+                print(f"FILM {a.name} takes the hands off the {name_} before it {mv['do']}s", flush=True)
+                again_ = next((m for m in moves_ if m['do'] == 'open' and m['frame'] > mv['frame']), None)
+                if again_ is not None and mv['do'] == 'close':
+                    a.key(again_['frame'] + again_.get('frames', 14) + 4, {k: v for k, v in st_.items() if k in ('g', 'hL', 'hR')})
 PERF.finish()
 
 # whoever sits at some point uses the chair at that place: those chairs move with them, and are measured as they stand
@@ -979,7 +2304,7 @@ for c in JOB.get('carry') or []:
         o.scale = (1.15 * hs,) * 3
     else:
         continue
-    HELD.append((o, int(c.get('start', -10 ** 6)), int(c.get('end', 10 ** 6))))
+    HELD.append((o, int(c.get('start', -10 ** 6)), int(c.get('end', 10 ** 6)), a.name))
 
 
 def show_tree(o, on):
@@ -989,8 +2314,54 @@ def show_tree(o, on):
 
 
 def held_at(f):
-    for o, f0, f1 in HELD:
-        show_tree(o, f0 <= f < f1)
+    """Show each carried thing while it is held: from when the fingers have closed round it (acting.pose_actor sets
+    grip_done) until they start to open, never through a hand still closing or opening."""
+    for o, f0, f1, who_ in HELD:
+        a_ = PERF.actors.get(who_)
+        closed_ = a_ is None or getattr(a_, 'grip_f', None) != f or getattr(a_, 'grip_done', True)
+        show_tree(o, f0 <= f < f1 and closed_)
+        if o.name in GRIP:
+            o.location = GRIP[o.name][0] + GRIP[o.name][1]
+
+
+GRIP = {}     # held thing -> (where it was put in the palm, how far it has been moved out of the fingers)
+
+
+def fit_grips(f):
+    """A thing carried in a hand sits against the fingers and the palm, never in them: where the hand is found inside it,
+    it moves out of the hand a few millimetres at a time, and stays there for as long as it is held (every hand and
+    every thing has its own size). -> True when something moved."""
+    moved = False
+    for o, f0, f1, who in HELD:
+        if not f0 <= f < f1 or o.hide_render:
+            continue        # (a thing not shown is not where the hand is: Blender leaves hidden things where they were)
+        a = PERF.actors.get(who)
+        if a is None or not a.P.vis or getattr(a, 'cull', False):
+            continue
+        base, off = GRIP.setdefault(o.name, (o.location.copy(), V((0, 0, 0))))
+        hand = _part(a, '_hR')
+        if hand is None:
+            continue
+        th, hco = _part_tree(hand)
+        bpy.context.view_layer.update()
+        for _ in range(16):
+            bits = [c for c in [o] + list(o.children_recursive) if c.type == 'MESH']
+            inside = False
+            for b in bits:
+                tb, bco = _part_tree(b)
+                if tb is not None and th is not None and th.overlap(tb):
+                    inside = True
+                    d = V(tuple(bco.mean(axis=0) - hco.mean(axis=0)))
+                    break
+            if not inside or off.length > .08:
+                break
+            loc = o.parent.matrix_world.inverted().to_3x3() @ d.normalized()
+            off = off + loc * .004
+            GRIP[o.name] = (base, off)
+            o.location = base + off
+            bpy.context.view_layer.update()
+            moved = True
+    return moved
 
 
 # ------------------------------------------------------------------ the camera
@@ -1099,14 +2470,47 @@ def frame_shot(shot=None, only=None):
             return frame_shot(fb, only=[who[0]] if fb != 'two_shot' else None)
         return pos, V((sp.x, sp.y, sp.z - .1)), who[0]
     # stand on the side the subject is turned towards, for a three-quarter view of the face
-    yaw = sum((PERF.actors[w].last_yaw or 0) for w in who) / len(who)
+    yaw = sum(wrapped(PERF.actors[w].last_yaw or 0) for w in who) / len(who)
     ang = clamp(yaw * (.8 if len(who) == 1 else .3), -.6, .6)
+    focus = CAM.get('focus') if CAM.get('focus') in PERF.actors else who[0]
+    if len(heads) > 1:
+        return fit(single_at(shot, who, aim, dist, ang)[0], aim, heads), aim, focus
+    pos, aim1 = single_at(shot, who, aim, dist, ang)
+    if shot not in CLEAR_SINGLE:
+        return pos, aim1, focus
+    # A shot on one person is filmed so that their face can be seen past everyone else.
+    face = heads[0]
+    blocker = in_the_way(pos, face, who[0])
+    if blocker:
+        # someone stands between the lens and the face: the camera walks round the subject, keeping its distance, to the
+        # nearest place where the line to the face is clear (a shoulder at the edge of the frame is fine; a head is not)
+        half = (C.get('_half') or 9.5) - .5 if not STG['outdoor'] else 14
+        for k in range(1, 9):
+            found = None
+            for sg in (1, -1):
+                a2 = ang + sg * k * .12
+                p2, m2 = single_at(shot, who, aim, dist, a2)
+                if abs(a2) <= 1.1 and abs(p2.x) < half and not in_the_way(p2, face, who[0]):
+                    found = (a2, p2, m2)
+                    break
+            if found:
+                print(f'FILM camera {shot} on {who[0]}: {blocker} stood between the lens and their face; '
+                      f'the camera moved {math.degrees(found[0] - ang):+.0f} degrees round them', flush=True)
+                return found[1], found[2], focus
+        print(f'FILM camera {shot} on {who[0]}: {blocker} stands between the lens and their face from every side the '
+              'set allows; filmed as it is', flush=True)
+    return pos, aim1, focus
+
+
+CLEAR_SINGLE = ('medium', 'close_up', 'reaction', 'extreme_close_up')
+
+
+def single_at(shot, who, aim, dist, ang):
+    """The camera at an angle round the subject (0 is straight out of the open front of the set), and what it aims at."""
     # a wide shot is seen from standing height, even when the people in it are sitting down
     pos = V((aim.x + math.sin(ang) * dist, aim.y - math.cos(ang) * dist, max(aim.z + .12, dict(wide=2.7, two_shot=2.0).get(shot, 0))))
     pos.z += dict(low=-.75, high=1.0).get(CAM.get('height', 'eye'), 0) * (dist / 6) ** .5
-    if len(heads) > 1:
-        pos = fit(pos, aim, heads)
-    elif shot in LEAD_ROOM:
+    if len(who) == 1 and shot in LEAD_ROOM:
         # Lead room: a face sits on the far side of the frame from the person it is talking or listening to, with the
         # open space in front of it. The camera trucks sideways (its angle is kept), so the eyeline reads across the cut.
         partner = partner_of(who[0])
@@ -1115,8 +2519,35 @@ def frame_shot(shot=None, only=None):
             toward = clamp((eyes(partner) - aim).dot(right) / 1.5, -1, 1)
             width = FRAME_H.get(shot, 2.9) * s.render.resolution_x / s.render.resolution_y
             shift = right * (toward * LEAD_ROOM[shot] * width)
-            pos, aim = pos + shift, aim + shift
-    return pos, aim, (CAM.get('focus') if CAM.get('focus') in PERF.actors else who[0])
+            return pos + shift, aim + shift
+    return pos, aim
+
+
+def in_the_way(pos, face, subject):
+    """Who stands between the lens and the subject's face, or None.
+
+    The face is seen down a cone that narrows towards the lens, so a person blocks it where the line of sight passes
+    within their own half-width (a head .42, shoulders .5; one unit is 50 cm), plus the face's (.3, shrunk by
+    perspective), plus .15 to spare, of their middle, between their feet and the top of their head. The subject's own
+    body never counts."""
+    seg = face - pos
+    for n, a in PERF.actors.items():
+        if n == subject or not a.P.vis:
+            continue
+        top = a.P.head_world
+        low = a.P.root.matrix_world.translation.z
+        for k in range(1, 40):
+            t = k / 40
+            q = pos + seg * t
+            if low <= q.z <= top.z + .5 and math.hypot(q.x - top.x, q.y - top.y) < (.42 if q.z > top.z - .45 else .5) + .3 * t + .15:
+                return n
+    return None
+
+
+def wrapped(y):
+    """An angle brought into -pi..pi. A body keeps counting its turns, so after turning round more than half a circle
+    its yaw is past pi, and the camera, which stands on the side a face is turned to, would stand behind it."""
+    return y if -math.pi <= y <= math.pi else math.atan2(math.sin(y), math.cos(y))
 
 
 LEAD_ROOM = dict(close_up=.12, reaction=.12, medium=.10, extreme_close_up=.06)   # share of the frame's width
@@ -1154,7 +2585,7 @@ def out_of_frame(a):
     return abs(c.x) > d * math.tan(hfov() / 2) + r or abs(c.y) > d * math.tan(vfov() / 2) + r
 
 
-if MODE == 'film' and CAM.get('shot') != 'opening' and CAM.get('move', 'static') in ('static', 'push_in'):
+if MODE in ('film', 'check') and CAM.get('shot') != 'opening' and CAM.get('move', 'static') in ('static', 'push_in'):
     look_through(POS0, AIM0)
     bpy.context.view_layer.update()
     for a in PERF.actors.values():
@@ -1243,6 +2674,14 @@ def door_at(f):
 
 
 # ------------------------------------------------------------------ portraits and sheets (one still, no scene)
+# ------------------------------------------------------------------ what makes a sound (sastudio.sound), for the scene
+if MODE == 'events':
+    import sounds as _SND
+    for _e in _SND.scene_events(globals()):
+        print('EVENT ' + json.dumps(_e), flush=True)
+    print(f'EVENTS done {len(FRAMES)} frames', flush=True)
+    sys.exit(0)
+
 if MODE in ('portrait', 'sheet'):
     PERF.pose(FRAMES[0])
     PERF.pose(FRAMES[0])
@@ -1290,11 +2729,141 @@ if MODE == 'export':
     print('FILM done export', flush=True)
     sys.exit(0)
 
+# ------------------------------------------------------------------ contact: measured before anything is drawn
+
+_CAST = {o.name for a in PERF.actors.values() for o in getattr(a.P, 'parts', [])}
+
+
+def offstage(a):
+    """Waiting beyond the side walls to walk in, or gone out through them: where the set has no floor."""
+    half = STG.get('half')
+    return half is not None and abs(a.P.root.matrix_world.translation.x) > half
+
+
+PROBE = CT.Probe(PERF, lambda: [o for o in bpy.data.objects if o.type == 'MESH' and o.name not in _CAST and o.visible_camera
+                                and _in_room(o)], held=[(c, who) for o, _a, _b, who in HELD for c in [o] + list(o.children_recursive)],
+                 offstage=offstage)
+LEARNT = ('seat_lift', 'seat_rise', 'foot_push', 'foot_lift', 'hand_lift', 'hand_nudge', 'hand_now', 'walk_lift', 'last_head', 'last_yaw',
+          'last_hand', 'lap_lift', 'sit_fwd', 'hand_was', 'grip_done', 'grip_f')
+
+
+def forget():
+    """Drop everything settling has learnt, so a second pass over the same drawings poses them as the first one did."""
+    for a in PERF.actors.values():
+        for k in LEARNT:
+            a.__dict__.pop(k, None)
+        if hasattr(a.P, 'face_more'):
+            a.P.face_more = {}
+    # a carried thing goes back to where it was first put in the hand: the next pass fits it from there, as the first did
+    for o, _f0, _f1, _who in HELD:
+        if o.name in GRIP:
+            o.location = GRIP[o.name][0]
+    GRIP.clear()
+    PERF._primed = False
+    PROBE.reset()
+
+
+def frame_at(f):
+    """Everything in its place for scene frame f, in the order filming does it."""
+    PERF.pose(f)
+    door_at(f)
+    held_at(f)
+    dress_at(f)
+    bpy.context.view_layer.update()
+    camera_at(f)
+
+
+def said(c):
+    """One contact, in words (one unit of the set is 50 cm)."""
+    cm = c['depth'] * 50
+    if c['kind'] == 'float' and c['what'] == 'seat':
+        return f"frame {c['frame']}: {c['actor']} sits {cm:.1f} cm above {c['other']}, held up by nothing (float)"
+    if c['kind'] == 'float':
+        return f"frame {c['frame']}: {c['actor']}'s feet are {cm:.1f} cm above {c['other']} and nothing else holds them up (float)"
+    if c['kind'] == 'skate':
+        return f"frame {c['frame']}: {c['actor']}'s {c['what']} slid {cm:.1f} cm on {c['other']} while standing on it (skate)"
+    deep = f", {cm:.1f} cm deep" if c['depth'] else ''
+    where = {'set': 'inside', 'cast': 'inside', 'self': 'inside', 'between': 'passed through', 'dressing': 'inside'}[c['kind']]
+    return f"frame {c['frame']}: {c['actor']}'s {c['what']} {where} {c['other']} ({c['kind']}, {c['pairs']} crossing faces{deep})"
+
+
+def dressing_contacts():
+    """The set measured against itself: what the dressing could not place apart, and anything else that overlaps."""
+    objs = [o for o in bpy.data.objects if o.type == 'MESH' and o.name not in _CAST and o.visible_camera and not o.hide_render
+            and _in_room(o) and not o.name.startswith(CT.NOT_SOLID) and not any(o.name == c.name for c, _w in PROBE.held)]
+    return CT.set_check(objs)
+
+
+if MODE == 'check':
+    # measure every drawing of the shot as filming would pose it, and draw nothing (tools/check_contacts.py)
+    # where the camera stands as the shot starts, which face it is for and which way that face is turned, and every
+    # visible head (for the engine's own tests)
+    print('CAMERA ' + json.dumps(dict(pos=list(POS0), aim=list(AIM0), focus=FOCUS, facing=list(facing(FOCUS)) if FOCUS else None,
+                                      heads={n: list(a.P.head_world) for n, a in PERF.actors.items() if a.P.vis})), flush=True)
+    for c in dressing_contacts():
+        print('CONTACT ' + json.dumps(c), flush=True)
+    every = max(1, int(JOB.get('check_every', 1)))
+    n = 0
+    t0 = time.time()
+    tp = tm = 0.0
+    if os.environ.get('SASTUDIO_DEBUG_MEM'):
+        import resource
+        print('MEM setup', resource.getrusage(resource.RUSAGE_SELF).ru_maxrss // 1024, 'MB', flush=True)
+    for i, f in enumerate(FRAMES):
+        t1 = time.time()
+        frame_at(f)
+        if os.environ.get('SASTUDIO_DEBUG_MEM') and i in (0, 1, 5, 15):
+            print('MEM frame', i, resource.getrusage(resource.RUSAGE_SELF).ru_maxrss // 1024, 'MB', flush=True)
+        tp += time.time() - t1
+        if JOB.get('trace_feet'):
+            # (for the engine's own tests: where each shoe is, which way it points, how high its lowest point is)
+            for a in PERF.actors.values():
+                if getattr(a.P, 'guest', False) or not a.P.vis or getattr(a, 'cull', False) or not hasattr(a.P, 'shoeL'):
+                    continue
+                row = dict(f=f, who=a.name, seat=round(a.seat_amt(f), 4))
+                for nm, o in (('L', a.P.shoeL), ('R', a.P.shoeR)):
+                    M = o.matrix_world
+                    co = _np.empty(len(o.data.vertices) * 3)
+                    o.data.vertices.foreach_get('co', co)
+                    low = float((co.reshape(-1, 3) @ _np.array(M)[:3, :3].T + _np.array(M)[:3, 3])[:, 2].min())
+                    row[nm] = [round(M.translation.x, 5), round(M.translation.y, 5), round(low, 5), round(M.to_euler().z, 5)]
+                print('FEET ' + json.dumps(row), flush=True)
+        if i % every:
+            continue
+        n += 1
+        t1 = time.time()
+        for c in PROBE.measure(f):
+            print('CONTACT ' + json.dumps(c), flush=True)
+        tm += time.time() - t1
+    print(f'CHECKED {n} {time.time() - t0:.1f}s (posing {tp:.1f}s, measuring {tm:.1f}s)', flush=True)
+    sys.exit(0)
+
 # ------------------------------------------------------------------ film it
 out = JOB['out']
 os.makedirs(out, exist_ok=True)
 frames = [f for f in FRAMES if not os.path.exists(os.path.join(out, f'{f:06d}.png'))]
 print(f'FILM frames {len(frames)} of {len(FRAMES)} to do', flush=True)
+if frames:
+    # Before anything is drawn: every drawing of the shot is posed as it will be filmed and measured. A shot that would
+    # show a body inside something is not filmed; the log says who, which part, in what and when. Allowed by the film
+    # command (--allow-intersections), it is filmed, and every contact is still measured and listed.
+    tc = time.time()
+    found = dressing_contacts()
+    for f in FRAMES:
+        frame_at(f)
+        found += PROBE.measure(f)
+    json.dump(found, open(os.path.join(out, 'contacts.json'), 'w'), indent=1)
+    print(f'FILM contacts checked in {time.time() - tc:.1f}s: {len(found)}', flush=True)
+    if found:
+        for c in found[:30]:
+            print('FILM contact ' + said(c), flush=True)
+        where_ = os.path.join(out, 'contacts.json')
+        if JOB.get('contacts', 'refuse') != 'allow':
+            print(f'FILM refused: {len(found)} contact(s) in {len(FRAMES)} drawings; every one is in {where_}', flush=True)
+            sys.exit(3)
+        print(f'FILM filming anyway (--allow-intersections): {len(found)} contact(s) in {len(FRAMES)} drawings; every one is in {where_}',
+              flush=True)
+    forget()
 t0 = time.time()
 steps = sorted({f for a in PERF.actors.values() for f in a.steps()})
 json.dump(dict(steps=steps), open(os.path.join(out, 'events.json'), 'w'))
@@ -1302,17 +2871,12 @@ t_pose = t_draw = 0.0
 todo, n = set(frames), 0
 for f in FRAMES:
     if f not in todo:
-        # A drawing kept from an interrupted run is still posed: contact is learnt drawing by drawing (a seat, a
-        # table, a spot remember how far they pushed back), so a resumed shot draws what an uninterrupted one would.
-        PERF.pose(f)
+        # A drawing kept from an interrupted run is still posed: contact is learnt drawing by drawing (a table, a spot
+        # remember how far a hand or a foot pushed clear), so a resumed shot draws what an uninterrupted one would.
+        frame_at(f)
         continue
     t1 = time.time()
-    PERF.pose(f)
-    door_at(f)
-    held_at(f)
-    dress_at(f)
-    bpy.context.view_layer.update()
-    camera_at(f)
+    frame_at(f)
     t2 = time.time()
     path = os.path.join(out, f'{f:06d}.png')
     s.render.filepath = path + '.part.png'

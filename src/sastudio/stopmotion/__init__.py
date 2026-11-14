@@ -17,6 +17,7 @@ import math
 import os
 import shutil
 import subprocess
+import tempfile
 from dataclasses import dataclass, field
 from importlib import resources
 from pathlib import Path
@@ -25,10 +26,16 @@ from .. import claydesign, lipsync
 from .. import direction as D
 from ..errors import ConfigError, RenderError, ToolMissing
 from ..render import clay
+from ..safepath import atomic_write_text
+
+
+class ContactError(RenderError):
+    """A shot refused before filming: a body would pass through something (engine/clay/contacts.py)."""
 
 FPS = 24
 STEP = 2
-ENGINE_VERSION = "10"  # bump when the engine changes what it draws: every cached shot is filmed again
+ENGINE_NAME = "Sultan"   # the clay engine (engine/clay), named after Ibrahim Sultan, who made Clayvoyant
+ENGINE_VERSION = "11"  # bump when the engine changes what it draws: every cached shot is filmed again
 PRESETS = {"draft": (960, 540, 6), "preview": (1280, 720, 12), "final": (1920, 1080, 24)}
 LEAD = 3              # frames of breath before a line when there is no recorded audio to time it
 SPEAKER_UNTIL = "speaker_until"   # in a line's folder: the first frame of the line that does not show its speaker
@@ -111,10 +118,14 @@ def _mood(name: str | None) -> str | None:
     return MOODS.get(name) or (name if name in ENGINE_MOODS else None)
 
 
-def _gesture_keys(who: str, g: str, f0: int, f1: int, to: str | None, set_info: dict) -> tuple[list[dict], bool]:
-    """Acting keys for one gesture of the direction vocabulary on a line from f0 to f1 -> (keys, uses the hands)."""
+def _gesture_keys(who: str, g: str, f0: int, f1: int, to: str | None, set_info: dict, mood: str | None = None) -> tuple[list[dict], bool]:
+    """Acting keys for one gesture of the direction vocabulary on a line from f0 to f1 -> (keys, uses the hands).
+    mood: the face to come back to after a gesture that changes it (a laugh)."""
     info = D.GESTURES[g]
-    k = lambda f, **d: dict(who=who, frame=int(f), **d)  # noqa: E731
+    k = lambda at, /, **d: dict(who=who, frame=int(at), **d)  # noqa: E731  (a key may set the face, `f`)
+    if g == "laugh":
+        # the face, the breath, the head and the shoulders, together (engine: acting.Actor.laugh_at)
+        return [k(f0 + 2, laugh=1, f="grin"), k(f0 + 40, laugh=0, f=mood or "happy")], False
     if g == "nod":
         return [k(f0 + 2, nod=.2), k(f0 + 9, nod=0), k(f0 + 15, nod=.12), k(f0 + 22, nod=0)], False
     if g == "shake_head":
@@ -193,7 +204,7 @@ def scene_job(project, scene, plan: D.ScenePlan, spans: list[Span], lang: str | 
         ln = sp.line
         manual = set()
         for g in ln.act or []:
-            ks, hands = _gesture_keys(ln.who, g, sp.start, sp.end, ln.to, set_info)
+            ks, hands = _gesture_keys(ln.who, g, sp.start, sp.end, ln.to, set_info, _mood(ln.emotion) or last_mood.get(ln.who))
             keys += ks
             if hands:
                 manual.add(ln.who)
@@ -215,7 +226,7 @@ def scene_job(project, scene, plan: D.ScenePlan, spans: list[Span], lang: str | 
             g = b.get("act")
             if g in D.GESTURES:
                 to = ln.who if who != ln.who else ln.to
-                ks, hands = _gesture_keys(who, g, f, max(f + 24, sp.end), to, set_info)
+                ks, hands = _gesture_keys(who, g, f, max(f + 24, sp.end), to, set_info, _mood(b.get("feeling")) or last_mood.get(who))
                 keys += ks
                 if hands:
                     manual.add(who)
@@ -241,7 +252,7 @@ def scene_job(project, scene, plan: D.ScenePlan, spans: list[Span], lang: str | 
         else:
             cues = lipsync.cues_from_text(sp.text or project.display(ln.say or "", lang), sp.env, FPS) if sp.speech else []
         lines.append({"id": ln.id, "who": ln.who, "start": sp.start, "end": sp.end, "cues": cues, "to": ln.to,
-                      "manual": sorted(manual)})
+                      "manual": sorted(manual), **({"feeling": mood} if mood else {})})
     org = project.org
     clock = D.clock_time(scene)
     tracks = []
@@ -352,8 +363,39 @@ def opening_job(scene_part: dict, plan: D.ScenePlan, scene, frames: list[int], p
     return job
 
 
+_FINGERPRINT: list[str] = []
+# the engine files whose code decides what a filmed shot looks like (contacts.py too: settling uses its measures to
+# put hands and arms right, so a change to it can change a drawing)
+PICTURE_FILES = ("film.py", "acting.py", "body.py", "puppet.py", "handrig.py", "faceops.py", "claymat.py", "sets.py", "setkit.py",
+                 "guest.py", "contacts.py")
+
+
+def engine_fingerprint() -> str:
+    """A hash of the engine's code as Python reads it (comments and docstrings left out), so that any change to how a
+    shot is posed or built films it again, even if nobody remembered to bump ENGINE_VERSION; a comment does not."""
+    if not _FINGERPRINT:
+        import ast
+
+        def bare(src: str) -> str:
+            tree = ast.parse(src)
+            for node in ast.walk(tree):
+                body = getattr(node, "body", None)
+                if isinstance(body, list) and body and isinstance(body[0], ast.Expr) \
+                        and isinstance(getattr(body[0], "value", None), ast.Constant) and isinstance(body[0].value.value, str):
+                    node.body = body[1:] or [ast.Pass()]
+            return ast.dump(tree, annotate_fields=False)
+        h = hashlib.sha256()
+        for name in PICTURE_FILES:
+            f = clay.ENGINE.joinpath("clay").joinpath(name)
+            if f.is_file():
+                h.update(name.encode() + b"\0" + bare(f.read_text("utf-8")).encode())
+        _FINGERPRINT.append(h.hexdigest()[:16])
+    return _FINGERPRINT[0]
+
+
 def _digest(job: dict, rigs: dict) -> str:
-    body = json.dumps({"job": job, "rigs": rigs, "v": ENGINE_VERSION}, sort_keys=True, default=str)
+    job = {k: v for k, v in job.items() if k != "contacts"}     # whether contact was checked does not change a drawing
+    body = json.dumps({"job": job, "rigs": rigs, "v": ENGINE_VERSION, "engine": engine_fingerprint()}, sort_keys=True, default=str)
     return hashlib.sha256(body.encode()).hexdigest()[:20]
 
 
@@ -485,6 +527,8 @@ def run_blender(job: dict, work: Path, log=print, timeout: float = 48 * 3600) ->
             job[key] = conv(Path(job[key]))
     job["cast"] = [dict(c, model=conv(Path(c["model"]))) if c.get("model") else c for c in job.get("cast") or []]
     job["device"] = clay.clay_device()
+    if os.environ.get("SASTUDIO_ALLOW_INTERSECTIONS") == "1":
+        job["contacts"] = "allow"      # sastudio film --allow-intersections: film it, and list what passes through what
     work.mkdir(parents=True, exist_ok=True)
     (work / "job.json").write_text(json.dumps(job), "utf-8")
     with resources.as_file(clay.ENGINE.joinpath("clay").joinpath("film.py")) as script:
@@ -493,10 +537,19 @@ def run_blender(job: dict, work: Path, log=print, timeout: float = 48 * 3600) ->
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8", errors="replace",
                                 **({"preexec_fn": _die_with_parent} if linux else {}))
         tail: list[str] = []
+        contacts: list[str] = []
 
         def on_line(line: str) -> None:
             nonlocal tail
             tail = (tail + [line])[-30:]
+            if line.startswith("FILM contact ") or line.startswith("FILM refused"):
+                contacts.append(line[5:])
+            elif line.startswith("FILM contacts checked"):
+                log("    " + line[5:])
+            elif line.startswith("FILM filming anyway"):
+                log("    warning: " + line[5:])
+                for c in contacts[:16]:
+                    log("      " + c[len("contact "):])
             if line.startswith("FILM device"):
                 cpu = job["device"] == "GPU" and line.startswith("FILM device CPU")
                 log(("    warning: " if cpu else "    ") + line[5:]
@@ -506,7 +559,7 @@ def run_blender(job: dict, work: Path, log=print, timeout: float = 48 * 3600) ->
                 done, total = n.split("/")
                 if int(done) % 12 == 0 or done == total:
                     log(f"    drawing {done} of {total} ({line.split()[-1]})")
-            elif line.startswith("FILM over_shoulder"):
+            elif line.startswith(("FILM over_shoulder", "FILM camera")):
                 log("    " + line[5:])
 
         stall = _env_number("SASTUDIO_CLAY_STALL_MINUTES", STALL_MINUTES) * 60
@@ -519,6 +572,12 @@ def run_blender(job: dict, work: Path, log=print, timeout: float = 48 * 3600) ->
     for t in tail:
         if t.startswith("FILM guest"):
             log("    " + t[5:])
+    if contacts and any(c.startswith("refused") for c in contacts):
+        raise ContactError("This shot was not filmed: a body would pass through something.\n    "
+                           + "\n    ".join(c[len("contact "):] if c.startswith("contact ") else c for c in contacts[:16]),
+                           "Move someone (direction.blocking), change the gesture or the line's business, or give the people "
+                           "more room; `sastudio check` shows every drawing without filming. To film it anyway: "
+                           "sastudio film --allow-intersections.")
     if code != 0 or not any(t.startswith("FILM done") for t in tail):
         raise RenderError("Blender did not finish the shot:\n    " + "\n    ".join(tail[-14:]))
 
@@ -528,18 +587,36 @@ def rig_stamps(project, cast: list[str]) -> dict:
     return {cid: (rig / cid / ".params").read_text() if (rig / cid / ".params").exists() else "" for cid in cast}
 
 
+def _reusable(folder: Path, label: str) -> None:
+    """A finished shot is reused only if it would pass the check now: one filmed with --allow-intersections that shows a
+    body passing through something is refused by a plain `film`, as it would have been when it was filmed."""
+    if os.environ.get("SASTUDIO_ALLOW_INTERSECTIONS") == "1" or not (folder / "contacts.json").is_file():
+        return
+    try:
+        found = json.loads((folder / "contacts.json").read_text("utf-8"))
+    except ValueError:
+        return
+    if found:
+        raise ContactError(f"{label} was filmed with --allow-intersections and {len(found)} of its drawings' contacts are "
+                           f"listed in {folder / 'contacts.json'}: a body passes through something.",
+                           "Fix the staging (`sastudio check` shows every drawing), or film it again with "
+                           "sastudio film --allow-intersections.")
+
+
 def _film(project, job: dict, frames: list[int], label: str, what: str, log=print) -> Path:
     """Film a job (or reuse it): returns the folder holding its frames, named by scene frame number."""
     cast = [c["id"] for c in job["cast"]]
     key = _digest(job, rig_stamps(project, cast))
     out = project.root / ".studio" / "cache" / "clay" / f"{label}.{key}"
     if (out / ".done").exists() and all((out / f"{f:06d}.png").exists() for f in frames):
+        _reusable(out, label)
         log(f"  {label}: unchanged, reused")
         return out
     # the same job filmed under another label (a shot added earlier in the scene renumbers the ones after it):
     # reuse it when finished, carry on filming into it when it was interrupted
     for other in sorted(out.parent.glob(f"*.{key}")) if out.parent.is_dir() and not out.exists() else []:
         if (other / ".done").exists() and all((other / f"{f:06d}.png").exists() for f in frames):
+            _reusable(other, label)
             log(f"  {label}: unchanged, reused (filmed as {other.name.rsplit('.', 1)[0]})")
             return other
         out = other
@@ -556,8 +633,9 @@ def _film(project, job: dict, frames: list[int], label: str, what: str, log=prin
             run_blender(job, project.root / ".studio" / "work" / "clay" / label, log)
             problem = None
         except RenderError as e:
-            # an error in the engine's own code will not fix itself; a crash, a lost GPU or a hang might
-            if "Traceback" in str(e) or attempt == retries:
+            # an error in the engine's own code will not fix itself, nor will a shot refused for a contact; a crash, a
+            # lost GPU or a hang might
+            if isinstance(e, ContactError) or "Traceback" in str(e) or attempt == retries:
                 raise
             problem = str(e).splitlines()[0]
         blank = blank_frames(out / f"{f:06d}.png" for f in todo if (out / f"{f:06d}.png").exists())
@@ -617,6 +695,51 @@ def film_scene(project, scene, plan: D.ScenePlan, spans: list[Span], preset: str
         away = [fr - sp.beat for _, held, shows in src if not shows for fr in held]
         (out[lid] / SPEAKER_UNTIL).write_text(str(min(away) if away else sp.frames))
     return out
+
+
+def scene_events(project, scene, plan: D.ScenePlan, spans: list[Span], total_frames: int, lang: str | None = None,
+                 phonemes: dict | None = None, log=print) -> list[dict]:
+    """What makes a sound in a scene (engine/clay/sounds.py), read from the scene's plan: one Blender run per scene,
+    nothing drawn, and kept, keyed by the scene's job, the rigs and the engine's code, so a change to the music or the
+    mix never runs it again. -> the engine's reports, in frame order."""
+    shots = [s for s in plan.shots if not is_card(s)]
+    if not shots or total_frames <= 0:
+        return []
+    clay.build_rigs(project, ids=list(plan.sides), log=log)
+    part = scene_job(project, scene, plan, spans, lang, phonemes)
+    job = shot_job(part, shots[0], list(range(0, total_frames)), "draft")
+    job.update(mode="events")
+    cast = [c["id"] for c in job["cast"]]
+    code = clay.ENGINE.joinpath("clay").joinpath("sounds.py")
+    key = hashlib.sha256((_digest(job, rig_stamps(project, cast)) + (code.read_text("utf-8") if code.is_file() else "")).encode()).hexdigest()[:20]
+    store = project.root / ".studio" / "cache" / "sound" / f"{scene.id}.{key}.json"
+    if store.is_file():
+        try:
+            return json.loads(store.read_text("utf-8"))
+        except ValueError:
+            store.unlink(missing_ok=True)       # a damaged record is made again
+    exe, wsl_win = find_blender()
+    conv = _winpath if wsl_win else str
+    job = dict(job, rig=conv(clay.rig_dir(project)), font=conv(_font()), device="CPU")
+    job["cast"] = [dict(c, model=conv(Path(c["model"]))) if c.get("model") else c for c in job.get("cast") or []]
+    log(f"  {scene.id}: reading what makes a sound ({total_frames} frames)")
+    with tempfile.TemporaryDirectory(prefix="sas-events-") as tmp:
+        jp = Path(tmp) / "job.json"
+        jp.write_text(json.dumps(job), "utf-8")
+        with resources.as_file(clay.ENGINE.joinpath("clay").joinpath("film.py")) as script:
+            try:
+                r = subprocess.run([exe, "-b", "--factory-startup", "-P", conv(Path(script)), "--", conv(jp)],
+                                   capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=3600)
+            except subprocess.TimeoutExpired:
+                raise RenderError(f"{scene.id}: reading the scene's sound events took over an hour.")
+    out = r.stdout or ""
+    if not any(ln.startswith("EVENTS done") for ln in out.splitlines()):
+        tail = "\n    ".join((out + (r.stderr or "")).strip().splitlines()[-12:])
+        raise RenderError(f"{scene.id}: Blender stopped before the scene's sound events were read (exit {r.returncode}):\n    {tail}")
+    events = [json.loads(ln[6:]) for ln in out.splitlines() if ln.startswith("EVENT ")]
+    store.parent.mkdir(parents=True, exist_ok=True)
+    atomic_write_text(store, json.dumps(events))
+    return events
 
 
 def _line_folder(project, folder, name: str, beat: int, frames: int) -> Path:

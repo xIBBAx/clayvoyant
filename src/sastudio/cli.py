@@ -186,6 +186,10 @@ def cmd_film(a) -> int:
     from .build import build
 
     p = _load(a.project)
+    if a.allow_intersections:
+        import os
+
+        os.environ["SASTUDIO_ALLOW_INTERSECTIONS"] = "1"
     res = build(p, language=a.lang, scene_ids=_scenes(a.scenes), preset=a.preset, fallback=a.voice_fallback,
                 burn=True if a.burn_subtitles else None, jobs=a.jobs, renderer="clay",
                 allow_placeholder_contacts=a.allow_placeholder_contacts, voices=a.voices)
@@ -194,6 +198,34 @@ def cmd_film(a) -> int:
     print(json.dumps({"video": str(res.video), "srt": str(res.srt), "vtt": str(res.vtt),
                       "transcript": str(res.transcript), "rendered": res.rendered, "reused": res.reused}, indent=1))
     return 0
+
+
+def cmd_check(a) -> int:
+    """Pose every drawing of the clay shots and measure what passes through what, drawing nothing."""
+    from .stopmotion import check as C
+
+    p = _load(a.project)
+    scenes = _scenes(a.scenes)
+    if a.filmed:
+        jobs = [(lb, j) for lb, j in C.filmed_jobs(p, a.shots or "") if not lb.endswith("_silent")
+                and (not scenes or any(lb.startswith(sc + "_") for sc in scenes))]
+    else:
+        jobs = C.planned_jobs(p, scene_ids=scenes, shots=a.shots or "")
+    if not jobs:
+        raise StudioError(f"No clay shots to check in {p.root}.", "Film it first (sastudio film), or leave out --filmed.")
+    print(f"Checking {len(jobs)} shot(s): every drawing posed as filming would, nothing drawn...")
+    rep = C.check(jobs, every=a.every, workers=a.jobs)
+    for c in rep.contacts[:60]:
+        print("  " + C.said(c))
+    if len(rep.contacts) > 60:
+        print(f"  ... and {len(rep.contacts) - 60} more")
+    for s_ in rep.failed:
+        print(f"  {s_.label} could not be checked: {s_.error}")
+    print(f"{rep.drawings} drawings checked: {len(rep.contacts)} contact(s)" + (f", {len(rep.failed)} shot(s) unchecked" if rep.failed else ""))
+    if rep.contacts:
+        print("Move someone (direction.blocking), change a gesture, or give the people more room; "
+              "docs/CLAY_MOTION.md#nothing-passes-through-anything says what the engine handles by itself.")
+    return rep.exit_code()
 
 
 def cmd_model(a) -> int:
@@ -238,7 +270,7 @@ def cmd_doctor(a) -> int:
     from .doctor import format_checks, run_checks
 
     checks = run_checks(Path(a.project) if a.project else None)
-    print(f"Clayvoyant {__version__}")
+    print(f"Clayvoyant {__version__}, clay engine Sultan")
     print(format_checks(checks))
     return 1 if any(c.status == "fail" for c in checks) else 0
 
@@ -436,6 +468,55 @@ def cmd_voices(a) -> int:
     return 2
 
 
+def cmd_sounds(a) -> int:
+    from .sound import ambience, events, packs
+
+    if a.action == "list":
+        print("Placed from what happens on screen (clay films):  " + ", ".join(events.ENGINE_KINDS))
+        print("Asked for by a scene (direction.sound.cues):      " + ", ".join(k for k in events.CUE_KINDS if k != "file")
+              + ", or a sound file of your own")
+        print("The air of a place (direction.sound.ambience):    " + ", ".join(ambience.BEDS))
+        have = packs.installed()
+        for name, spec in packs.PACKS.items():
+            state = f"installed in {have[name]}" if name in have else f"not installed: sastudio sounds install {name}"
+            print(f"Pack '{name}': {spec['title']} ({state})")
+        return 0
+    if a.action == "install":
+        name = a.name or "kenney"
+        print(f"Downloading the '{name}' sound pack (checked against its pinned SHA-256; its licence is kept with it).")
+        d = packs.install(name)
+        print(f"Ready in {d}. Use it in a project:  sound: {{ library: {name} }}")
+        return 0
+    if a.action == "preview":
+        import numpy as np
+
+        from .sound import dsp, master
+        from .sound.events import Event
+        from .sound.kit import Kit
+
+        if not a.name or a.name not in events.KINDS or a.name == "file":
+            raise StudioError(f"Say which sound: one of {', '.join(k for k in events.KINDS if k != 'file')}.",
+                              "For example: sastudio sounds preview footstep --surface tile")
+        lib = [packs.installed()[a.pack]] if a.pack else []
+        kit = Kit(lib)
+        n = max(1, a.count)
+        parts = []
+        for i in range(n):
+            e = Event(kind=a.name, t=i * .6, scene="preview", who="you", surface=a.surface, duration=a.seconds,
+                      params={"soft": .055 if a.surface == "sofa" else 0.0})
+            x, src = kit.clip(e)
+            parts.append((i * .6, x))
+        out = np.zeros(dsp.samples(max(t + len(x) / dsp.RATE for t, x in parts) + .3))
+        for t, x in parts:
+            j = dsp.samples(t)
+            out[j:j + len(x)] += x[: len(out) - j]
+        path = Path(a.out or f"{a.name}.wav")
+        master.write_wav(path, dsp.to_stereo(out * .5))
+        print(f"Wrote {path} ({src})")
+        return 0
+    return 2
+
+
 def cmd_credentials(a) -> int:
     from .voices.engine import credentials, redact
 
@@ -506,7 +587,7 @@ def cmd_clean(a) -> int:
 
 def parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(prog="sastudio", description="Clay stop-motion films, written as plain text.")
-    ap.add_argument("--version", action="version", version=f"Clayvoyant {__version__}")
+    ap.add_argument("--version", action="version", version=f"Clayvoyant {__version__}, clay engine Sultan")
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     s = sub.add_parser("init", help="create a new project from a template")
@@ -592,8 +673,22 @@ def parser() -> argparse.ArgumentParser:
     s.add_argument("--burn-subtitles", action="store_true")
     s.add_argument("--allow-placeholder-contacts", action="store_true",
                    help="render a final film that still shows placeholder reporting contacts")
+    s.add_argument("--allow-intersections", action="store_true",
+                   help="film a shot even when a body would pass through something (listed in the log and in the shot's "
+                        "contacts.json); without it such a shot is not filmed")
     s.add_argument("--jobs", type=int)
     s.set_defaults(fn=cmd_film)
+
+    s = sub.add_parser("check", help="clay: pose every drawing and check that nothing passes through anything (draws nothing)")
+    s.add_argument("project")
+    s.add_argument("--scenes", help="comma-separated scene ids")
+    s.add_argument("--shots", help="only shots whose name contains this")
+    s.add_argument("--filmed", action="store_true", help="check the shots of the last filming instead of the plan")
+    s.add_argument("--every", type=int, default=1,
+                   help="measure every Nth drawing (default: every one, as filming does; above 1, a step taken between "
+                        "two measured drawings can read as a foot sliding)")
+    s.add_argument("--jobs", type=int, default=2, help="Blenders at once (default 2)")
+    s.set_defaults(fn=cmd_check)
 
     s = sub.add_parser("motion", help="a silent clay preview of one scene or shot, to check the direction")
     s.add_argument("project")
@@ -608,6 +703,16 @@ def parser() -> argparse.ArgumentParser:
     s.add_argument("--lang")
     s.add_argument("--scenes")
     s.set_defaults(fn=cmd_script)
+
+    s = sub.add_parser("sounds", help="the sounds the engine makes: list them, hear one, or install a pack of recordings")
+    s.add_argument("action", choices=["list", "preview", "install"])
+    s.add_argument("name", nargs="?", help="preview: the kind of sound (footstep, sit, door_close...); install: the pack")
+    s.add_argument("--surface", help="preview: what it happens on (wood, tile, carpet, rug, stone, pavement)")
+    s.add_argument("--seconds", type=float, default=2.0, help="preview: how long, for sounds that last")
+    s.add_argument("--count", type=int, default=1, help="preview: how many, 0.6 s apart (a few footsteps)")
+    s.add_argument("--pack", help="preview: take the recording from an installed pack")
+    s.add_argument("-o", "--out", help="preview: the WAV file to write")
+    s.set_defaults(fn=cmd_sounds)
 
     s = sub.add_parser("voices", help="plan or generate dialogue audio")
     s.add_argument("action", choices=["plan", "generate", "lexicon", "install"])

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "clayvoyant"
-version = "0.3.2"
+version = "0.4.0"
 description = "Clay stop-motion films, written as plain text: sculpted characters, sets, cameras, voices and subtitles from a YAML project. Made for security awareness; see the scam coming."
 readme = "README.md"
 license = "MIT"
@@ -31,6 +31,7 @@ dependencies = [
   "PyYAML>=6.0.1,<7",
   "jsonschema>=4.18,<5",
   "Pillow>=13.0,<14",  # 13.0 fixes known vulnerabilities in image decoding; project images are untrusted input
+  "numpy>=1.26",       # the sound engine (sastudio.sound): Foley, the mix and the master are made with it
 ]
 
 [project.optional-dependencies]

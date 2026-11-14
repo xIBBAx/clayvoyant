@@ -1,0 +1,115 @@
+# Held Door: a short sample film whose sound is all made from what happens on screen (docs/SOUND.md).
+# Footsteps where feet land, a door, a chair, a seat, typing, a laptop shut, a message arriving, two rooms with
+# their own air, and a theme under it all that dips whenever somebody speaks.
+schema_version: 1
+
+project:
+  title: "Held Door"
+  subtitle: "A short film about good manners at the wrong door"
+  language: en-GB
+  languages: [en-GB]
+  credits:
+    show: true
+    extra:
+      - "A sample film. The people and the company are invented."
+      - "Theme: a placeholder made by tools/make_example_music.py."
+
+organization:
+  name: "Quillmere Logistics"
+  short_name: "Quillmere"
+  security_email: "security@quillmere.example"
+  reporting_url: "https://quillmere.example/report"
+  security_team: "the Quillmere security team"
+  it_team: "the Quillmere IT desk"
+  logo: assets/logo.png
+  palette:
+    primary: "#2F4A5E"
+    accent: "#D98C3F"
+    background: "#F2EEE6"
+    text: "#1C1C1E"
+
+characters:
+  - id: nadia
+    name: Nadia
+    role: Analyst
+    description: Quick, warm, notices the small things and says so.
+    pronouns: she
+    gender: feminine
+    voice: { provider: kokoro, speaker: bf_lily }
+    look:
+      style: clay
+      design:
+        skin: "#B98060"
+        hair: { style: long, color: "#21160F" }
+        outfit: { style: blazer, color: "#2F6F73", shirt: "#F3EDE2" }
+        trousers: "#2B2F3A"
+        shoes: { style: brogue, color: "#4A3426" }
+        body: { build: average }
+      acting: { manner: lively }
+
+  - id: kofi
+    name: Kofi
+    role: Facilities
+    description: Big, calm, polite to a fault. Holds every door he finds.
+    pronouns: he
+    gender: masculine
+    voice: { provider: kokoro, speaker: bm_daniel }
+    look:
+      style: clay
+      design:
+        skin: "#7A4E33"
+        hair: { style: short, color: "#2A2420" }
+        outfit: { style: sweater, color: "#8C5A3C", shirt: "#E9E1D2" }
+        trousers: "#33363C"
+        shoes: { style: boot, color: "#3B2B22" }
+        extras: [glasses, beard]
+        body: { build: broad, height: tall }
+      acting: { manner: calm, age: older }
+
+  - id: sana
+    name: Sana
+    role: Reception
+    description: Unflappable. Knows every face in the building.
+    pronouns: she
+    gender: feminine
+    voice: { provider: kokoro, speaker: bf_alice }
+    look:
+      style: clay
+      design:
+        skin: "#C99A73"
+        hair: { style: bun, color: "#2A1A12" }
+        outfit: { style: vest, color: "#6C5A8E", shirt: "#F1E9DD" }
+        trousers: "#2E2A33"
+        shoes: { style: flat, color: "#3A2A24" }
+        extras: [earrings]
+        body: { build: slim, height: short }
+      acting: { manner: reserved }
+
+scenes:
+  - file: scenes/01_held_door.yaml
+  - file: scenes/02_reception.yaml
+
+voices:
+  providers:
+    offline: { engine: auto }
+  budget:
+    max_characters: 0
+
+speech:
+  gap_seconds: 0.4
+
+sound:
+  music:
+    - { file: assets/music/theme.ogg, fade_in: 2.0, fade_out: 3.0 }
+  # The voices are not compressed (their peaks stand 16 dB over their loudness) and the theme fills every pause, so
+  # the default -16 LUFS would take more than 6 dB of limiting on the loudest syllables. -17, inside AES TD1008's -18 to
+  # -16 for speech, keeps them whole.
+  master: { loudness: -17 }
+
+render:
+  preset: preview
+  renderer: clay
+  output: build
+  burn_subtitles: true
+  intro: true
+  outro: true

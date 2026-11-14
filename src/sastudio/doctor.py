@@ -120,10 +120,10 @@ def run_checks(project_dir: Path | None = None) -> list[Check]:
         m = re.search(r"Blender (\d+\.\d+(?:\.\d+)?)", txt)
         ver = m.group(1) if m else "unknown"
         ok = bool(m) and tuple(int(x) for x in ver.split(".")[:2]) >= (4, 2)
-        out.append(Check("Blender (clay renderer)", "ok" if ok else "warn", ver,
+        out.append(Check("Blender (for Sultan, the clay engine)", "ok" if ok else "warn", ver,
                          None if ok else "The clay renderer is tested with Blender 5.2 LTS."))
     else:
-        out.append(Check("Blender (clay renderer)", "info", "not found (only needed for 3D clay scenes)",
+        out.append(Check("Blender (for Sultan, the clay engine)", "info", "not found (only needed for 3D clay scenes)",
                          "Optional: install Blender 5.2 LTS and set SASTUDIO_BLENDER if it is not on PATH."))
     if engine_included():
         rh = os.environ.get("SASTUDIO_RHUBARB") or shutil.which("rhubarb")

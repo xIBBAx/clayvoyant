@@ -60,7 +60,9 @@ def _sets() -> str:
     rows = []
     for name, s in D.SETS.items():
         seats = set(s.get("seats") or [])
-        marks = ", ".join(f"`{m}`" + (" (a seat)" if m in seats else "") for m in s["marks"])
+        two = D.SEAT_ROOM.get(name, {})
+        marks = ", ".join(f"`{m}`" + ((" (a seat for two)" if two.get(m, 1) > 1 else " (a seat)") if m in seats else "")
+                          for m in s["marks"])
         props = f" Things on it: {_words(s['props'])}." if s.get("props") else ""
         rows.append(f"- `{name}`. Places to stand or sit: {marks}.{props}")
     return "\n".join(rows)
@@ -100,7 +102,11 @@ def brief(project, idea: str | None = None, scenes: int = 2, seconds: int = 40) 
         "\n".join([
             "- `id`: lower-case letters, digits and underscores; unique in the film. Line ids are unique too.",
             "- `direction.set`: one of the places below. `direction.blocking` puts each character on one of "
-            "that place's marks as the scene opens; everyone in the scene must be placed, on different marks.",
+            "that place's marks as the scene opens; everyone in the scene must be placed, on different marks "
+            "(a seat for two takes two).",
+            "- Stage what a body can do: one person to a seat (two on a seat for two), nobody speaks after "
+            "`walk_out` or before `walk_in`, `typing` needs a seat at a desk. Someone seated who is sent "
+            "somewhere stands up first by themselves.",
             "- `lines[].who` speaks `say` to `to`. Both are cast ids. `{id}` inside `say` becomes that "
             "character's name, so write `{" + (cast_ids[0] if cast_ids else "id") + "}` and never the name itself.",
             "- `emotion`: how the line is said. `reactions`: how a listener takes it, as `{ id: emotion }`.",
@@ -121,6 +127,8 @@ def brief(project, idea: str | None = None, scenes: int = 2, seconds: int = 40) 
         "Background life (`direction.dressing`, a list): "
         + "; ".join(f"`{k}` ({v})" for k, v in D.DRESSING.items()) + ".",
         "## Acting",
+        "How each person moves (calm, nervous, older, and so on) is set on the character, not in the scene. "
+        "In the scene, say how each line is said with its emotion: the hands, the face and the listeners follow it.",
         f"Emotions: {_words(D.EMOTIONS)}.",
         _gestures(),
         "Cameras (`camera`): " + "; ".join(f"`{k}` ({v['framing']})" for k, v in D.SHOTS.items()
