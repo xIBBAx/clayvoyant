@@ -1754,6 +1754,27 @@ def settle(f, depth=0):
             if d_ > 0 and a.P.face_more.get(fk_, 0.0) < .25:
                 a.P.face_more[fk_] = a.P.face_more.get(fk_, 0.0) + d_ + .006
                 moved = True
+        # ...and a hand that is not laid on the face never goes into this head or its hair either (a gesture near the
+        # face while the head bows in a laugh, a hand that passes a ponytail): found crossing either one, the contact
+        # check's own test for a hand and its own head (contacts.SELF), the hand goes out the shortest way, away from
+        # the middle of the head, for this drawing (carried on, a little less, into the next, as above)
+        hw_ = getattr(a.P, 'head_world', None)
+        heads_ = [] if hw_ is None else [t_ for t_ in (_part_tree(o_)[0] for o_ in (_part(a, '_h'), _part(a, '_hair'))
+                                                       if o_ is not None) if t_ is not None]     # (the head is <name>_h)
+        for side in ('L', 'R'):
+            if not heads_ or getattr(a.P, 'face_now', {}).get(side) is not None or cur.get('h' + side) is not None:
+                continue
+            o_ = _part(a, '_h' + side)
+            th_, co_ = _part_tree(o_) if o_ is not None else (None, None)
+            if th_ is None or co_ is None or not len(co_) or not any(th_.overlap(t_) for t_ in heads_):
+                continue
+            v_ = co_.mean(axis=0) - _np.array(tuple(hw_))
+            n = float(_np.linalg.norm(v_))
+            v_, n = (v_, n) if n > 1e-4 else (_np.array([0.0, -1.0, 0.0]), 1.0)
+            nx, ny, nz = now[side]
+            if math.sqrt(nx * nx + ny * ny + nz * nz) < .6:
+                now[side] = (nx + .02 * v_[0] / n, ny + .02 * v_[1] / n, nz + .02 * v_[2] / n)
+                moved = True
         # feet are pushed sideways out of whatever they stand in (a chair's base, a table's foot), remembered for the
         # spot the person stands or sits at, and never mid-stride
         if not a.walking(f) and not mid:

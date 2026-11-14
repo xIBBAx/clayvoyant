@@ -108,9 +108,10 @@ def office(C):
     d2, lap2 = _work_desk(4.0, 2.6, C, 2, chair_col=acc)
     K.plant(-8.3, 4.6, 1.25, seed=2)
     K.plant(8.4, -2.2, 1.0, pot='#e9dcc3', seed=5)
-    K.cabinet(2.9, 5.45, 1.0, 1.7, hex_='#e3d9c6')
-    pr = K.printer(2.9, 5.4, 1.7)
-    K.books(3.5, 5.4, 1.7, seed=3)
+    # the cabinet stands clear of the second desk's chair, which needs room behind it to be pulled out and stood at
+    K.cabinet(2.2, 5.45, 1.0, 1.7, hex_='#e3d9c6')
+    pr = K.printer(2.15, 5.4, 1.7)
+    K.books(2.95, 5.4, 1.7, seed=3)
     K.bookcase(-8.9, 1.2, 1.2, 4.2, rz=math.pi / 2, seed=C.get('seed', 1))
     K.poster(9.3, 3.7, 3.4, ['THINK', 'before', 'you click'], accent=acc).rotation_euler = (0, 0, -math.pi / 2)
     K.rug(0, .4, 3.4, 2.0, hex_=K.mix(pri, '#ffffff', .25), border=bg)
