@@ -97,6 +97,14 @@ The film now sounds like what it shows ([docs/SOUND.md](SOUND.md)).
 - Changing only the sound films nothing again: the scene's events are read once and kept.
 - numpy is now a dependency of the base package (the sound engine is written with it).
 
+### Fixed
+
+- On Python 3.11 a film with real voices (Kokoro, your own recordings, a paid voice) stopped while preparing its first
+  line, in every release since 0.1.0: the trimmed take is written as 24-bit audio, which FFmpeg stores with an
+  extensible header, and Python's own `wave` module reads those only from 3.12. The package now reads WAV headers
+  itself, integer, float and extensible alike, on every supported Python. Films made with the placeholder voices
+  were not affected, which is why it went unseen; the new sound tests found it on CI.
+
 ## 0.3.2 (2026-11-12)
 
 On PyPI: `pip install clayvoyant`. The README's pictures and links now work on the package page, and

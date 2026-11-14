@@ -376,3 +376,65 @@ def test_wav_files_are_written_whole(tmp_path):
         assert (w.getnchannels(), w.getsampwidth(), w.getframerate(), w.getnframes()) == (2, 3, R, R)
     assert not list(tmp_path.glob("*.part"))
     shutil.rmtree(tmp_path)
+
+
+def _wav(tag: int, bits: int, samples: bytes, channels: int = 1, before: bytes = b"", data_size: int | None = None) -> bytes:
+    """A WAV file built byte by byte: an optional chunk before the format, a plain or extensible format, the data."""
+    import struct
+
+    block = channels * bits // 8
+    if tag == 0xFFFE:   # WAVEFORMATEXTENSIBLE: the plain header, 22 more bytes, a sub-format GUID that starts with the tag
+        body = struct.pack("<HHIIHHH", tag, channels, R, R * block, block, bits, 22) + struct.pack("<HI", bits, 4)
+        body += b"\x01\x00\x00\x00\x00\x00\x10\x00\x80\x00\x00\xaa\x00\x38\x9b\x71"
+    else:
+        body = struct.pack("<HHIIHH", tag, channels, R, R * block, block, bits)
+    size = len(samples) if data_size is None else data_size
+    chunks = before + b"fmt " + struct.pack("<I", len(body)) + body + b"data" + struct.pack("<I", size) + samples
+    return b"RIFF" + struct.pack("<I", 4 + len(chunks)) + b"WAVE" + chunks
+
+
+def test_every_kind_of_wav_header_is_read_on_every_supported_python(tmp_path):
+    """FFmpeg writes an extensible header for samples wider than 16 bits, and Python's wave module reads those only
+    from 3.12: on 3.11 every voice take failed on its way through prepare_line. The header is read by hand now."""
+    import struct
+
+    from sastudio.audio.ffmpeg import is_silent, wav_info
+    from sastudio.errors import RenderError
+
+    def put(name, data):
+        (tmp_path / name).write_bytes(data)
+        return tmp_path / name
+
+    quiet = put("quiet24.wav", _wav(0xFFFE, 24, b"\x00" * (3 * R // 2)))
+    assert wav_info(quiet) == (1, 3, R, 0.5) and is_silent(quiet)
+    loud = put("loud24.wav", _wav(0xFFFE, 24, b"\x00" * 30 + b"\x01\x02\x03" + b"\x00" * (3 * R // 2 - 33)))
+    assert wav_info(loud)[3] == 0.5 and not is_silent(loud)
+    floats = put("float.wav", _wav(3, 32, struct.pack("<2f", .25, -.25) * R, channels=2))
+    assert wav_info(floats) == (2, 4, R, 1.0) and not is_silent(floats)
+    # a chunk of odd length before the format is padded to an even length; a streamed header's size is never filled in
+    padded = put("padded.wav", _wav(1, 16, b"\x00\x00" * R, before=b"LIST" + struct.pack("<I", 3) + b"abc\x00"))
+    assert wav_info(padded) == (1, 2, R, 1.0)
+    streamed = put("streamed.wav", _wav(1, 16, b"\x00\x00" * R, data_size=0xFFFFFFFF))
+    assert wav_info(streamed)[3] == 1.0
+    with pytest.raises(RenderError, match="not a WAV"):
+        wav_info(put("text.wav", b"hello, not audio at all"))
+    with pytest.raises(RenderError, match="format 2"):
+        wav_info(put("adpcm.wav", _wav(2, 4, b"\x00" * 100)))
+
+
+@pytest.mark.skipif(not HAS_FFMPEG, reason="needs FFmpeg")
+def test_a_spoken_take_is_trimmed_and_levelled_through_a_24_bit_step(tmp_path):
+    from sastudio.audio.ffmpeg import prepare_line, wav_info
+
+    take = tmp_path / "take.wav"
+    x = np.concatenate([np.zeros(R // 2), speechy(2.0, on=2.0, off=.1, level_db=-30), np.zeros(R // 2)])
+    with wave.open(str(take), "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(R)
+        w.writeframes((x * 32767).astype("<i2").tobytes())
+    out = tmp_path / "line.wav"
+    info = prepare_line(take, out)
+    assert not info["silent"] and info["lufs"] is not None
+    ch, width, rate, seconds = wav_info(out)
+    assert (ch, width, rate) == (1, 2, R) and 1.8 < seconds < 2.3      # the half seconds of silence either side trimmed
