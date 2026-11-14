@@ -101,6 +101,10 @@ speech:
 sound:
   music:
     - { file: assets/music/theme.ogg, fade_in: 2.0, fade_out: 3.0 }
+  # The voices are not compressed (their peaks stand 16 dB over their loudness) and the theme fills every pause, so
+  # the default -16 LUFS would take more than 6 dB of limiting on the loudest syllables. -17, inside AES TD1008's -18 to
+  # -16 for speech, keeps them whole.
+  master: { loudness: -17 }
 
 render:
   preset: draft
