@@ -684,7 +684,9 @@ def parser() -> argparse.ArgumentParser:
     s.add_argument("--scenes", help="comma-separated scene ids")
     s.add_argument("--shots", help="only shots whose name contains this")
     s.add_argument("--filmed", action="store_true", help="check the shots of the last filming instead of the plan")
-    s.add_argument("--every", type=int, default=1, help="measure every Nth drawing (default: every one)")
+    s.add_argument("--every", type=int, default=1,
+                   help="measure every Nth drawing (default: every one, as filming does; above 1, a step taken between "
+                        "two measured drawings can read as a foot sliding)")
     s.add_argument("--jobs", type=int, default=2, help="Blenders at once (default 2)")
     s.set_defaults(fn=cmd_check)
 

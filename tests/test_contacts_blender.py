@@ -44,9 +44,11 @@ def test_nobody_passes_through_anything_in_the_staging_project(tmp_path):
     project = load_project(tmp_path / "staging")
     jobs = C.planned_jobs(project, log=lambda *_: None)
     assert len(jobs) >= 20
-    rep = C.check(jobs, every=2, workers=2, log=lambda *_: None)
+    # every drawing, as filming checks it: a foot sliding is judged from one drawing to the next, so measuring every
+    # second one reads a step taken in between as a slide (bench_s05 frame 393: 20 cm, with any engine of 0.4)
+    rep = C.check(jobs, every=1, workers=2, log=lambda *_: None)
     assert not rep.failed, [(s.label, s.error) for s in rep.failed]
-    assert rep.drawings > 300
+    assert rep.drawings > 1000
     assert rep.contacts == [], "\n".join(C.said(c) for c in rep.contacts[:40])
 
 
