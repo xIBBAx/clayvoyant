@@ -1823,6 +1823,14 @@ def settle(f, depth=0):
                 if pen > 0 and wl[side] < .15:
                     wl[side] += pen + .002
                     moved = True
+            # ...and lowered onto what is under it when nothing holds the body up. A foot rests on the highest of the
+            # boards under it, and a board can stand up to 6 mm prouder than the next: with the heel up, the ball turns
+            # where the flat sole rested, over the lower board, and for a drawing neither foot touches anything. The foot
+            # nearest the floor comes down by exactly that, this drawing only, measured as the contact check measures it.
+            hv = PROBE.hovering(f, a.name) if not moved and globals().get('PROBE') is not None else None
+            if hv and hv[0] < .03 and wl[hv[1][1]] > -.03:
+                wl[hv[1][1]] -= hv[0] - .002
+                moved = True
             a.walk_lift = wl
         if moved:
             again.append(a)

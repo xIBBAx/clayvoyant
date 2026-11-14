@@ -104,6 +104,10 @@ The film now sounds like what it shows ([docs/SOUND.md](SOUND.md)).
 - A shot on one person could be filmed through somebody else: at the Held Door reception, the shot on Sana stood
   straight out from her face, with Nadia's head between it and the lens. The camera now walks round the subject to the
   nearest place where the face is clear (`engine/clay/film.py`, `in_the_way`).
+- A walking foot could hover a few millimetres over a floorboard. A foot rests on the highest board under it, and the
+  boards stand up to 6 mm prouder than each other: as the heel rose on a high board, the ball turned over a lower one,
+  and for a drawing neither foot touched anything, so the check refused the shot. The foot nearest the floor now comes
+  down onto what is under it for that drawing, measured exactly as the check measures it (`Probe.hovering`).
 - A shot on somebody who had turned round more than half a circle since the scene began was filmed from behind them:
   their turns kept counting past pi, and the camera, which stands on the side a face is turned to, took the wrong side.
 - On Python 3.11 a film with real voices (Kokoro, your own recordings, a paid voice) stopped while preparing its first

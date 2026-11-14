@@ -301,20 +301,34 @@ class Probe:
                 out += s._held_up(f, name, a, parts, supports)
         return out
 
+    def hovering(s, f, name):
+        """(how far the lowest point of a walking body's soles is above what is under it, that shoe) when measure()
+        would find the body held up by nothing, measured the same way; else None. It changes nothing it measures with:
+        filming lowers that foot onto what is under it (film.settle), so that drawing is never refused for it."""
+        a = s.perf.actors[name]
+        if (getattr(a, 'cull', False) or not a.P.vis or getattr(a.P, 'guest', False)
+                or (s.offstage is not None and s.offstage(a)) or (hasattr(a, 'seat_amt') and a.seat_amt(f) > .01)):
+            return None
+        dg = bpy.context.evaluated_depsgraph_get()
+        shoes = []
+        for sfx in ('sL', 'sR'):
+            o = next((o for o in a.P.parts if o.type == 'MESH' and not o.hide_render and _suffix(name, o.name) == sfx), None)
+            m = Mesh(o, dg) if o is not None else None
+            if m is not None and len(m.v):
+                shoes.append((sfx, m))
+        if not shoes:
+            return None
+        held_names = {o.name for o, _ in s.held}
+        _soles, low = _soles_low(shoes, [w for w in s._set_meshes(dg) if w.o.name not in held_names])
+        return (low[0], low[1]) if FOOT < low[0] < REACH else None
+
     def _held_up(s, f, name, a, parts, world):
         shoes = [(sfx, parts[sfx][0]) for sfx in ('sL', 'sR') if parts.get(sfx) and len(parts[sfx][0].v)]
         if not shoes:
             return []
         out = []
         seated = a.seat_amt(f) if hasattr(a, 'seat_amt') else 0.0
-        soles, low = {}, (np.inf, 'sL', None)
-        for sfx, m in shoes:
-            idx = np.nonzero(m.v[:, 2] <= m.lo[2] + SOLE)[0]
-            gaps, under = _below(world, m.v[idx])
-            soles[sfx] = (m, idx, gaps, under)
-            k = int(np.argmin(gaps))
-            if gaps[k] < low[0]:
-                low = (float(gaps[k]), sfx, under[k])
+        soles, low = _soles_low(shoes, world)
         seat, seat_on = _seat_gap(a, parts, world) if seated > .01 else (np.inf, None)
         if seated >= .99 and seat > SEATED:
             # sitting: the seat of the body is on the seat, whatever the feet do (they may hang)
@@ -380,6 +394,20 @@ def _past_join(pairs, seg, n1, count=None):
             break
         end = r
     return [pq for pq in pairs if ring(pq[0]) > end]
+
+
+def _soles_low(shoes, world):
+    """Each shoe's sole (its points within SOLE of its lowest), how high each point is above what is under it, and the
+    lowest of them all: ({shoe: (mesh, points, gaps, under)}, (gap, shoe, what is under it))."""
+    soles, low = {}, (np.inf, 'sL', None)
+    for sfx, m in shoes:
+        idx = np.nonzero(m.v[:, 2] <= m.lo[2] + SOLE)[0]
+        gaps, under = _below(world, m.v[idx])
+        soles[sfx] = (m, idx, gaps, under)
+        k = int(np.argmin(gaps))
+        if gaps[k] < low[0]:
+            low = (float(gaps[k]), sfx, under[k])
+    return soles, low
 
 
 def _below(world, pts):

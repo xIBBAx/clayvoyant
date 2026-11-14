@@ -511,3 +511,26 @@ def test_an_imported_model_in_the_shot_is_measured_without_breaking_the_check(tm
     rep = C.check(jobs, every=3, workers=2, log=lambda *_: None)
     assert not rep.failed, [(s.label, s.error) for s in rep.failed]
     assert rep.drawings > 0
+
+
+def test_a_walking_foot_never_hovers_over_a_lower_board(tmp_path):
+    """The office floor is boards, each standing up to 6 mm prouder than the next. A foot rests on the highest board
+    under it; walking in, Aarav's heel rose on a high board while the ball of his foot turned over a lower one, and at
+    frames 128 and 176 neither foot touched anything (5 mm of float), so a new user's scene (tests/data/boards) was refused.
+    The foot nearest the floor now comes down onto what is under it, for that drawing, measured as the check measures."""
+    pytest.importorskip("skimage", reason="needs the clay extra: pip install -e '.[clay]'")
+    _blender()
+    from sastudio.project import load_project
+    from sastudio.render import clay
+    from sastudio.stopmotion import check as C
+
+    if not clay.engine_included():
+        pytest.skip("the clay engine is not in this installation")
+    shutil.copytree(ROOT / "tests" / "data" / "boards", tmp_path / "boards")
+    jobs = dict(C.planned_jobs(load_project(tmp_path / "boards"), scene_ids=["too_good_email"], log=lambda *_: None))
+    # the whole shot, every drawing in order, as filming poses it (what a foot has learnt carries from one to the next)
+    r = C.run_check("too_good_email_s01", jobs["too_good_email_s01"], every=1)
+    assert r.finished, r.error
+    assert r.drawings >= 100
+    floats = [c for c in r.contacts if c["kind"] == "float"]
+    assert not floats, "\n".join(C.said(c) for c in floats)
