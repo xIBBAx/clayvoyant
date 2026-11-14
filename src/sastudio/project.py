@@ -340,20 +340,57 @@ def _fmt_path(path: Iterable[Any]) -> str:
     return out or "(top level)"
 
 
-def _schema_errors(data: Any, where: str) -> list[Issue]:
+_KINDS = {"boolean": "true or false", "string": "text", "number": "a number", "integer": "a whole number",
+          "array": "a list", "object": "a group of settings", "null": "empty"}
+
+
+def _choices(sub: dict) -> str | None:
+    """What a setting may be, in words, when each choice of its oneOf/anyOf is a kind of value or a list of values
+    ("true or false, or on or off"); None when a choice is anything more."""
+    words = []
+    for alt in sub.get("oneOf") or sub.get("anyOf") or []:
+        if "enum" in alt:
+            words.append(" or ".join(str(v) for v in alt["enum"]))
+        elif "const" in alt:
+            words.append(str(alt["const"]))
+        elif isinstance(alt.get("type"), str) and alt["type"] in _KINDS:
+            words.append(_KINDS[alt["type"]])
+        else:
+            return None
+    return ", or ".join(words) or None
+
+
+def _schema_errors(data: Any, where: str, sources: list[str] | None = None) -> list[Issue]:
+    """Every mistake the schema finds, each named where it was written: a scene kept in a file of its own is named by
+    that file (sources: where each scene came from)."""
     v = Draft202012Validator(schema())
     issues = []
     for err in sorted(v.iter_errors(data), key=lambda e: list(e.absolute_path)):
         if err.validator in ("anyOf", "oneOf") and err.context and "lines" not in _fmt_path(err.absolute_path):
-            # "is not valid under any of the given schemas" says nothing: report the deepest real mistake instead
-            err = max(err.context, key=lambda e: len(e.absolute_path))
-        loc = _fmt_path(err.absolute_path)
+            # "is not valid under any of the given schemas" says nothing: go down to the deepest real mistake (a scene
+            # is one of two shapes, and a setting inside it may be one of two kinds), unless every choice failed at
+            # this very setting, which is said below as what the setting may be
+            while err.validator in ("anyOf", "oneOf") and err.context:
+                deeper = max(err.context, key=lambda e: len(e.absolute_path))
+                if len(deeper.absolute_path) <= len(err.absolute_path) and _choices(err.schema):
+                    break
+                err = deeper
+        path = list(err.absolute_path)
+        here = where
+        if sources and len(path) >= 2 and path[0] == "scenes" and isinstance(path[1], int) \
+                and path[1] < len(sources) and sources[path[1]] != where:
+            here, path = sources[path[1]], path[2:]
+        loc = _fmt_path(path)
         msg = err.message
         if err.validator == "oneOf" and "lines" in loc:
             msg = "a line needs either `who` + `say` (dialogue) or `card` (on-screen text), not both"
+        elif err.validator in ("anyOf", "oneOf") and _choices(err.schema):
+            msg = f"{err.instance!r}: this setting can only be {_choices(err.schema)}"
+            if err.schema.get("description"):
+                msg += f". {err.schema['description']}"
         if err.validator == "additionalProperties":
             msg = msg.replace("Additional properties are not allowed", "Unknown setting")
-        issues.append(Issue("error", f"{where} {loc}", msg))
+        issues.append(Issue("error", f"{here} {loc}", msg))
     return issues
 
 
@@ -395,7 +432,7 @@ def load_project(root: str | Path, *, check: bool = True) -> Project:
             scene_sources.append(PROJECT_FILE)
     data = {**data, "scenes": expanded}
 
-    issues = _schema_errors(data, PROJECT_FILE)
+    issues = _schema_errors(data, PROJECT_FILE, scene_sources)
     if issues:
         raise ConfigError(
             "The project file has errors:\n  " + "\n  ".join(str(i) for i in issues[:25])

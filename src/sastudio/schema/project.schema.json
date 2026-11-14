@@ -876,6 +876,7 @@
               "description": "This scene's sound: its air, music on or off, kinds of effect to leave out, cues (docs/SOUND.md#a-scenes-sound).",
               "properties": {
                 "ambience": {
+                  "description": "The air of this scene: on or off, a place's name (sastudio sounds list) or a sound file of your own (docs/SOUND.md#a-scenes-sound).",
                   "oneOf": [
                     {
                       "type": "boolean"
@@ -892,6 +893,7 @@
                   "maximum": 20
                 },
                 "music": {
+                  "description": "Music under this scene, on or off. The tracks themselves are listed in studio.yaml under sound.music, each with the scenes it plays in (docs/SOUND.md#settings).",
                   "oneOf": [
                     {
                       "type": "boolean"
