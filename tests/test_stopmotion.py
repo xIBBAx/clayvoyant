@@ -421,3 +421,24 @@ def test_a_refused_shot_says_what_passes_through_what_and_is_not_retried(monkeyp
     with pytest.raises(SM.ContactError) as e:
         SM.run_blender({"rig": str(tmp_path), "out": str(tmp_path / "o"), "cast": []}, tmp_path / "w", log=lambda *_: None)
     assert "ana's left leg inside cush" in str(e.value) and "--allow-intersections" in e.value.hint
+
+
+def test_the_shots_of_the_last_filming_are_found_from_a_folder_or_a_project(tmp_path):
+    """`check --filmed` reads the job written next to each filmed shot. Given a plain folder it used to look under the
+    folder's root ('/'), because a path has a `root` too, and found nothing."""
+    import json
+
+    from sastudio.stopmotion import check as C
+
+    shot = tmp_path / ".studio" / "work" / "clay" / "s_s01_draft"
+    shot.mkdir(parents=True)
+    (shot / "job.json").write_text(json.dumps({"frames": [0, 2]}), "utf-8")
+    (shot.parent / "lines").mkdir()
+    want = [("s_s01_draft", {"frames": [0, 2]})]
+    assert C.filmed_jobs(tmp_path) == want
+    assert C.filmed_jobs(str(tmp_path)) == want
+
+    class Project:
+        root = tmp_path
+
+    assert C.filmed_jobs(Project()) == want

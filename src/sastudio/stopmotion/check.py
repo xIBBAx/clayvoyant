@@ -33,6 +33,7 @@ class ShotResult:
     drawings: int = 0
     error: str = ""
     notes: list = field(default_factory=list)
+    camera: dict = field(default_factory=dict)     # where the camera stands as the shot starts, and every visible head
 
     @property
     def finished(self) -> bool:
@@ -88,7 +89,7 @@ def summary(found: list, top: int = 14) -> list[tuple[int, str]]:
 
 def filmed_jobs(project, shots: str = "") -> list[tuple[str, dict]]:
     """The jobs of the last filming of a project (written next to each shot's frames when it was filmed)."""
-    root = Path(project.root if hasattr(project, "root") else project) / ".studio" / "work" / "clay"
+    root = Path(project if isinstance(project, (str, Path)) else project.root) / ".studio" / "work" / "clay"
     out = []
     for j in sorted(root.glob("*/job.json")):
         label = j.parent.name
@@ -157,6 +158,11 @@ def run_check(label: str, job: dict, every: int = 1) -> ShotResult:
                 res.error = f"an unreadable line from Blender: {ln[:120]}"
         elif ln.startswith("CHECKED "):
             res.drawings = int(ln.split()[1])
+        elif ln.startswith("CAMERA "):
+            try:
+                res.camera = json.loads(ln[7:])
+            except ValueError:
+                res.error = f"an unreadable line from Blender: {ln[:120]}"
         elif ln.startswith("FILM ") and not ln.startswith(("FILM device", "FILM seat ", "FILM route")):
             res.notes.append(ln[5:])
     if r.returncode != 0 or not any(ln.startswith("CHECKED ") for ln in out.splitlines()):

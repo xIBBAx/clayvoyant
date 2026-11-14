@@ -2462,14 +2462,47 @@ def frame_shot(shot=None, only=None):
             return frame_shot(fb, only=[who[0]] if fb != 'two_shot' else None)
         return pos, V((sp.x, sp.y, sp.z - .1)), who[0]
     # stand on the side the subject is turned towards, for a three-quarter view of the face
-    yaw = sum((PERF.actors[w].last_yaw or 0) for w in who) / len(who)
+    yaw = sum(wrapped(PERF.actors[w].last_yaw or 0) for w in who) / len(who)
     ang = clamp(yaw * (.8 if len(who) == 1 else .3), -.6, .6)
+    focus = CAM.get('focus') if CAM.get('focus') in PERF.actors else who[0]
+    if len(heads) > 1:
+        return fit(single_at(shot, who, aim, dist, ang)[0], aim, heads), aim, focus
+    pos, aim1 = single_at(shot, who, aim, dist, ang)
+    if shot not in CLEAR_SINGLE:
+        return pos, aim1, focus
+    # A shot on one person is filmed so that their face can be seen past everyone else.
+    face = heads[0]
+    blocker = in_the_way(pos, face, who[0])
+    if blocker:
+        # someone stands between the lens and the face: the camera walks round the subject, keeping its distance, to the
+        # nearest place where the line to the face is clear (a shoulder at the edge of the frame is fine; a head is not)
+        half = (C.get('_half') or 9.5) - .5 if not STG['outdoor'] else 14
+        for k in range(1, 9):
+            found = None
+            for sg in (1, -1):
+                a2 = ang + sg * k * .12
+                p2, m2 = single_at(shot, who, aim, dist, a2)
+                if abs(a2) <= 1.1 and abs(p2.x) < half and not in_the_way(p2, face, who[0]):
+                    found = (a2, p2, m2)
+                    break
+            if found:
+                print(f'FILM camera {shot} on {who[0]}: {blocker} stood between the lens and their face; '
+                      f'the camera moved {math.degrees(found[0] - ang):+.0f} degrees round them', flush=True)
+                return found[1], found[2], focus
+        print(f'FILM camera {shot} on {who[0]}: {blocker} stands between the lens and their face from every side the '
+              'set allows; filmed as it is', flush=True)
+    return pos, aim1, focus
+
+
+CLEAR_SINGLE = ('medium', 'close_up', 'reaction', 'extreme_close_up')
+
+
+def single_at(shot, who, aim, dist, ang):
+    """The camera at an angle round the subject (0 is straight out of the open front of the set), and what it aims at."""
     # a wide shot is seen from standing height, even when the people in it are sitting down
     pos = V((aim.x + math.sin(ang) * dist, aim.y - math.cos(ang) * dist, max(aim.z + .12, dict(wide=2.7, two_shot=2.0).get(shot, 0))))
     pos.z += dict(low=-.75, high=1.0).get(CAM.get('height', 'eye'), 0) * (dist / 6) ** .5
-    if len(heads) > 1:
-        pos = fit(pos, aim, heads)
-    elif shot in LEAD_ROOM:
+    if len(who) == 1 and shot in LEAD_ROOM:
         # Lead room: a face sits on the far side of the frame from the person it is talking or listening to, with the
         # open space in front of it. The camera trucks sideways (its angle is kept), so the eyeline reads across the cut.
         partner = partner_of(who[0])
@@ -2478,8 +2511,35 @@ def frame_shot(shot=None, only=None):
             toward = clamp((eyes(partner) - aim).dot(right) / 1.5, -1, 1)
             width = FRAME_H.get(shot, 2.9) * s.render.resolution_x / s.render.resolution_y
             shift = right * (toward * LEAD_ROOM[shot] * width)
-            pos, aim = pos + shift, aim + shift
-    return pos, aim, (CAM.get('focus') if CAM.get('focus') in PERF.actors else who[0])
+            return pos + shift, aim + shift
+    return pos, aim
+
+
+def in_the_way(pos, face, subject):
+    """Who stands between the lens and the subject's face, or None.
+
+    The face is seen down a cone that narrows towards the lens, so a person blocks it where the line of sight passes
+    within their own half-width (a head .42, shoulders .5; one unit is 50 cm), plus the face's (.3, shrunk by
+    perspective), plus .15 to spare, of their middle, between their feet and the top of their head. The subject's own
+    body never counts."""
+    seg = face - pos
+    for n, a in PERF.actors.items():
+        if n == subject or not a.P.vis:
+            continue
+        top = a.P.head_world
+        low = a.P.root.matrix_world.translation.z
+        for k in range(1, 40):
+            t = k / 40
+            q = pos + seg * t
+            if low <= q.z <= top.z + .5 and math.hypot(q.x - top.x, q.y - top.y) < (.42 if q.z > top.z - .45 else .5) + .3 * t + .15:
+                return n
+    return None
+
+
+def wrapped(y):
+    """An angle brought into -pi..pi. A body keeps counting its turns, so after turning round more than half a circle
+    its yaw is past pi, and the camera, which stands on the side a face is turned to, would stand behind it."""
+    return y if -math.pi <= y <= math.pi else math.atan2(math.sin(y), math.cos(y))
 
 
 LEAD_ROOM = dict(close_up=.12, reaction=.12, medium=.10, extreme_close_up=.06)   # share of the frame's width
@@ -2728,6 +2788,10 @@ def dressing_contacts():
 
 if MODE == 'check':
     # measure every drawing of the shot as filming would pose it, and draw nothing (tools/check_contacts.py)
+    # where the camera stands as the shot starts, which face it is for and which way that face is turned, and every
+    # visible head (for the engine's own tests)
+    print('CAMERA ' + json.dumps(dict(pos=list(POS0), aim=list(AIM0), focus=FOCUS, facing=list(facing(FOCUS)) if FOCUS else None,
+                                      heads={n: list(a.P.head_world) for n, a in PERF.actors.items() if a.P.vis})), flush=True)
     for c in dressing_contacts():
         print('CONTACT ' + json.dumps(c), flush=True)
     every = max(1, int(JOB.get('check_every', 1)))

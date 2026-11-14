@@ -559,7 +559,7 @@ def run_blender(job: dict, work: Path, log=print, timeout: float = 48 * 3600) ->
                 done, total = n.split("/")
                 if int(done) % 12 == 0 or done == total:
                     log(f"    drawing {done} of {total} ({line.split()[-1]})")
-            elif line.startswith("FILM over_shoulder"):
+            elif line.startswith(("FILM over_shoulder", "FILM camera")):
                 log("    " + line[5:])
 
         stall = _env_number("SASTUDIO_CLAY_STALL_MINUTES", STALL_MINUTES) * 60
