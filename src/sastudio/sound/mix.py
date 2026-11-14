@@ -98,6 +98,14 @@ def pan_of(e: Event, room: dict | None) -> float:
     return max(-1.0, min(1.0, float(e.pos[0]) / half)) * .35
 
 
+def room_level(room: dict) -> float:
+    """How much of its room's answer an effect is played with (ambience.reverberate's `wet`): 0.07 outdoors, where the
+    buildings give back a faint slap; indoors 0.12 to 0.24, more in a room that rings longer, so the room's answer sits
+    12 to 18 dB under the sound itself, as a sound recorded close and then placed in its room."""
+    t60 = ambience.rt60(room)
+    return .07 if t60 <= 0 else .12 + .12 * min(1.0, t60 / 1.0)
+
+
 # ---------------------------------------------------------------- the buses
 def effects_bus(scenes: list[SceneMix], n: int, kit: Kit, rep: MixReport) -> np.ndarray:
     """Every scene's events in its own room."""
@@ -114,9 +122,7 @@ def effects_bus(scenes: list[SceneMix], n: int, kit: Kit, rep: MixReport) -> np.
             place(buf, clip, dsp.samples(e.t), 1.0, pan_of(e, sc.room))
             rep.events += 1
         if sc.room is not None:
-            t60 = ambience.rt60(sc.room)
-            wet = .07 if t60 <= 0 else .12 + .12 * min(1.0, t60 / 1.0)
-            buf = ambience.reverberate(buf, sc.room, wet, seed=sc.id)
+            buf = ambience.reverberate(buf, sc.room, room_level(sc.room), seed=sc.id)
         place(out, buf, sc.start)
     return out
 

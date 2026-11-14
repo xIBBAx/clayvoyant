@@ -219,6 +219,38 @@ def test_the_mix_is_dialogue_first_and_the_same_every_time():
     assert rep.events == 6
     assert np.array_equal(buses["dialogue"][:, 0], speechy(12.0))                 # the dialogue itself is untouched
     assert rep.stems["ambience"] < rep.stems["dialogue"] - 20                       # the air sits well under the voices
+    # ...and so do the footsteps, played in the office's room (its answer once came back 16 dB over the steps
+    # themselves, and the effects stood about 10 LU over the voices)
+    assert rep.stems["effects"] < rep.stems["dialogue"] - 5
+
+
+def test_a_room_answers_under_the_sound_and_alike_at_every_frequency():
+    """In every set's room a footstep keeps its peak and its loudness, within the little a room's answer can add to a low
+    step (up to 1.3 dB and 1.8 LU over many rooms, seeds and floors, as a room's modes reinforce a note): the answer
+    carries the direct sound's energy and is heard at `mix.room_level` of it, 12 to 18 dB under, as a sound recorded
+    close and then placed in its room. A room once answered 16 to 20 dB over the step itself.
+    The answer starts flat across the spectrum (made band by band, each band as loud as the next, the lows of a step or
+    a door came back some 20 dB too strong). Outdoors there is only a faint slap back."""
+    x = np.zeros(3 * R)
+    step = foley.footstep("wood", "hard", 1, 1, seed=("w", 1))
+    x[:len(step)] = step
+    lu0, pk0 = meter.integrated(dsp.to_stereo(x)), np.abs(x).max()
+    f = np.fft.rfftfreq(1 << 16, 1 / R)
+    for name, room in ambience.ROOMS.items():
+        y = ambience.reverberate(x, room, mix.room_level(room), seed=name)
+        assert meter.integrated(dsp.to_stereo(y)) <= lu0 + 2.5, name
+        assert np.abs(y).max() <= pk0 * dsp.gain(2.0), name
+        answer = ambience.impulse(room, seed=name)
+        answer[0] = 0.0
+        if ambience.rt60(room) <= 0:
+            assert np.sum(answer ** 2) < .05, name                     # outdoors: two faint echoes, nothing more
+            continue
+        assert np.sum(answer ** 2) == pytest.approx(1.0, rel=1e-6), name
+        # its first tenth of a second, from the lows to 4 kHz: within 6 dB (1.7 dB on average over 120 rooms and seeds;
+        # made band by band, it was some 20 dB stronger in the lows)
+        onset = np.abs(np.fft.rfft(answer[:dsp.samples(.1)], 1 << 16)) ** 2
+        band = [onset[(f >= lo) & (f < hi)].mean() for lo, hi in ((60, 250), (250, 1000), (1000, 4000))]
+        assert max(band) / min(band) < dsp.gain(6.0) ** 2, (name, band)
 
 
 def test_mastering_reaches_the_target_or_says_why():

@@ -54,7 +54,13 @@ def rt60(room: dict) -> float:
 def impulse(room: dict, seed=0) -> np.ndarray:
     """The room's response to a click (mono, starts with the direct sound at sample 0): a few early reflections from the
     nearest surfaces, then a diffuse tail whose highs die faster than its lows. Outdoors: the direct sound, a faint slap
-    back from the buildings, and nothing else."""
+    back from the buildings, and nothing else.
+
+    Indoors, everything after the direct sound (the room's answer) carries the direct sound's own energy, whatever the
+    room's size and hardness: how much of it is heard is reverberate's `wet`, and a room that rings longer spreads the
+    same energy over a longer time. The tail starts as one white noise split into bands, so it answers every frequency
+    alike before the highs fade (made band by band, each band as loud as the next, the lows of a footstep or a door came
+    back some 20 dB too strong)."""
     r = dsp.rng("room", seed)
     t60 = rt60(room)
     if t60 <= 0:
@@ -65,9 +71,10 @@ def impulse(room: dict, seed=0) -> np.ndarray:
         return ir
     n = dsp.samples(min(2.0, t60 * 1.1))
     t = np.arange(n) / RATE
+    white = r.standard_normal(n)        # one noise for every band: each keeps its share of a flat spectrum
     tail = np.zeros(n)
     for lo, hi, k in ((20, 250, 1.15), (250, 1000, 1.0), (1000, 4000, .78), (4000, 20000, .5)):
-        tail += dsp.noise(n, r, dsp.bandpass(lo, hi, 2)) * np.exp(-6.91 * t / (t60 * k))
+        tail += dsp.shape(white, dsp.bandpass(lo, hi, 2)) * np.exp(-6.91 * t / (t60 * k))
     w, d, h = room["size"]
     gap = min(w, d, h) / 2 / 343.0           # the first reflection comes back from the nearest surface
     tail *= np.clip((t - gap) / .006, 0, 1)
@@ -77,8 +84,15 @@ def impulse(room: dict, seed=0) -> np.ndarray:
         k = dsp.samples(dist / 343.0)
         if 0 < k < n:
             ir[k] += .55 / (1 + i) * r.choice((-1.0, 1.0)) * (1 - room["alpha"]) ** .5
-    # the diffuse part, scaled so that the room adds the energy of a room that size and that hard
-    return ir + tail * .09 * (1 - room["alpha"]) ** .5
+    # the diffuse part under the early reflections, a harder room's louder; then the whole answer at the direct sound's
+    # energy (reverberate's `wet` says how much of it is heard)
+    ir += tail * .09 * (1 - room["alpha"]) ** .5
+    ir[0] = 0.0
+    e = float(np.sum(ir * ir))
+    if e > 0:
+        ir /= math.sqrt(e)
+    ir[0] = 1.0
+    return ir
 
 
 def reverberate(x: np.ndarray, room: dict, wet: float, seed=0) -> np.ndarray:
