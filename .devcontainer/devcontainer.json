@@ -3,11 +3,12 @@
 //   sastudio render my-film --preset draft
 // Python 3.12, FFmpeg, this package with the free Kokoro voice (downloaded once, ~354 MB). No Blender: clay films
 // (sastudio film, and the default v4 clay style) need it and a much larger image, so they are not offered here.
+// The base image's Yarn apt source is dropped first: its signing key lapsed, which fails apt-get update (Yarn is unused).
 {
   "name": "Clayvoyant: drawn renderer",
   "image": "mcr.microsoft.com/devcontainers/python:1-3.12-bookworm",
   "hostRequirements": { "cpus": 2, "memory": "4gb", "storage": "16gb" },
-  "onCreateCommand": "sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg espeak-ng && pip install --no-cache-dir -e '.[voices]'",
+  "onCreateCommand": "sudo rm -f /etc/apt/sources.list.d/yarn.list && sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg espeak-ng && pip install --no-cache-dir -e '.[voices]'",
   "postCreateCommand": "sastudio voices install kokoro || echo 'The Kokoro voice could not be downloaded; films use the offline placeholder voice (espeak-ng) until you run: sastudio voices install kokoro'",
   "postAttachCommand": "echo 'Clayvoyant is ready. Try:  sastudio init my-film --template india --style v3 && sastudio render my-film --preset draft'",
   "customizations": {
