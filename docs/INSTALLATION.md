@@ -13,6 +13,32 @@ films (`sastudio film`) also need [Blender](https://www.blender.org/download/) 4
 (or named in `SASTUDIO_BLENDER`) and the sculpting extra: `pip install -e ".[clay,voices]"`. A GPU
 makes clay films quicker and is not required ([CLAY_MOTION.md](CLAY_MOTION.md)).
 
+## Try it in your browser
+
+[Open the repository in GitHub Codespaces](https://codespaces.new/xIBBAx/clayvoyant). Its dev container
+([.devcontainer/devcontainer.json](../.devcontainer/devcontainer.json)) brings Python 3.12, FFmpeg, espeak-ng,
+this package with `.[voices]`, and the free Kokoro voice (downloaded once, about 354 MB). When the terminal opens:
+
+```bash
+sastudio init my-film --template india --style v3
+sastudio render my-film --preset draft
+```
+
+The film is written to `my-film/build/en-IN/`; right-click it in the file list and choose Download. Use a drawn
+style (`v1` sketch, `v2` flat, `v3` cut-out): the default clay style and `sastudio film` need Blender, which this
+container leaves out (a much larger image).
+
+Measured by the [Dev container workflow](../.github/workflows/devcontainer.yml), which builds this container the way
+Codespaces does on every change to it (a 4-core GitHub-hosted runner, 23 November 2026):
+
+| | |
+|---|---|
+| First start: image pull, FFmpeg, the package, the Kokoro voice | 49 seconds |
+| The two commands above (india template, `v3`, `draft`) | 3 minutes 47 seconds for a 5 minute 10 second voiced film |
+| Disk | 2.85 GB in all, 1.19 GB of it added on first start |
+
+A smaller machine is slower to render; the first start is mostly downloads.
+
 ## 1. Python and FFmpeg
 
 **Ubuntu / Debian / WSL2**

@@ -1,0 +1,61 @@
+name: Dev container
+
+# Builds .devcontainer exactly as GitHub Codespaces does, runs the two commands the README promises inside it, and
+# writes what it measured (first start, the film's length, the image and container size) to the run's summary.
+# Read-only permissions, no secrets, no paid API.
+
+on:
+  pull_request:
+    paths: [".devcontainer/**", ".github/workflows/devcontainer.yml", "pyproject.toml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: devcontainer-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  try-it:
+    name: Open it and render a film
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: First start (build the image, install, download the voice)
+        run: |
+          npm install --global @devcontainers/cli@0.91.0
+          t0=$(date +%s)
+          devcontainer up --workspace-folder . > up.log 2>&1 || { tail -60 up.log; exit 1; }
+          echo "FIRST_START=$(( $(date +%s) - t0 ))" >> "$GITHUB_ENV"
+          tail -5 up.log
+
+      - name: The README's two commands, inside the container
+        run: |
+          t0=$(date +%s)
+          devcontainer exec --workspace-folder . bash -lc '
+            set -e; cd /tmp
+            sastudio init my-film --template india --style v3
+            sastudio render my-film --preset draft
+            film=$(ls my-film/build/*/*.mp4 | head -1)
+            ffprobe -v error -show_entries format=duration -of csv=p=0 "$film" > /tmp/film_seconds
+            du -sh "$film"'
+          echo "RENDER=$(( $(date +%s) - t0 ))" >> "$GITHUB_ENV"
+
+      - name: Report what was measured
+        run: |
+          cid=$(docker ps -q --filter "label=devcontainer.local_folder=$PWD" | head -1)
+          film=$(docker exec "$cid" cat /tmp/film_seconds)
+          {
+            echo "### Dev container, measured on a GitHub-hosted runner ($(nproc) cores)"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| First start (image pull, FFmpeg, package, Kokoro voice) | $FIRST_START s |"
+            echo "| \`init\` + \`render --preset draft\` (india template, v3 style) | $RENDER s for a ${film%.*} s film |"
+            echo "| Disk: added by first start (virtual = all) | $(docker ps -s --filter id="$cid" --format '{{.Size}}') |"
+          } | tee -a "$GITHUB_STEP_SUMMARY"

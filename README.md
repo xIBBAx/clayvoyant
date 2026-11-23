@@ -147,6 +147,9 @@ sastudio init my-film --org "Riverside Public School" --email it-help@riverside-
 sastudio render my-film --preset draft
 ```
 
+Try it in your browser: [open it in GitHub Codespaces](https://codespaces.new/xIBBAx/clayvoyant) and run the two
+commands above in its terminal ([what that gives you](https://github.com/xIBBAx/clayvoyant/blob/main/docs/INSTALLATION.md#try-it-in-your-browser)).
+
 <p align="center">
   <img src="https://raw.githubusercontent.com/xIBBAx/clayvoyant/main/docs/media/characters/styles.png" width="640" alt="The five bundled characters in four styles, one row each: sketch, flat, paper cut-out and clay.">
 </p>

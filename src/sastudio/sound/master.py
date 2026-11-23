@@ -95,8 +95,10 @@ def measure(path: Path) -> dict:
     range and true peak (BS.1770 Annex 2, four times oversampled)."""
     from ..audio import ffmpeg as ff
 
+    # framelog=verbose keeps the meter's per-frame lines out of stderr on every FFmpeg; "quiet" only exists from
+    # FFmpeg 6, and 5.1 (Debian 12, the dev container) rejects the whole filter for it ("Invalid argument")
     res = ff.run([ff.ffmpeg_exe(), "-hide_banner", "-nostats", "-i", str(path), "-map", "0:a:0", "-af",
-                  "ebur128=peak=true:framelog=quiet", "-f", "null", "-"], what="Loudness measurement")
+                  "ebur128=peak=true:framelog=verbose", "-f", "null", "-"], what="Loudness measurement")
     err = res.stderr.decode("utf-8", "replace")
     s = err[err.rfind("Summary:"):] if "Summary:" in err else err
 
