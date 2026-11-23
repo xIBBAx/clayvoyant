@@ -49,7 +49,6 @@ jobs:
       - name: Report what was measured
         run: |
           cid=$(docker ps -q --filter "label=devcontainer.local_folder=$PWD" | head -1)
-          img=$(docker inspect --format '{{.Image}}' "$cid")
           film=$(docker exec "$cid" cat /tmp/film_seconds)
           {
             echo "### Dev container, measured on a GitHub-hosted runner ($(nproc) cores)"
@@ -58,6 +57,5 @@ jobs:
             echo "|---|---|"
             echo "| First start (image pull, FFmpeg, package, Kokoro voice) | $FIRST_START s |"
             echo "| \`init\` + \`render --preset draft\` (india template, v3 style) | $RENDER s for a ${film%.*} s film |"
-            echo "| Image on disk | $(docker image inspect --format '{{.Size}}' "$img" | awk '{printf "%.2f GB", $1/1e9}') |"
-            echo "| Added by first start (container layer) | $(docker ps -s --filter id="$cid" --format '{{.Size}}') |"
+            echo "| Disk: added by first start (virtual = all) | $(docker ps -s --filter id="$cid" --format '{{.Size}}') |"
           } | tee -a "$GITHUB_STEP_SUMMARY"

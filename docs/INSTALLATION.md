@@ -28,6 +28,17 @@ The film is written to `my-film/build/en-IN/`; right-click it in the file list a
 style (`v1` sketch, `v2` flat, `v3` cut-out): the default clay style and `sastudio film` need Blender, which this
 container leaves out (a much larger image).
 
+Measured by the [Dev container workflow](../.github/workflows/devcontainer.yml), which builds this container the way
+Codespaces does on every change to it (a 4-core GitHub-hosted runner, 23 November 2026):
+
+| | |
+|---|---|
+| First start: image pull, FFmpeg, the package, the Kokoro voice | 49 seconds |
+| The two commands above (india template, `v3`, `draft`) | 3 minutes 47 seconds for a 5 minute 10 second voiced film |
+| Disk | 2.85 GB in all, 1.19 GB of it added on first start |
+
+A smaller machine is slower to render; the first start is mostly downloads.
+
 ## 1. Python and FFmpeg
 
 **Ubuntu / Debian / WSL2**
