@@ -93,19 +93,12 @@ _TP = re.compile(r"Peak:\s+(-?[\d.]+|-inf)\s+dBFS")
 def measure(path: Path) -> dict:
     """FFmpeg's EBU R 128 meter on a file's audio, as decoded (a film's AAC included): integrated loudness, loudness
     range and true peak (BS.1770 Annex 2, four times oversampled)."""
-    import tempfile
-
     from ..audio import ffmpeg as ff
 
-    # Decoded once to 32-bit float WAV first (lossless: every sample, and so the true peak, is kept), then metered.
-    # Metering the AAC directly made FFmpeg 5.1 (Debian 12, the dev container) rebuild its filter graph when the
-    # decoder's output format settled after the first frames, which fails there ("Error reinitializing filters").
-    with tempfile.TemporaryDirectory(prefix="sastudio-meter-") as td:
-        wav = Path(td) / "audio.wav"
-        ff.run([ff.ffmpeg_exe(), "-hide_banner", "-nostats", "-y", "-i", str(path), "-map", "0:a:0", "-vn",
-                "-c:a", "pcm_f32le", str(wav)], what="Decoding the film's audio for measurement")
-        res = ff.run([ff.ffmpeg_exe(), "-hide_banner", "-nostats", "-i", str(wav), "-af",
-                      "ebur128=peak=true:framelog=quiet", "-f", "null", "-"], what="Loudness measurement")
+    # framelog=verbose keeps the meter's per-frame lines out of stderr on every FFmpeg; "quiet" only exists from
+    # FFmpeg 6, and 5.1 (Debian 12, the dev container) rejects the whole filter for it ("Invalid argument")
+    res = ff.run([ff.ffmpeg_exe(), "-hide_banner", "-nostats", "-i", str(path), "-map", "0:a:0", "-af",
+                  "ebur128=peak=true:framelog=verbose", "-f", "null", "-"], what="Loudness measurement")
     err = res.stderr.decode("utf-8", "replace")
     s = err[err.rfind("Summary:"):] if "Summary:" in err else err
 
